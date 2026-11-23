@@ -4,7 +4,7 @@ const BEER_DEGREES = new Set(['8', '10', '11', '12', '13', '14', '15', '16']);
 import type { Beer, Package, Place } from './supabase';
 import { uloz } from './uloziste';
 import { popisZminkyVycepu } from '../../supabase/functions/_shared/vycep-z-textu';
-import { pivaJmenovanaVTextu } from '../../supabase/functions/_shared/beer-match';
+import { pivaJmenovanaVTextu, obalVyslovneVRadku, zkratkaObaluPlati } from '../../supabase/functions/_shared/beer-match';
 
 export type ParsedVoiceOrder = {
   items: ParsedLine[];
@@ -408,8 +408,10 @@ export function matchPackage(norm: string, packages: Package[], aliasMap: Parser
     return packages.find((p) => Number(p.volume_l) === 0.5 || /0[,.]5|lahv/i.test(p.label)) ?? null;
   }
 
-  // 2. Exact alias match in aliasMap
-  const pkgId = aliasMap.package.get(norm);
+  // 2. Exact alias match in aliasMap — jen zkratka, která obal opravdu
+  // pojmenovává („malý soudek"). Potichu naučené „30l" → 1 l nebo „12° svetla"
+  // → 0,5 l pravidlem nejsou (viz zkratkaObaluPlati na serveru).
+  const pkgId = zkratkaObaluPlati(norm) ? aliasMap.package.get(norm) : undefined;
   if (pkgId) {
     const pkg = packages.find((p) => p.id === pkgId);
     if (pkg) return pkg;
@@ -417,7 +419,7 @@ export function matchPackage(norm: string, packages: Package[], aliasMap: Parser
 
   // 3. Fallback to generic alias substring matching
   for (const [alias, pid] of aliasMap.package) {
-    if (alias.length >= 3 && norm.includes(alias)) {
+    if (alias.length >= 3 && norm.includes(alias) && zkratkaObaluPlati(alias)) {
       const pkg = packages.find((p) => p.id === pid);
       if (pkg) return pkg;
     }
@@ -1140,6 +1142,16 @@ export function parseGeminiItems(
           item.quantity = n;
         }
       }
+    }
+
+    // 🧱 CO V ŘÁDKU STOJÍ VÝSLOVNĚ, PLATÍ — stejná pojistka jako na serveru
+    // (obalVyslovneVRadku v _shared/beer-match.ts). „3x 15l" je patnáctka,
+    // „0,33" třetinka a „1l" litr, ať AI k položce přiložila jakýkoli obal
+    // (6. 10. 2026, Maneo: „3x 15l 10° Desítka" se zapsalo jako 20 l).
+    {
+      const vyslovne = obalVyslovneVRadku({ raw_line: item.raw_line, quantity: item.quantity }, packages);
+      const obal = vyslovne ? packages.find((p) => p.id === vyslovne) : null;
+      if (obal) pkg = obal;
     }
 
     const qty = item.quantity ?? null;

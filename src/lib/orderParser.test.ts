@@ -843,3 +843,65 @@ describe('canLearnBeerAlias — pivo bez stupně a text se stupněm (20. 10. 202
     expect(canLearnBeerAlias('10x 1l 12° jantar', 'b-jantar', beers)).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 23. 11. 2026, majitel: „0,33 musí přiřadit 0,33 a ne 0,5 nikdy". Stejná
+// pojistka jako na serveru (supabase/functions/_shared/beer-match.ts) — klient
+// čte fotku („Načíst z fotky") a zprávu při „Přečíst znovu".
+// ─────────────────────────────────────────────────────────────────────────────
+describe('parseGeminiItems — co v řádku stojí výslovně, přebije obal od AI', () => {
+  const polozka = (raw_line: string, quantity: number, package_label: string): GeminiItem =>
+    ({ raw_line, quantity, degree: '12°', beer_name: '12° Světlá', package_label, place_name: 'Maneo' });
+
+  it('6. 10. 2026 (Maneo): „3x 15l" je patnáctka, „2x 10l" desítka a „12x 1l" litr', () => {
+    const result = parseGeminiItems([
+      polozka('• *3x*  15l 12° Světlá', 3, 'KEG 20l'),
+      polozka('• *2x*  10l 12° Světlá', 2, 'KEG 15l'),
+      polozka('• *12x* 1l 12° Světlá', 12, 'PET 1.5l'),
+    ], beers, packages);
+    expect(result.map((r) => r.package_id)).toEqual(['keg15', 'keg10', 'pet1']);
+    expect(result.map((r) => r.quantity)).toEqual([3, 2, 12]);
+  });
+
+  it('0,33 / třetinky jsou vždycky třetinka, 0,5 vždycky půllitr', () => {
+    const result = parseGeminiItems([
+      polozka('Sklo 0,33l.', 20, 'Lahve 0.5l'),
+      polozka('2xbasa třetinek 12sv', 40, 'Lahve 0.5l'),
+      polozka('20x0,5l lahev', 21, 'Lahve 0.33l'),
+    ], beers, packages);
+    expect(result.map((r) => r.package_id)).toEqual(['lahve033', 'lahve033', 'lahve05']);
+  });
+
+  it('„30l" čtené jako litr (obal jiného druhu, než je v řádku)', () => {
+    const result = parseGeminiItems([polozka('4x30l 12sv', 4, 'PET 1l')], beers, packages);
+    expect(result[0].package_id).toBe('keg30');
+  });
+
+  it('holé číslo obal od AI nepřebije („4x10" pod nadpisem „petky 1,5l:")', () => {
+    const result = parseGeminiItems([
+      { raw_line: '4x10', quantity: 4, degree: '10°', beer_name: 'Desítka', package_label: 'PET 1.5l', place_name: null },
+    ], beers, packages);
+    expect(result[0].package_id).toBe('pet15');
+  });
+});
+
+describe('matchPackage — potichu naučené zkratky obalů pravidlem nejsou', () => {
+  it('zkratka, která obal nepojmenovává (jméno piva, počet, holý objem), se nepoužije', () => {
+    const a = emptyAliasMap();
+    a.package.set('12° svetla', 'lahve05');
+    a.package.set('citron 5x', 'pet1');
+    a.package.set('30l', 'pet1');
+    a.package.set('keg 15l', 'keg20');
+    expect(matchPackage('2x 12° svetla', packages, a)).toBeNull();
+    expect(matchPackage('citron 5x', packages, a)).toBeNull();
+    expect(matchPackage('4x 30l', packages, a)?.id).toBe('keg30');
+    expect(matchPackage('keg 15l', packages, a)?.id).toBe('keg15');
+  });
+
+  it('pojmenování obalu slovem platí dál', () => {
+    const a = emptyAliasMap();
+    a.package.set('maly soudek', 'keg15');
+    expect(matchPackage('3x maly soudek 11sv', packages, a)?.id).toBe('keg15');
+    expect(matchPackage('maly soudek', packages, a)?.id).toBe('keg15');
+  });
+});

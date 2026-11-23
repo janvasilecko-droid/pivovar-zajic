@@ -13,7 +13,7 @@ import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { IkonaVycep } from '../components/ikony';
 import {
   parseOrderText, parseGeminiItems, dedupeAgainstExisting,
-  saveAlias, savePlaceAlias, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, detectOrderNotes, matchPlaceFromText,
+  savePlaceAlias, loadAliasMap, loadPlaceAliasMap, emptyAliasMap, detectOrderNotes, matchPlaceFromText,
   detectOrderDupWarnings,
   type ParsedLine, type ParserAliasMap, type GeminiItem, type ImportedOrder, type OrderDupWarning,
 } from '../lib/orderParser';
@@ -374,15 +374,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     try {
       setProgress(append ? 55 : 30);
 
-      // Send the top learned aliases (most-used corrections) so the AI can
-      // use them as strong hints — capped to keep the request small.
-      const aliasList = [...aliasMap.beer.entries()]
-        .map(([alias_text, beer_id]) => ({ alias_text, beer_name: beers.find((b) => b.id === beer_id)?.name ?? null, package_label: null as string | null }))
-        .concat(
-          [...aliasMap.package.entries()].map(([alias_text, package_id]) => ({ alias_text, beer_name: null as string | null, package_label: packages.find((p) => p.id === package_id)?.label ?? null }))
-        )
-        .slice(0, 80);
-
       // 🧠 NAUČENÉ ALIASY ODBĚRATELŮ: špatný název z fotky → správný název.
       // Tyto aliasy posíláme AI, aby příště rozpoznala správného odběratele.
       const placeAliasList = [...placeAliasMap.entries()]
@@ -404,7 +395,6 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
           beers: beers.map((b) => ({ id: b.id, name: b.name, degree: b.degree })),
           packages: packages.map((p) => ({ id: p.id, label: p.label })),
           places: places.map((pl) => pl.name),
-          aliases: aliasList,
           placeAliases: placeAliasList,
         }),
 
@@ -605,29 +595,12 @@ export function ImportFromImage({ beers, packages, places, existing, targetLabel
     setPhotos((prev) => prev.filter((_, idx) => idx !== i));
   }
 
-  async function updateLine(i: number, patch: Partial<ParsedLine>) {
+  // 🧠 Oprava řádku tady NIC NEUČÍ — dřív se z každé změny piva nebo obalu
+  // potichu uložila „naučená zkratka" i tehdy, když šlo o záměnu jen pro tuhle
+  // objednávku, a čtečka se jí pak řídila (viz WhatsAppOrderReviewModal).
+  function updateLine(i: number, patch: Partial<ParsedLine>) {
     if (!parsed) return;
-    const old = parsed[i].line;
-    const updated = parsed.map((x, idx) => idx === i ? { ...x, line: { ...x.line, ...patch } } : x);
-    setParsed(updated);
-
-    const newLine = updated[i].line;
-    // Learn the mapping when: the beer/package changed on an existing recognized
-    // line, OR this is a manually added line (for text the AI missed entirely)
-    // and now has enough info (raw text + beer + package) to be worth remembering.
-    const beerOrPkgChanged = (patch.beer_id !== undefined && patch.beer_id !== old.beer_id) ||
-      (patch.package_id !== undefined && patch.package_id !== old.package_id);
-    const manualReady = newLine._manual && newLine.raw?.trim() && newLine.beer_id && newLine.package_id;
-    if (beerOrPkgChanged || manualReady) {
-      try {
-        const textToLearn = newLine.raw?.trim() || old.raw;
-        if (textToLearn) {
-          await saveAlias(textToLearn, newLine.beer_id, newLine.package_id);
-          setAliasMap(await loadAliasMap());
-        }
-      } catch {}
-    }
-
+    setParsed(parsed.map((x, idx) => idx === i ? { ...x, line: { ...x.line, ...patch } } : x));
   }
 
   async function importSelected() {

@@ -39,8 +39,12 @@ beforeAll(async () => {
 });
 
 /** Napodobený Gemini a přepis fotky. `gemini(model, sFotkou)` říká, jak model odpoví. */
+/** Těla požadavků poslaných Gemini (tedy i celý pokyn) — plní se v `sluzby`. */
+const pokyny: string[] = [];
+
 function sluzby(gemini: (model: string, sFotkou: boolean) => Chovani | undefined, ocrMs = 3_000) {
   const volani: string[] = [];
+  pokyny.length = 0;
   const odpovez = (ch: Chovani | undefined, signal: AbortSignal | undefined, telo: (text: string) => unknown) =>
     new Promise<Response>((ok, chyba) => {
       if (signal?.aborted) return chyba(signal.reason);
@@ -64,6 +68,7 @@ function sluzby(gemini: (model: string, sFotkou: boolean) => Chovani | undefined
     const model = u.match(/models\/([^:]+):generateContent/)![1];
     const sFotkou = (init.body ?? '').includes('inline_data');
     volani.push(`${model}${sFotkou ? '' : ' (z přepisu)'}`);
+    pokyny.push(init.body ?? '');
     return odpovez(gemini(model, sFotkou), init.signal, (text) => ({ candidates: [{ content: { parts: [{ text }] } }] }));
   });
   return volani;
@@ -164,5 +169,23 @@ describe('parse-order-image: čtení fotky v appce se vejde do času serveru', (
     const spatne = await zavolej({ rezim: 'tabulka', odData: '2026-11-01' });
     expect(spatne.status).toBe(502);
     expect(spatne.trvalo).toBeLessThanOrEqual(58_500);
+  });
+
+  // 23. 11. 2026: potichu naučené zkratky („30l → 1l") se do pokynu neposílají,
+  // ani když je pošle starší verze appky — viz parse-order-text.beh.test.ts.
+  it('„naučené zkratky" z těla požadavku se do pokynu pro AI nedostanou', async () => {
+    sluzby((model) => (model === 'gemini-3.5-flash' ? { ms: 2_000 } : { visi: true }));
+    const { status } = await zavolej({
+      aliases: [
+        { alias_text: '30l', beer_name: null, package_label: 'PET 1l' },
+        { alias_text: 'hazy spring day', beer_name: 'winter', package_label: null },
+      ],
+    });
+    expect(status).toBe(200);
+    expect(pokyny.length).toBeGreaterThan(0);
+    const pokyn = pokyny.join('\n');
+    expect(pokyn).not.toContain('→ PET 1l');
+    expect(pokyn).not.toContain('hazy spring day');
+    expect(pokyn).toContain('(žádné naučené zkratky zatím)');
   });
 });

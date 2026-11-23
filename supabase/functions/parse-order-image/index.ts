@@ -161,7 +161,12 @@ Deno.serve(async (req: Request) => {
       return ['bednar', 'petr', 'sladek', 'gabina', 'ucetni', 'pojmi', 'bendat'].some((x) => norm.includes(x));
     };
     const places: string[] = (body.places ?? []).filter((p: string) => !isSenderName(p));
-    const aliases: { alias_text: string; beer_name: string | null; package_label: string | null }[] = body.aliases ?? [];
+    // „Naučené zkratky" z tabulky parser_aliases se do promptu NEPOSÍLAJÍ — ani když
+    // je volající (starší verze appky) v těle pošle. Ukládaly se potichu z každé
+    // ruční změny piva nebo obalu a AI se jimi řídila i proti tomu, co v řádku
+    // stojí („15l → 20l" u Manea 6. 10. 2026). Pamatovat si appka smí jen opravu,
+    // kterou uživatel výslovně potvrdí; viz whatsapp-auto-parse/index.ts.
+    const aliases: { alias_text: string; beer_name: string | null; package_label: string | null }[] = [];
     const placeAliases: { wrong_name: string; correct_name: string }[] = (body.placeAliases ?? []).filter((a: any) => !isSenderName(a.wrong_name) && !isSenderName(a.correct_name));
 
 

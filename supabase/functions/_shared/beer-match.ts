@@ -72,7 +72,8 @@ type Barva = 'svetle' | 'tmave';
  */
 export function barvaVTextu(text: string): Barva | null {
   const t = normText(text);
-  if (/(?:^|[^a-z])tm(?:a|av[aeyu]?|ave|avy)?(?![a-z])|tmav|(?:^|[^a-z])cern[aey](?![a-z])|\bdark\b/.test(t)) return 'tmave';
+  // „polotmavé" není tmavé (je to Jantar) — „tmav" uvnitř „polotmav" se nepočítá.
+  if (/(?:^|[^a-z])tm(?:a|av[aeyu]?|ave|avy)?(?![a-z])|(?<!polo)tmav|(?:^|[^a-z])cern[aey](?![a-z])|\bdark\b/.test(t)) return 'tmave';
   if (/(?:^|[^a-z])(?:sv|sl|svet|svetl[aeyu]?|svetly|svetle)(?![a-z])|\blight\b/.test(t)) return 'svetle';
   return null;
 }
@@ -462,19 +463,24 @@ export function vlastniJmenaPiv(beers: { id: string; name: string; short_name?: 
   return vysledek;
 }
 
+// Jak se vlastní jména piv píšou v objednávkách: [vzor v textu, slovo v názvu piva
+// z katalogu]. „Polotmavé" (ve všech tvarech) je Jantar — ne tmavá: 13. 10. 2026
+// se „3x polotmave 1,5l" četlo jako 12° Tmavá, protože se hledal jen holý tvar
+// „polotmav" a „tmav" uvnitř slova pak vybralo tmavou.
+const JMENA_PIV_V_TEXTU: [RegExp, string][] = [
+  [/\bjantar\b|\bjant\b|\bjantarek\b|\bpolotmav[a-z]*\b/, "jantar"],
+  [/\bsummer\b|\bsumr\b/, "summer"],
+  [/\bhazy\b|\bipa\b|\bneipa\b/, "hazy"],
+  [/\bbunny\b|\bbuni\b/, "bunny"],
+];
+
 // Pivo pojmenované vlastním jménem (Jantar, Summer, Hazy, Bunny) — tyhle
 // názvy jsou jednoznačné a nesmí je přebít naučená zkratka ani stupeň.
 export function matchDistinctiveName(
   text: string,
   beers: { id: string; name: string }[]
 ): string | null {
-  const hints: [RegExp, string][] = [
-    [/\bjantar\b|\bjant\b|\bjantarek\b|\bpolotmav\b/, "jantar"],
-    [/\bsummer\b|\bsumr\b/, "summer"],
-    [/\bhazy\b|\bipa\b|\bneipa\b/, "hazy"],
-    [/\bbunny\b|\bbuni\b/, "bunny"],
-  ];
-  for (const [pattern, token] of hints) {
+  for (const [pattern, token] of JMENA_PIV_V_TEXTU) {
     if (pattern.test(text)) {
       const hit = beers.find((b) => normText(b.name).includes(token));
       if (hit) return hit.id;
@@ -584,13 +590,7 @@ export function matchBeerInText(
   // stupně v katalogu (např. "Summer Ale") přebilo jiné pivo se stejným
   // stupněm, protože OCR text má jen "summer", ne celé "summer ale"
   // (na to fuzzy shoda výše nestačí — chybí celé slovo "ale").
-  const DISTINCTIVE_NAME_HINTS: [RegExp, string][] = [
-    [/\bjantar\b|\bjant\b|\bjantarek\b|\bpolotmav\b/, "jantar"],
-    [/\bsummer\b|\bsumr\b/, "summer"],
-    [/\bhazy\b|\bipa\b|\bneipa\b/, "hazy"],
-    [/\bbunny\b|\bbuni\b/, "bunny"],
-  ];
-  for (const [pattern, token] of DISTINCTIVE_NAME_HINTS) {
+  for (const [pattern, token] of JMENA_PIV_V_TEXTU) {
     if (pattern.test(text)) {
       const hit = beers.find((b) => normText(b.name).includes(token));
       if (hit) return hit.id;
@@ -606,7 +606,7 @@ export function matchBeerInText(
     const candidates = beers.filter((b) => (b.degree || "").replace("°", "").trim() === degree);
     if (candidates.length === 1) return candidates[0].id;
     if (candidates.length > 1) {
-      if (/tmav|dark|tl\b|cerne|cerna/.test(text) || slovy.color === 'tmave') {
+      if (/(?<!polo)tmav|dark|tl\b|cerne|cerna/.test(text) || slovy.color === 'tmave') {
         const dark = candidates.find((b) => /tmav|dark/.test(normText(b.name)));
         if (dark) return dark.id;
       }
@@ -643,11 +643,151 @@ export function jeLitrPsanyJakoJedenact(raw: string): boolean {
   return /(?:^|\s)\d{1,3}\s*x\s+(?:11|1l)\s+\d{1,2}\s*(?:°|sv|tm)/.test(t);
 }
 
+// Před číslem objemu nesmí stát číslice ani desetinná čárka („150l" není 50 l,
+// „10,5" není 0,5); za „l" nesmí pokračovat slovo („10 lahví", „1 limo" objem nejsou).
+const PRED_CISLEM = "(?:^|[^0-9.,])";
+const LITR = "\\s*l(?:itr[a-z]*)?(?![a-z0-9])";
+const SUDY_L = [50, 30, 20, 15, 10];
+
+/**
+ * Objemy obalů, které text říká VÝSLOVNĚ: číslem s jednotkou („30l", „50 litrů",
+ * „1,0l"), desetinným číslem lahve („0,33", „0,5", „1,5"), slovem („třetinky",
+ * „půllitr") nebo u sudu („keg 30", „sud 50").
+ *
+ * Holé číslo sem NEPATŘÍ: „4x10" pod nadpisem „petky 1,5l:" je čtyřikrát
+ * desítka, ne sud 10 l, a „sud 10" může být sud desítky. Co tahle funkce vrátí,
+ * to v řádku opravdu stojí — proto to smí přebít i obal od AI (viz
+ * obalVyslovneVRadku). „1.5" s tečkou bez „l" se bere jen u petek („na 1.5."
+ * je datum).
+ */
+export function objemyVyslovneVTextu(raw: string | null | undefined): number[] {
+  const t = normText(String(raw || ""));
+  if (!t) return [];
+  const nalezene: number[] = [];
+  const pridej = (v: number) => { if (!nalezene.includes(v)) nalezene.push(v); };
+  const ma = (vzor: string) => new RegExp(vzor).test(t);
+  for (const v of SUDY_L) {
+    if (ma(`${PRED_CISLEM}${v}${LITR}`) || (v !== 10 && ma(`\\b(?:sud[a-z]*|soud[a-z]*|keg[a-z]*)\\s*${v}(?![0-9.,°])(?!\\s*(?:ks|kus|x(?![a-z])))`))) pridej(v);
+  }
+  if (ma(`${PRED_CISLEM}1,50?(?![0-9])`) || ma(`${PRED_CISLEM}1\\.50?${LITR}`) || (/\bpet/.test(t) && ma(`${PRED_CISLEM}1\\.50?(?![0-9.])`))) pridej(1.5);
+  if (ma(`${PRED_CISLEM}1(?:[.,]0)?${LITR}`)) pridej(1);
+  if (ma(`${PRED_CISLEM}0[.,]50?(?![0-9])`) || ma(`${PRED_CISLEM}05${LITR}`) || ma(`${PRED_CISLEM}500\\s*ml(?![a-z])`) || /(?:^|[^a-z])pul\s?litr/.test(t)) pridej(0.5);
+  if (ma(`${PRED_CISLEM}0[.,]33?(?![0-9])`) || ma(`${PRED_CISLEM}033${LITR}`) || ma(`${PRED_CISLEM}330\\s*ml(?![a-z])`) || /(?:^|[^a-z])tretin/.test(t)) pridej(0.33);
+  return nalezene;
+}
+
+/**
+ * Kusy raw_line, které patří TÉHLE položce — jako usekyPolozky, ale dělí se
+ * i tam, kde na řádku začíná další „množství × …" bez oddělovače („2x50 12sv
+ * 1x30l jantar" jsou dva kusy). Řádek o jediném kusu patří položce celý;
+ * jinak se berou kusy s jejím množstvím. Prázdné pole = nedá se určit.
+ */
+function kusyPolozky(item: any): string[] {
+  const kusy = kusyTextu(String(item?.raw_line || ""));
+  if (kusy.length <= 1) return kusy;
+  const ks = Number(item?.quantity ?? item?.qty);
+  if (!Number.isFinite(ks) || ks <= 0) return [];
+  const ksRe = new RegExp(`(?:^|[^0-9.,])${ks}\\s*(?:x|×|\\*|ks|kus|bed)|(?:x|×|\\*)\\s*${ks}(?![0-9.,])`, "i");
+  return kusy.filter((u) => ksRe.test(u));
+}
+
+/**
+ * Obal, který řádek položky říká VÝSLOVNĚ — a který proto platí, ať AI vrátila
+ * cokoli. null = řádek sám obal jednoznačně neurčuje (rozhodne zbytek
+ * matchPackageId).
+ *
+ * Proč: 6. 10. 2026 (Maneo) se „3x 15l 10° Desítka" zapsalo jako 20 l, „2x 10l"
+ * jako 15 l a „12x 1l" jako 1,5 l, 9. 11. 2026 (Lužec) se „Sklo 0,33l" četlo
+ * jako 0,5 l. AI tehdy dostávala „naučené zkratky" typu „15l → 20l" (uložené
+ * potichu z ručních úprav objednávek) a řídila se jimi; obal od AI měl přednost
+ * před tím, co v řádku stojí. Zadání majitele 23. 11. 2026: „0,33 musí přiřadit
+ * 0,33 a ne 0,5 nikdy".
+ *
+ * Platí jen to, co je jednoznačné: všechny kusy řádku, které položce patří
+ * (podle jejího množství), musí říkat tentýž jediný objem. „12x30l + 12xpet
+ * 1,0l" (dvě položky se stejným počtem) ani řádek bez objemu neurčí nic.
+ * U výsledného stavu upravované objednávky s textem CITOVANÉ zprávy (z_citace)
+ * se z textu nečte — odpověď mohla obal změnit (viz matchBeerId).
+ */
+export function obalVyslovneVRadku(
+  item: any,
+  packages: { id: string; label: string; volume_l?: number | null }[],
+): string | null {
+  if (item?.z_citace === true) return null;
+  const kusy = kusyPolozky(item);
+  if (!kusy.length) return null;
+  let objem: number | null = null;
+  for (const kus of kusy) {
+    const objemy = objemyVyslovneVTextu(kus);
+    if (objemy.length !== 1) return null;
+    if (objem !== null && objem !== objemy[0]) return null;
+    objem = objemy[0];
+  }
+  if (objem === null) return null;
+  return packages.find((p) => Number(p.volume_l) === objem)?.id ?? null;
+}
+
+/** Slova, kterými se v objednávkách píšou lahve a bedny („2 basy sklo", „5 beden světlého"). */
+const SKLO_RE = /\b(sklo|skla|lahve?|lahev|lahvi|basy?|basa|basu|bedn[aeyu]|beden|prepravk[aeyu]|prepravek|flas\w*)\b/;
+
+/** Řádek mluví o lahvích nebo bednách a velikost lahve (0,33 / 0,5) v něm nestojí. */
+export function jeLahevBezObjemu(rawLine: string | null | undefined): boolean {
+  const t = normText(String(rawLine || ""));
+  return SKLO_RE.test(t) && !objemyVyslovneVTextu(t).some((v) => v === 0.33 || v === 0.5);
+}
+
+/**
+ * Smí naučená zkratka (parser_aliases) určit obal? Jen když je to opravdu
+ * POJMENOVÁNÍ obalu slovem („malý soudek", „petka", „basa") a sama žádný objem
+ * neříká. Zkratky se do 23. 11. 2026 ukládaly potichu z každé ruční změny
+ * a většina z nich pravidlem není:
+ *   • „30l" → 1 l, „keg 15l" → 20 l, „lahve 0.5l" → 0,33 l — text sám říká jiný
+ *     objem; je-li stejný, je zkratka zbytečná (objem z textu se čte i bez ní);
+ *   • „2x10" → 30 l, „12° svetla" → 0,5 l — počet nebo jméno piva, o obalu nic.
+ */
+export function zkratkaObaluPlati(aliasText: string | null | undefined): boolean {
+  const t = normText(String(aliasText || ""));
+  if (!t || objemyVyslovneVTextu(t).length) return false;
+  return /\b(sud[a-z]{0,2}|soud[a-z]{2,3}|keg[a-z]{0,2}|pet|pet[a-z]{2,3}|lahev|lahv[a-z]{1,3}|flas[a-z]{0,3}|skl[oa]|bas[a-z]?|bedn[a-z]{1,2}|beden|plech[a-z]{0,4}|karton[a-z]{0,2}|mal[a-z]{1,2}|velk[a-z]{1,2})\b/.test(t);
+}
+
+export type VolbyObalu = {
+  /**
+   * Velikost lahve (0,33 nebo 0,5 l), kterou odběratel bere — z jeho posledních
+   * objednávek (viz _shared/zvyk-lahve.ts). Použije se JEN u položky, jejíž
+   * řádek velikost lahve neudává; bez ní platí 0,5 l.
+   */
+  lahevOdberatele?: number | null;
+};
+
+/**
+ * Velikost skleněné lahve pro položku, jejíž řádek ji neudává. null = nechat,
+ * co k položce přiřadila AI.
+ *
+ *   • odběratel bere třetinky → 0,33 l. I u řádku, kde slovo „bedna" není:
+ *     „5 beden světlého a 3 tmavého" AI rozdělí a druhá položka má jen „3 tmavého";
+ *   • jinak řádek o lahvích/bednách („2 basy sklo") → 0,5 l, i když AI vrátila
+ *     0,33 (2. 11. 2026: „A ještě prosím dvě basy sklo 12sv" vyšlo jako 0,33 l);
+ *   • řádek bez slova o lahvích a bez zvyku → nic (velikost mohla AI vzít
+ *     z nadpisu zprávy, který v řádku položky není).
+ */
+export function lahevBezUdaneVelikosti(rawLine: string | null | undefined, lahevOdberatele?: number | null): 0.33 | 0.5 | null {
+  const t = normText(String(rawLine || ""));
+  if (objemyVyslovneVTextu(t).some((v) => v === 0.33 || v === 0.5)) return null;
+  if (lahevOdberatele === 0.33) return 0.33;
+  return SKLO_RE.test(t) ? 0.5 : null;
+}
+
 export function matchPackageId(
   item: any,
   packages: { id: string; label: string; volume_l?: number | null }[],
-  aliasMap: { beer: Map<string, string>; package: Map<string, string> }
+  aliasMap: { beer: Map<string, string>; package: Map<string, string> },
+  volby: VolbyObalu = {},
 ): string | null {
+  // 0) Co v řádku položky stojí výslovně („15l", „0,33", „třetinky"), platí vždy.
+  const vyslovne = obalVyslovneVRadku(item, packages);
+  if (vyslovne) return vyslovne;
+
   // Primárně párujeme z package_label od AI — to je obal KONKRÉTNÍ položky.
   // ⚠️ raw_line může obsahovat VÍCE obalů najednou (např. "SV 12 = 3x50l KEG +
   // 24x1,5l PET + 20x0,5l lahev") — párovat proti celému raw_line by přiřadilo
@@ -657,13 +797,18 @@ export function matchPackageId(
   // s názvem obalu níž „0,5l" nepoznala (12. 10. 2026: „20x 0,5l 10°" → 10l).
   const tecka = (t: string) => t.replace(/(\d),(\d)/g, "$1.$2");
   const rawText = tecka(normText(item.raw_line || ""));
-  // „2 basy sklo" bez udaného objemu = lahev 0,5 l. Třetinku (0,33 l) smí AI vrátit
-  // jen když to v zápisu opravdu stojí (0,33 / třetinka) — z provozu
-  // 2. 11. 2026 jí „A ještě prosím dvě basy sklo 12sv" vyšlo jako 0,33 l.
-  const rawJeSklo = /\b(sklo|lahve?|lahev|basy?|basa|flas\w*)\b/.test(rawText);
-  const rawMaTretinku = /0\.33|\b330\b|\btretink/.test(rawText);
+  // „2 basy sklo" / „5 beden světlého" bez udané velikosti lahve: rozhoduje, co
+  // odběratel bere (volby.lahevOdberatele), jinak lahev 0,5 l. AI velikost
+  // neurčuje — z provozu 2. 11. 2026 jí „A ještě prosím dvě basy sklo 12sv"
+  // vyšlo jako 0,33 l, a naopak Lužci, který bere jen třetinky, se 9. 11. 2026
+  // „5 beden světlého a 3 tmavého" zapsalo jako 0,5 l. Velikost napsanou
+  // v řádku („0,33", „třetinky") řeší krok 0 výš.
+  const lahev = volby.lahevOdberatele === 0.33 ? 0.33 : 0.5;
   let labelText = tecka(normText(item.package_label || ""));
-  if (rawJeSklo && !rawMaTretinku && /0\.33/.test(labelText)) labelText = "0.5l";
+  if (/(?:^|[^0-9.])0\.(?:33|5)(?![0-9])/.test(labelText)) {
+    const velikost = lahevBezUdaneVelikosti(item.raw_line, volby.lahevOdberatele);
+    if (velikost) labelText = `${velikost}l`;
+  }
   const text = labelText || rawText;
   if (!text) return null;
 
@@ -761,7 +906,8 @@ export function matchPackageId(
     if (hit) return hit;
   }
   if (/\blahve?\b|\bsklo\b|\bflas\b/i.test(text)) {
-    const hit = packages.find((p) => Number(p.volume_l) === 0.5 || /0[,.]5|lahv/i.test(p.label))?.id ?? null;
+    const hit = (lahev === 0.33 ? pickVol(0.33) : null)
+      ?? packages.find((p) => Number(p.volume_l) === 0.5 || /0[,.]5|lahv/i.test(p.label))?.id ?? null;
     if (hit) return hit;
   }
   if (/\bkeg\b|\bsud\b/i.test(text)) {
@@ -769,10 +915,10 @@ export function matchPackageId(
     if (hit) return hit;
   }
 
-  // 3) Naučené aliasy
+  // 3) Naučené aliasy — jen ty, které obal opravdu pojmenovávají (zkratkaObaluPlati).
   for (const [alias, pkgId] of aliasMap.package) {
     const na = normText(alias);
-    if (na.length >= 2 && (text === na || text.includes(na))) return pkgId;
+    if (na.length >= 2 && zkratkaObaluPlati(na) && (text === na || text.includes(na))) return pkgId;
   }
 
   // 4) Fuzzy shoda s názvy obalů z katalogu aplikace

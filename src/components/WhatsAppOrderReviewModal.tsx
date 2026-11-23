@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Beer, Package, Place, supabase } from '../lib/supabase';
 import { WhatsAppIncoming, ignoreWhatsAppMessage, updateWhatsAppParsedData, napojNaObjednavku, fetchWhatsAppMessage } from '../lib/whatsappApi';
 import { parseWhatsAppOrderMessageWithAI } from '../lib/whatsappParser';
-import { parseDeliveryDayFromText, loadAliasMap, saveAlias, canLearnBeerAlias, matchBeerFromHints, matchPackage, jeLitrPsanyJakoJedenact, pivoNapsanePodleJmena, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
+import { parseDeliveryDayFromText, matchBeerFromHints, matchPackage, jeLitrPsanyJakoJedenact, pivoNapsanePodleJmena, savePlaceAlias, normalize, getOrCreatePlace, type ParserAliasMap } from '../lib/orderParser';
 import { matchAgainstCatalog } from '../../supabase/functions/_shared/place-match';
 import { poradiPodlePrepisu } from '../../supabase/functions/_shared/prepis-fotky';
 import { oznacVlastniObjednavku } from '../lib/mojeObjednavky';
@@ -309,16 +309,17 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.isOpen, msg?.id]);
 
-  // Při otevření modálu načteme naučené aliasy a doplníme ke každé položce
-  // správné pivo/obal z katalogu (podle názvu, stupně a balení). Uživatel může
-  // přiřazení před schválením opravit.
+  // Při otevření modálu doplníme ke každé položce správné pivo/obal z katalogu
+  // (podle názvu, stupně a balení). Uživatel může přiřazení před schválením opravit.
+  //
+  // „Naučené zkratky" (parser_aliases) se tu NEČTOU: ukládaly se potichu z každé
+  // ruční změny a čtení kazily, takže je zprávy z WhatsAppu nepoužívají vůbec —
+  // server (whatsapp-auto-parse) ani tohle okno. Párování proto na žádný síťový
+  // dotaz nečeká a položky jsou vidět hned.
   useEffect(() => {
     if (!props.isOpen || !msg) return;
-    let cancelled = false;
-    (async () => {
-      let aliasMap: ParserAliasMap = { beer: new Map(), package: new Map() };
-      try { aliasMap = await loadAliasMap(); } catch { /* bez aliasů pokračujeme */ }
-      if (cancelled) return;
+    (() => {
+      const aliasMap: ParserAliasMap = { beer: new Map(), package: new Map() };
 
       setDenZavozu(msg!.parsed_delivery_day || denADatumZeZpravy(msg!)?.den || parseDeliveryDayFromText(msg!.message_text || '') || null);
       setZavozCislo(1);
@@ -429,7 +430,6 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
       }
       setItems(vysledneItems);
     })();
-    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.isOpen, msg?.id, rebuildKey]);
 
@@ -808,31 +808,21 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const beerNameById = (id: string | null) => props.beers.find((b) => b.id === id)?.name ?? '(neurčené pivo)';
   const pkgLabelById = (id: string | null) => String(props.packages.find((p) => p.id === id)?.label ?? '').trim();
 
+  // 🧠 Oprava piva nebo obalu tady NIC NEUČÍ. Do 23. 11. 2026 se z každé ruční
+  // změny potichu uložila „naučená zkratka" (parser_aliases) — i když šlo
+  // o záměnu jen pro tuhle objednávku (místo Hazy dáme Winter, místo dvacítky
+  // patnáctku). Vzniklo tak 184 pravidel typu „30l → 1 l" a „0.33l → 0,5 l",
+  // podle kterých se pak četly další zprávy špatně. Pamatovat si appka smí jen
+  // opravu, kterou uživatel výslovně potvrdí.
   function updateItemBeer(index: number, beerId: string) {
     const next = [...items];
-    const prev = next[index];
-    if (beerId && beerId !== prev.beerId) {
-      // Zkratku si zapamatuj jen tehdy, když z ní vzejde použitelné pravidlo —
-      // ne když opravovaný text správně jmenuje jiné pivo z katalogu nebo nese
-      // cizí stupeň (viz canLearnBeerAlias). Jinak by jedna oprava jedné
-      // objednávky rozbila čtení všech dalších zpráv.
-      const aliasText = (prev.beerName || prev.rawLine || '').trim();
-      if (aliasText && canLearnBeerAlias(aliasText, beerId, props.beers)) {
-        saveAlias(aliasText.slice(0, 120), beerId, null).catch(() => {});
-      }
-    }
-    next[index] = { ...prev, beerId };
+    next[index] = { ...next[index], beerId };
     setItems(next);
   }
 
   function updateItemPkg(index: number, pkgId: string) {
     const next = [...items];
-    const prev = next[index];
-    if (pkgId && pkgId !== prev.pkgId) {
-      const aliasText = (prev.packageLabel || prev.rawLine || '').trim();
-      if (aliasText) saveAlias(aliasText.slice(0, 120), null, pkgId).catch(() => {});
-    }
-    next[index] = { ...prev, pkgId };
+    next[index] = { ...next[index], pkgId };
     setItems(next);
   }
 

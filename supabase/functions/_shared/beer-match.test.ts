@@ -10,7 +10,7 @@
 // i za objemem, „vše 11%" na konci, bedny, PET, vlastní jména piv, hovorové
 // tvary „vosma"/„desítka"/„dvanáctka", překlepy).
 import { describe, it, expect } from 'vitest';
-import { matchBeerId, matchPackageId, pivaJmenovanaVTextu, vlastniRadekPolozky } from './beer-match';
+import { matchBeerId, matchPackageId, pivaJmenovanaVTextu, vlastniRadekPolozky, objemyVyslovneVTextu, obalVyslovneVRadku, jeLahevBezObjemu, lahevBezUdaneVelikosti, zkratkaObaluPlati, barvaVTextu, type VolbyObalu } from './beer-match';
 
 // Katalog přesně jako v produkci — VČETNĚ toho, že Osma má stupeň zapsaný
 // bez znaku ° („8", ne „8°"). Na tom závisí porovnávání stupňů.
@@ -45,7 +45,7 @@ const obal = (id: string | null) => PACKAGES.find((p) => p.id === id)?.label ?? 
 
 type Polozka = { quantity?: number | null; degree?: string | null; beer_name?: string | null; package_label?: string | null; raw_line?: string | null; z_citace?: boolean };
 const pivo = (item: Polozka, aliasy = prazdneAliasy()) => jmeno(matchBeerId(item, BEERS, aliasy));
-const balení = (item: Polozka, aliasy = prazdneAliasy()) => obal(matchPackageId(item, PACKAGES, aliasy));
+const balení = (item: Polozka, aliasy = prazdneAliasy(), volby?: VolbyObalu) => obal(matchPackageId(item, PACKAGES, aliasy, volby));
 
 describe('Pivo podle položky, ne podle celého řádku', () => {
   // Ta konkrétní zpráva z provozu. Všech pět položek dostane od AI stejný
@@ -451,5 +451,251 @@ describe('„sklo" bez objemu je lahev 0,5 l, třetinka jen když je napsaná', 
   });
   it('bez raw_line se label AI nemění', () => {
     expect(balení({ package_label: 'Lahve 0.33l' })).toBe('Lahve 0.33l');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 23. 11. 2026, majitel: „projdi čtení položek… 0,33 musí přiřadit 0,33 a ne 0,5
+// nikdy, 12sv je 12 světlý ležák, ne Jantar". Prověrka uložených zpráv našla
+// příčinu u obalů: appka se potichu „učila" z každé ruční změny a AI ty
+// „naučené zkratky" („15l → 20l", „0.33l → 0,5 l", „30l → 1 l") dostávala jako
+// spolehlivou nápovědu. Obal od AI měl přednost před tím, co v řádku stojí.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('Objem napsaný v řádku (objemyVyslovneVTextu)', () => {
+  it.each<[string, number[]]>([
+    ['30l', [30]],
+    ['50 litrů', [50]],
+    ['Sluhy 10*30 litrů 10°', [30]],
+    ['• *3x*  15l 10° Desítka', [15]],
+    ['• *2x*  10l 10° Desítka', [10]],
+    ['• *12x* 1l 11° Světlá', [1]],
+    ['Kynšperský zajíc 10 světlé výčepní 15L keg - 3,000 ks', [15]],
+    ['Kynšperský zajíc 11 Summer Ale 1L - 24,000 ks', [1]],
+    ['10 petek 1,0l 12°', [1]],
+    ['24x1,5l PET (bez etikety)', [1.5]],
+    ['7x1.5l desitka', [1.5]],
+    ['pet 5x1.5 jantar', [1.5]],
+    ['20x0,5l lahev (etiketa MM)', [0.5]],
+    ['10x 05l 12° sv.', [0.5]],
+    ['půllitry 20x 12sv', [0.5]],
+    ['Sklo 0,33l.', [0.33]],
+    ['4 bedny 0,3l', [0.33]],
+    ['2xbasa třetinek 12sv', [0.33]],
+    ['keg 30 12sv', [30]],
+    ['sudy 50 3x 11sv', [50]],
+    ['2x 10l 11°sv peta1,5p', [10, 1.5]],
+    ['12x30l + 12xpet 1,0l desitka', [30, 1]],
+  ])('„%s" říká %j', (text, objemy) => {
+    expect(objemyVyslovneVTextu(text)).toEqual(objemy);
+  });
+
+  // Holé číslo objem není: „10" bývá stupeň, „4x10" pod nadpisem „petky 1,5l:"
+  // je čtyřikrát desítka. A „l" na začátku slova není litr.
+  it.each([
+    '4x10', '6x11', '3x30 12sv', '2x50 12', '12° světlá', '10x 11 11°sv.',
+    '10 lahví 12sv', '1 limo citron', '20 lidí', 'sud 10', 'sudů 20 ks', '3 sudy 12sv',
+    'na 1.5. dovezeme 2x30', '270l desitky', '150l', '10,5', '0,35', '',
+  ])('„%s" objem výslovně neříká', (text) => {
+    expect(objemyVyslovneVTextu(text)).toEqual([]);
+  });
+});
+
+describe('Co v řádku položky stojí, přebije obal od AI (obalVyslovneVRadku)', () => {
+  const vyslovne = (item: Polozka) => obal(obalVyslovneVRadku(item, PACKAGES));
+
+  it('6. 10. 2026 (Maneo): AI vrátila o velikost větší obal, než je v řádku', () => {
+    expect(balení({ quantity: 3, package_label: 'KEG 20l', raw_line: '• *3x*  15l 10° Desítka' })).toBe('KEG 15l');
+    expect(balení({ quantity: 2, package_label: 'KEG 15l', raw_line: '• *2x*  10l 10° Desítka' })).toBe('KEG 10l');
+    expect(balení({ quantity: 12, package_label: 'PET 1.5l', raw_line: '• *12x* 1l 10° Desítka' })).toBe('PET 1l');
+    expect(balení({ quantity: 12, package_label: 'PET 1.5l', raw_line: '• *12x* 1l 11° Světlá' })).toBe('PET 1l');
+  });
+
+  it('0,33 je vždycky třetinka a 0,5 půllitr, ať AI řekne cokoli', () => {
+    expect(balení({ quantity: 20, package_label: 'Lahve 0.5l', raw_line: 'Sklo 0,33l.' })).toBe('Lahve 0.33l');
+    expect(balení({ quantity: 40, package_label: 'Lahve 0.5l', raw_line: 'Plus na další fakturu 2xbasa třetinek 12sv' })).toBe('Lahve 0.33l');
+    expect(balení({ quantity: 20, package_label: 'Lahve 0.33l', raw_line: '20x0,5l lahev' })).toBe('Lahve 0.5l');
+    expect(balení({ quantity: 20, package_label: 'PET 1l', raw_line: '20x 0,33 12sv' })).toBe('Lahve 0.33l');
+  });
+
+  it('obal úplně jiného druhu, než je v řádku („30l" čtené jako 1 l)', () => {
+    expect(balení({ quantity: 4, package_label: 'PET 1l', raw_line: '4x30l desitka' })).toBe('KEG 30l');
+    expect(balení({ quantity: 2, package_label: 'KEG 30l', raw_line: '2x50l 11sv' })).toBe('KEG 50l');
+  });
+
+  it('řádek s víc položkami: platí kus s množstvím téhle položky', () => {
+    const RADEK = '•⁠  ⁠SV 12 = 4x50l KEG + 24x1,5l PET (bez etikety) + 20x0,5l lahev (etiketa MM)';
+    expect(vyslovne({ quantity: 4, raw_line: RADEK })).toBe('KEG 50l');
+    expect(vyslovne({ quantity: 24, raw_line: RADEK })).toBe('PET 1.5l');
+    expect(vyslovne({ quantity: 20, raw_line: RADEK })).toBe('Lahve 0.5l');
+    expect(vyslovne({ quantity: 3, raw_line: '12sv: 3x50l + 4x30l' })).toBe('KEG 50l');
+    expect(vyslovne({ quantity: 4, raw_line: '12sv: 3x50l + 4x30l' })).toBe('KEG 30l');
+    // bez oddělovače — další položka začíná svým „množství ×"
+    expect(vyslovne({ quantity: 1, raw_line: '2x50 12sv 1x30l jantar' })).toBe('KEG 30l');
+  });
+
+  it('nejednoznačný řádek neurčí nic — rozhodne obal od AI', () => {
+    // dvě položky se stejným počtem, každá jiný objem
+    expect(vyslovne({ quantity: 12, raw_line: '12x30l + 12xpet 1,0l desitka' })).toBeNull();
+    expect(balení({ quantity: 12, package_label: 'PET 1l', raw_line: '12x30l + 12xpet 1,0l desitka' })).toBe('PET 1l');
+    // objem má jen druhá položka se stejným počtem — první ho převzít nesmí
+    expect(vyslovne({ quantity: 2, raw_line: '2x50 12sv 2x30l jantar' })).toBeNull();
+    expect(balení({ quantity: 2, package_label: 'KEG 50l', raw_line: '2x50 12sv 2x30l jantar' })).toBe('KEG 50l');
+    expect(vyslovne({ quantity: 2, raw_line: '2x50 12sv 1x30l jantar' })).toBeNull();
+    // víc kusů a množství položky není známé
+    expect(vyslovne({ raw_line: '3x50l + 4x30l' })).toBeNull();
+    // dva objemy v jednom kusu
+    expect(vyslovne({ quantity: 2, raw_line: '2x 10l 11°sv peta1,5p' })).toBeNull();
+  });
+
+  it('holé číslo obal od AI nepřebije („4x10" pod nadpisem „petky 1,5l:")', () => {
+    expect(vyslovne({ quantity: 4, raw_line: '4x10' })).toBeNull();
+    expect(balení({ quantity: 4, package_label: 'PET 1.5l', raw_line: '4x10' })).toBe('PET 1.5l');
+    expect(balení({ quantity: 6, package_label: 'PET 1.5l', raw_line: '6x11' })).toBe('PET 1.5l');
+  });
+
+  it('výsledný stav upravované objednávky s textem citované zprávy: obal mohla odpověď změnit', () => {
+    const polozka = { quantity: 2, package_label: 'KEG 30l', raw_line: '2x50l 12sv' };
+    expect(balení(polozka)).toBe('KEG 50l');
+    expect(balení({ ...polozka, z_citace: true })).toBe('KEG 30l');
+  });
+
+  it('objem, který v katalogu není, neurčí nic', () => {
+    expect(obalVyslovneVRadku({ quantity: 2, raw_line: '2x 20l desitka' }, PACKAGES.filter((p) => p.volume_l !== 20))).toBeNull();
+  });
+});
+
+describe('Lahve a bedny bez udané velikosti: podle toho, co odběratel bere', () => {
+  it('pozná řádek o lahvích bez velikosti', () => {
+    for (const r of ['5 beden světlého a 3 tmavého', '2 basy sklo 12sv', '4 bedny svetle 12', '1 bedna tmavého piva', '20 lahví 12sv', '3 přepravky jantar']) {
+      expect(jeLahevBezObjemu(r), r).toBe(true);
+    }
+    for (const r of ['Sklo 0,33l.', '2xbasa třetinek 12sv', '20x0,5l lahev', '2x30l 12sv', '10 petek 12°', '', null]) {
+      expect(jeLahevBezObjemu(r), String(r)).toBe(false);
+    }
+  });
+
+  // 9. 11. 2026 (Lužec): „5 beden světlého a 3 tmavého" se zapsalo jako 0,5 l —
+  // Lužec přitom bere třetinky. AI podle pravidla vrací půllitr.
+  it('odběratel bere třetinky → bedna je 0,33 l', () => {
+    const zvyk = { lahevOdberatele: 0.33 };
+    expect(balení({ quantity: 100, package_label: 'Lahve 0.5l', raw_line: '5 beden světlého' }, prazdneAliasy(), zvyk)).toBe('Lahve 0.33l');
+    expect(balení({ quantity: 60, package_label: 'Lahve 0.5l', raw_line: 'a 3 tmavého, 5 beden světlého' }, prazdneAliasy(), zvyk)).toBe('Lahve 0.33l');
+    expect(balení({ quantity: 40, package_label: 'Lahve 0.33l', raw_line: 'A jeste prosim dve basy sklo 12sv' }, prazdneAliasy(), zvyk)).toBe('Lahve 0.33l');
+    // AI obal nevrátila vůbec
+    expect(balení({ quantity: 40, package_label: '', raw_line: '2 basy sklo 12sv' }, prazdneAliasy(), zvyk)).toBe('Lahve 0.33l');
+    // AI řádek rozdělila a slovo „beden" zůstalo jen u první položky
+    expect(balení({ quantity: 60, package_label: 'Lahve 0.5l', raw_line: '3 tmavého' }, prazdneAliasy(), zvyk)).toBe('Lahve 0.33l');
+  });
+
+  it('řádek bez slova o lahvích a bez zvyku třetinek: velikost od AI zůstává (mohla být v nadpisu zprávy)', () => {
+    expect(balení({ quantity: 20, package_label: 'Lahve 0.33l', raw_line: '20x 12sv' })).toBe('Lahve 0.33l');
+    expect(balení({ quantity: 20, package_label: 'Lahve 0.5l', raw_line: '20x 12sv' })).toBe('Lahve 0.5l');
+    expect(balení({ quantity: 20, package_label: 'Lahve 0.33l', raw_line: '20x 12sv' }, prazdneAliasy(), { lahevOdberatele: 0.5 })).toBe('Lahve 0.33l');
+  });
+
+  it('bez zvyku (nový odběratel, smíšený odběr) nebo se zvykem 0,5 → 0,5 l', () => {
+    for (const volby of [undefined, {}, { lahevOdberatele: null }, { lahevOdberatele: 0.5 }]) {
+      expect(balení({ quantity: 100, package_label: 'Lahve 0.5l', raw_line: '5 beden světlého' }, prazdneAliasy(), volby)).toBe('Lahve 0.5l');
+      expect(balení({ quantity: 40, package_label: 'Lahve 0.33l', raw_line: 'A jeste prosim dve basy sklo 12sv' }, prazdneAliasy(), volby)).toBe('Lahve 0.5l');
+      expect(balení({ quantity: 40, package_label: '', raw_line: '2 basy sklo 12sv' }, prazdneAliasy(), volby)).toBe('Lahve 0.5l');
+    }
+  });
+
+  it('velikost napsaná v řádku má přednost před zvykem', () => {
+    const zvyk = { lahevOdberatele: 0.33 };
+    expect(balení({ quantity: 20, package_label: 'Lahve 0.33l', raw_line: '1 bedna 0,5l 12sv' }, prazdneAliasy(), zvyk)).toBe('Lahve 0.5l');
+    expect(balení({ quantity: 20, package_label: 'Lahve 0.5l', raw_line: '20x0,5l lahev' }, prazdneAliasy(), zvyk)).toBe('Lahve 0.5l');
+  });
+
+  it('lahevBezUdaneVelikosti: velikost v řádku → nic se nevnucuje; jinak zvyk třetinek, u „basy sklo" půllitr', () => {
+    expect(lahevBezUdaneVelikosti('1 bedna 0,5l 12sv', 0.33)).toBeNull();
+    expect(lahevBezUdaneVelikosti('2 basy třetinek', 0.5)).toBeNull();
+    expect(lahevBezUdaneVelikosti('5 beden světlého', 0.33)).toBe(0.33);
+    expect(lahevBezUdaneVelikosti('3 tmavého', 0.33)).toBe(0.33);
+    expect(lahevBezUdaneVelikosti('5 beden světlého', null)).toBe(0.5);
+    expect(lahevBezUdaneVelikosti('5 beden světlého', 0.5)).toBe(0.5);
+    expect(lahevBezUdaneVelikosti('3 tmavého', null)).toBeNull();
+    expect(lahevBezUdaneVelikosti(null, undefined)).toBeNull();
+  });
+
+  // Řádek sdílený dvěma položkami, velikost je napsaná jen u jedné: krok 0 neurčí
+  // nic (množství 60 v textu není) a zvyk se tu nevnucuje — platí obal od AI.
+  it('řádek s velikostí u jiné položky: zvyk třetinek obal od AI nepřepíše', () => {
+    const RADEK = '2 bedny 0,5l světlé a 3 bedny tmavé';
+    expect(balení({ quantity: 60, package_label: 'Lahve 0.5l', raw_line: RADEK }, prazdneAliasy(), { lahevOdberatele: 0.33 })).toBe('Lahve 0.5l');
+  });
+
+  it('zvyk u lahví se netýká sudů ani petek', () => {
+    const zvyk = { lahevOdberatele: 0.33 };
+    expect(balení({ quantity: 2, package_label: 'KEG 30l', raw_line: '2x30 12sv' }, prazdneAliasy(), zvyk)).toBe('KEG 30l');
+    expect(balení({ quantity: 10, package_label: 'PET 1.5l', raw_line: '10 petek 12°' }, prazdneAliasy(), zvyk)).toBe('PET 1.5l');
+    // řádek mluví o bednách, ale AI v něm našla petky — velikost lahve se nevnucuje
+    expect(balení({ quantity: 12, package_label: 'PET 1l', raw_line: '2 bedny petek 12sv' }, prazdneAliasy(), zvyk)).toBe('PET 1l');
+  });
+});
+
+describe('Potichu naučené zkratky obalů pravidlem nejsou (zkratkaObaluPlati)', () => {
+  // Skutečné řádky z tabulky parser_aliases (23. 11. 2026).
+  it.each(['30l', '50l', '10l', '0.5l', '0.33l', '1l', 'keg 15l', 'keg 30l', 'lahve 0.5l', '2x10', '7x30', '1x50 12', '12° svetla', 'citron 5x', '12 4x', '10x 11 10° sv'])(
+    '„%s" obal neurčuje', (zkratka) => { expect(zkratkaObaluPlati(zkratka)).toBe(false); },
+  );
+  it.each(['maly soudek', 'velka flasa', 'petka', 'basa', '2 bedny svetle', 'velký sud'])(
+    '„%s" obal pojmenovává', (zkratka) => { expect(zkratkaObaluPlati(zkratka)).toBe(true); },
+  );
+
+  it('otrávené zkratky se při čtení nepoužijí', () => {
+    const a = prazdneAliasy();
+    a.package.set('12° svetla', 'p-lahev05');
+    a.package.set('citron 5x', 'p-pet1');
+    a.package.set('30l', 'p-pet1');
+    a.package.set('keg 15l', 'p-keg20');
+    a.package.set('0.33l', 'p-lahev05');
+    // dřív: „12° svetla" v řádku → lahev 0,5 l, „citron 5x" → PET 1 l
+    expect(balení({ quantity: 2, package_label: '', raw_line: '2x 12° světlá' }, a)).toBeNull();
+    expect(balení({ quantity: 5, package_label: '', raw_line: 'citron 5x' }, a)).toBeNull();
+    expect(balení({ quantity: 3, package_label: 'KEG 15l', raw_line: '3x15l 11sv' }, a)).toBe('KEG 15l');
+    expect(balení({ quantity: 4, package_label: 'KEG 30l', raw_line: '4x30l desitka' }, a)).toBe('KEG 30l');
+    expect(balení({ quantity: 20, package_label: 'Lahve 0.33l', raw_line: '1 bedna 0,33 tmave' }, a)).toBe('Lahve 0.33l');
+  });
+
+  it('pojmenování obalu slovem platí dál', () => {
+    const a = prazdneAliasy();
+    a.package.set('maly soudek', 'p-keg15');
+    expect(balení({ quantity: 3, package_label: '', raw_line: '3x malý soudek 11sv' }, a)).toBe('KEG 15l');
+  });
+});
+
+describe('12sv je 12° Světlá, ne Jantar — a polotmavé je Jantar, ne tmavá', () => {
+  it('pivo napsané v řádku položky přebije název od AI', () => {
+    expect(pivo({ quantity: 1, degree: '12°', beer_name: 'Jantar', package_label: 'KEG 30l', raw_line: '1x30l 12sv' })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Světlá', package_label: 'KEG 30l', raw_line: '2x30l jantar' })).toBe('Jantar');
+  });
+
+  // 17. 11. 2026 (Seeberg): „1x30l 12sv / 2x30l jantar". I kdyby AI ke každé
+  // položce přiložila celou zprávu a piva prohodila, rozhoduje řádek položky.
+  it('celá zpráva u obou položek a prohozené názvy od AI', () => {
+    const ZPRAVA = 'Seeberg\n1x30l 12sv\n2x30l jantar';
+    expect(pivo({ quantity: 1, degree: '12°', beer_name: 'Jantar', package_label: 'KEG 30l', raw_line: ZPRAVA })).toBe('12° Světlá');
+    expect(pivo({ quantity: 2, degree: null, beer_name: '12° Světlá', package_label: 'KEG 30l', raw_line: ZPRAVA })).toBe('Jantar');
+  });
+
+  it('„polotmavé" je Jantar', () => {
+    expect(pivo({ quantity: 3, raw_line: '3x polotmave 1,5l' })).toBe('Jantar');
+    expect(pivo({ quantity: 2, raw_line: '2x30 polotmavý ležák' })).toBe('Jantar');
+    expect(pivo({ quantity: 2, degree: '12°', beer_name: '12° Tmavá', raw_line: '2x30l polotmavé 12' })).toBe('Jantar');
+  });
+
+  it('„polotmavé" není tmavá ani v katalogu bez Jantaru — pivo zůstane neurčené', () => {
+    const BEZ_JANTARU = BEERS.filter((b) => b.id !== 'b-jantar');
+    expect(matchBeerId({ quantity: 2, raw_line: '2x30 polotmavé' }, BEZ_JANTARU, prazdneAliasy())).toBeNull();
+    expect(barvaVTextu('polotmavé')).toBeNull();
+    expect(barvaVTextu('2x30 polotmavy lezak')).toBeNull();
+    expect(barvaVTextu('tmavé')).toBe('tmave');
+    expect(barvaVTextu('12tm')).toBe('tmave');
+  });
+
+  it('„tmavé" zůstává tmavá', () => {
+    expect(pivo({ quantity: 2, raw_line: '2x30l tmavé' })).toBe('12° Tmavá');
+    expect(pivo({ quantity: 5, degree: '12°', beer_name: '12° Světlá', raw_line: '5 beden 12tm' })).toBe('12° Tmavá');
   });
 });

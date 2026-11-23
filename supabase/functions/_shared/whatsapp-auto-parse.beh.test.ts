@@ -18,15 +18,19 @@ function dotaz(tabulka: string) {
   let razeni: { sloupec: string; vzestupne: boolean } | null = null;
   let limit = Infinity;
   const porovnej = (a: any, b: any) => (a === b ? 0 : a > b ? 1 : -1);
+  // „orders.place_id" = sloupec vnořené (připojené) tabulky, jak ho píše supabase-js.
+  const h = (r: Radek, s: string) => s.split('.').reduce((o: any, k) => (o == null ? undefined : o[k]), r);
   const q: Record<string, any> = {
     select: () => { vracet = true; return q; },
     update: (patch: Radek) => { zapis = patch; vracet = false; return q; },
-    eq: (s: string, v: any) => { podminky.push((r) => r[s] === v); return q; },
-    in: (s: string, v: any[]) => { podminky.push((r) => v.includes(r[s])); return q; },
-    lt: (s: string, v: any) => { podminky.push((r) => r[s] != null && porovnej(r[s], v) < 0); return q; },
-    gte: (s: string, v: any) => { podminky.push((r) => r[s] != null && porovnej(r[s], v) >= 0); return q; },
-    like: (s: string, vzor: string) => { podminky.push((r) => typeof r[s] === 'string' && r[s].startsWith(vzor.replace(/%$/, ''))); return q; },
-    not: (s: string, _op: string, v: any) => { podminky.push((r) => r[s] !== v && !(v === null && r[s] == null)); return q; },
+    eq: (s: string, v: any) => { podminky.push((r) => h(r, s) === v); return q; },
+    neq: (s: string, v: any) => { podminky.push((r) => h(r, s) !== v); return q; },
+    in: (s: string, v: any[]) => { podminky.push((r) => v.includes(h(r, s))); return q; },
+    lt: (s: string, v: any) => { podminky.push((r) => h(r, s) != null && porovnej(h(r, s), v) < 0); return q; },
+    lte: (s: string, v: any) => { podminky.push((r) => h(r, s) != null && porovnej(h(r, s), v) <= 0); return q; },
+    gte: (s: string, v: any) => { podminky.push((r) => h(r, s) != null && porovnej(h(r, s), v) >= 0); return q; },
+    like: (s: string, vzor: string) => { podminky.push((r) => typeof h(r, s) === 'string' && h(r, s).startsWith(vzor.replace(/%$/, ''))); return q; },
+    not: (s: string, _op: string, v: any) => { podminky.push((r) => h(r, s) !== v && !(v === null && h(r, s) == null)); return q; },
     ilike: () => q,
     or: () => q,
     order: (sloupec: string, o?: { ascending?: boolean }) => { razeni = { sloupec, vzestupne: o?.ascending !== false }; return q; },
@@ -383,3 +387,97 @@ describe('whatsapp-auto-parse: odpověď, která upravuje objednávku', () => {
   });
 });
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 23. 11. 2026, majitel: „projdi čtení položek… 0,33 musí přiřadit 0,33 a ne 0,5
+// nikdy". Čtečka dostávala jako nápovědu „naučené zkratky" uložené potichu
+// z ručních úprav objednávek („keg 15l → 20 l", „0.33l → 0,5 l") a obal od AI
+// měl přednost před tím, co ve zprávě stojí.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('whatsapp-auto-parse: obal podle toho, co ve zprávě stojí', () => {
+  beforeEach(() => {
+    pripravBeh();
+    db.beers = [
+      { id: 'b10', name: '10° Desítka', degree: '10°', short_name: null },
+      { id: 'b11', name: '11° Světlá', degree: '11°', short_name: null },
+      { id: 'b12', name: '12° Světlá', degree: '12°', short_name: null },
+      { id: 'b12t', name: '12° Tmavá', degree: '12°', short_name: null },
+    ];
+    db.packages = [
+      { id: 'k20', label: '20l', volume_l: 20 }, { id: 'k15', label: ' 15l', volume_l: 15 }, { id: 'k10', label: ' 10l', volume_l: 10 },
+      { id: 'l15', label: '1.5l', volume_l: 1.5 }, { id: 'l1', label: '1l', volume_l: 1 },
+      { id: 'l05', label: '0.5l', volume_l: 0.5 }, { id: 'l033', label: '0.33l', volume_l: 0.33 },
+    ];
+    db.places = [{ id: 'm-maneo', name: 'Maneo' }, { id: 'm-luzec', name: 'Lužec' }, { id: 'm-jina', name: 'Malešice' }];
+  });
+  afterEach(uklidPoBehu);
+
+  const polozka = (quantity: number, pivo: string, obal: string, raw_line: string, misto: string): Radek =>
+    ({ quantity, degree: pivo.slice(0, 3), beer_name: pivo, package_label: obal, raw_line, place_name: misto, date: null });
+  const prectene = (id: string) => (radek(id).parsed_items as Radek[]).map((p) => `${p.qty}× ${p.beer_name} / ${String(p.package_label).trim()}`);
+  /** Dřívější objednávka odběratele s lahvemi — řádek tak, jak ho vrátí dotaz s připojenou objednávkou. */
+  const lahve = (objednavka: string, datum: string, misto: string, obal: string, status = 'nova'): Radek =>
+    ({ package_id: obal, orders: { id: objednavka, order_date: datum, place_id: misto, place_name: null, status } });
+
+  it('6. 10. 2026 (Maneo): staré „naučené zkratky" se AI neposílají a obal je ten z řádku, ne ten od AI', async () => {
+    db.parser_aliases = [
+      { alias_text: 'keg 15l', beer_id: null, package_id: 'k20' },
+      { alias_text: '10l', beer_id: null, package_id: 'k15' },
+      { alias_text: '1l', beer_id: null, package_id: 'l15' },
+    ];
+    db.whatsapp_incoming.push(zprava('m1', { message_text: 'Maneo\n3x 15l desitka\n2x 10l desitka\n12x 1l 11sv' }));
+    const tela = ctecka(() => ({ ms: 3_000, json: PRECTENO({ place_name: 'Maneo', raw_text: 'Maneo', items: [
+      polozka(3, '10° Desítka', 'KEG 20l', '3x 15l desitka', 'Maneo'),
+      polozka(2, '10° Desítka', 'KEG 15l', '2x 10l desitka', 'Maneo'),
+      polozka(12, '11° Světlá', 'PET 1.5l', '12x 1l 11sv', 'Maneo'),
+    ] }) }));
+    await spust();
+    expect(tela).toHaveLength(1);
+    expect(tela[0].aliases).toBeUndefined();
+    expect(JSON.stringify(tela[0])).not.toContain('keg 15l');
+    expect(prectene('m1')).toEqual(['3× 10° Desítka / 15l', '2× 10° Desítka / 10l', '12× 11° Světlá / 1l']);
+  });
+
+  it('9. 11. 2026 (Lužec): odběratel bere třetinky → bedny bez velikosti jsou 0,33 l, i půlka řádku bez slova „beden"', async () => {
+    db.order_items = [
+      lahve('o-srpen', '2026-08-16', 'm-luzec', 'l05'),
+      lahve('o1', '2026-10-06', 'm-luzec', 'l033'), lahve('o2', '2026-10-27', 'm-luzec', 'l033'),
+      lahve('o3', '2026-11-03', 'm-luzec', 'l033'), lahve('o3', '2026-11-03', 'm-luzec', 'l033'),
+      // cizí odběratel a stornovaná objednávka do zvyku Lužce nepatří
+      lahve('x1', '2026-11-15', 'm-jina', 'l05'), lahve('x2', '2026-11-16', 'm-luzec', 'l05', 'storno'),
+    ];
+    db.whatsapp_incoming.push(zprava('l1', { message_text: 'Lužec 5 beden světlého a 3 tmavého' }));
+    ctecka(() => ({ ms: 3_000, json: PRECTENO({ place_name: 'Lužec', raw_text: 'Lužec', items: [
+      polozka(100, '12° Světlá', 'Lahve 0.5l', '5 beden světlého', 'Lužec'),
+      polozka(60, '12° Tmavá', 'Lahve 0.5l', '3 tmavého', 'Lužec'),
+    ] }) }));
+    await spust();
+    expect(radek('l1').parsed_place_name).toBe('Lužec');
+    expect(prectene('l1')).toEqual(['100× 12° Světlá / 0.33l', '60× 12° Tmavá / 0.33l']);
+  });
+
+  it('odběratel bez zvyku (bere obojí, nebo lahve ještě nebral) → bedna zůstává 0,5 l', async () => {
+    db.order_items = [lahve('o1', '2026-11-03', 'm-jina', 'l033'), lahve('o2', '2026-11-10', 'm-jina', 'l05')];
+    db.whatsapp_incoming.push(
+      zprava('s1', { message_text: 'Malešice 2 bedny světlého' }),
+      zprava('s2', { message_text: 'Maneo 2 basy sklo 12sv', created_at: new Date(T0 + 1_000).toISOString() }),
+    );
+    ctecka((telo) => ({ ms: 3_000, json: PRECTENO(String(telo.rawText).startsWith('Male')
+      ? { place_name: 'Malešice', raw_text: 'Malešice', items: [polozka(40, '12° Světlá', 'Lahve 0.5l', '2 bedny světlého', 'Malešice')] }
+      : { place_name: 'Maneo', raw_text: 'Maneo', items: [polozka(40, '12° Světlá', 'Lahve 0.33l', '2 basy sklo 12sv', 'Maneo')] }) }));
+    await spust();
+    expect(prectene('s1')).toEqual(['40× 12° Světlá / 0.5l']);
+    expect(prectene('s2')).toEqual(['40× 12° Světlá / 0.5l']);
+  });
+
+  it('velikost napsaná ve zprávě má přednost před zvykem i před AI („Sklo 0,5l" u odběratele třetinek)', async () => {
+    db.order_items = [lahve('o1', '2026-10-27', 'm-luzec', 'l033'), lahve('o2', '2026-11-03', 'm-luzec', 'l033')];
+    db.whatsapp_incoming.push(zprava('l2', { message_text: 'Lužec 1 bedna 0,5l 12sv a 1 bedna třetinek tmavé' }));
+    ctecka(() => ({ ms: 3_000, json: PRECTENO({ place_name: 'Lužec', raw_text: 'Lužec', items: [
+      polozka(20, '12° Světlá', 'Lahve 0.33l', '1 bedna 0,5l 12sv', 'Lužec'),
+      polozka(20, '12° Tmavá', 'Lahve 0.5l', '1 bedna třetinek tmavé', 'Lužec'),
+    ] }) }));
+    await spust();
+    expect(prectene('l2')).toEqual(['20× 12° Světlá / 0.5l', '20× 12° Tmavá / 0.33l']);
+  });
+});

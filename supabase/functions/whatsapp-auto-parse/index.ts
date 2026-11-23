@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { requireApprovedUser } from "../_shared/require-user.ts";
-import { normText, matchBeerId, matchPackageId, jeLitrPsanyJakoJedenact } from "../_shared/beer-match.ts";
+import { normText, matchBeerId, matchPackageId, jeLitrPsanyJakoJedenact, jeLahevBezObjemu } from "../_shared/beer-match.ts";
+import { nactiZvykLahve } from "../_shared/zvyk-lahve.ts";
 import { poradiPodlePrepisu } from "../_shared/prepis-fotky.ts";
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, preferujExaktniOdberatele, wantsOwnOrder as textWantsOwnOrder } from "../_shared/place-match.ts";
 import { nactiHistorii } from "../_shared/historie-objednavek.ts";
@@ -278,27 +279,18 @@ Deno.serve(async (req: Request) => {
     const packages = packagesRes.data || [];
     const places = placesRes.data || [];
 
-    // Get alias maps
-    const { data: aliasRows } = await supabase
-      .from("parser_aliases")
-      .select("alias_text, beer_id, package_id");
-
-    // parser_aliases ukládá id piva/obalu → převedeme je na čitelné názvy pro AI
-    // a zároveň si připravíme mapu alias_text → id pro přiřazení položek.
-    const aliasRowsSafe = aliasRows || [];
+    // 🧠 „Naučené zkratky" (tabulka parser_aliases) čtečka NEPOUŽÍVÁ.
+    // Appka je do 23. 11. 2026 ukládala potichu z každé ruční změny piva nebo
+    // obalu — i když šlo o záměnu jen pro tu jednu objednávku. Vzniklo tak
+    // 184 „pravidel" typu „30l → 1 l", „0.33l → 0,5 l" nebo „keg 15l → 20 l",
+    // která AI dostávala jako spolehlivou nápovědu a podle kterých se obaly
+    // četly špatně (6. 10. 2026 Maneo: „3x 15l" → 20 l; 9. 11. 2026 Lužec).
+    // Data v tabulce zůstávají, jen se nečtou. Co v řádku stojí výslovně, řeší
+    // obalVyslovneVRadku; lahve bez velikosti zvyk odběratele (zvyk-lahve.ts).
     const aliasMap = {
       beer: new Map<string, string>(),
       package: new Map<string, string>(),
     };
-    for (const a of aliasRowsSafe) {
-      if (a.beer_id) aliasMap.beer.set(a.alias_text, a.beer_id);
-      if (a.package_id) aliasMap.package.set(a.alias_text, a.package_id);
-    }
-    const aliases = aliasRowsSafe.map((a: any) => ({
-      alias_text: a.alias_text,
-      beer_name: (beers as any[]).find((b) => b.id === a.beer_id)?.name ?? null,
-      package_label: (packages as any[]).find((p) => p.id === a.package_id)?.label ?? null,
-    }));
 
     // Get place aliases
     const { data: placeAliasRows } = await supabase
@@ -586,7 +578,6 @@ Deno.serve(async (req: Request) => {
           beers,
           packages,
           places: places.map(p => p.name),
-          aliases,
           placeAliases,
           historie: historieText,
           // Když jde o úpravu, dostane AI SOUČASNÝ obsah objednávky a má vrátit
@@ -918,6 +909,12 @@ Deno.serve(async (req: Request) => {
         // Odpověď upravující objednávku: AI dostala současný obsah a vrací
         // VÝSLEDNÝ stav celé objednávky, ne jen to, co zpráva říká.
         const jeVyslednyStav = !!amendsOrderId && !vypadaJakoVraceni(message.message_text);
+        // 🍾 Lahve/bedny bez udané velikosti („5 beden světlého"): rozhodne, co
+        // odběratel bere — viz ../_shared/zvyk-lahve.ts. Dotaz jen když je potřeba.
+        const jeOLahvich = (item: any) => jeLahevBezObjemu(item.raw_line) || /0[.,](?:33|5)/.test(String(item.package_label || ""));
+        const lahevOdberatele = parsedItems.some(jeOLahvich)
+          ? await nactiZvykLahve(supabase, { placeId: parsedPlaceId, placeName: parsedPlaceName, kdy: message.created_at, packages })
+          : null;
         const itemsForStorage = parsedItems.map((item: any) => {
           // Řádek výsledného stavu, ke kterému AI přiložila text CITOVANÉ zprávy
           // (jen ho opakuje, nebo v něm odpověď něco změnila): platí pivo od AI,
@@ -925,8 +922,11 @@ Deno.serve(async (req: Request) => {
           // (17. 11. 2026, Malešice: „Jantar" z druhého řádku citace se propsal
           // i do sudů 12° Světlé; viz _shared/beer-match.ts).
           const zCitace = jeVyslednyStav && radekJeZCitace(item.raw_line, message.message_text, message.quoted_text);
-          const beerId = matchBeerId(zCitace ? { ...item, z_citace: true } : item, beers, aliasMap);
-          const pkgId = matchPackageId(item, packages, aliasMap);
+          const polozka = zCitace ? { ...item, z_citace: true } : item;
+          const beerId = matchBeerId(polozka, beers, aliasMap);
+          // Obal: co v řádku stojí výslovně („15l", „0,33"), přebije i obal od AI
+          // — kromě řádku z citace, kde ho odpověď mohla změnit (stejně jako pivo).
+          const pkgId = matchPackageId(polozka, packages, aliasMap, { lahevOdberatele });
           // ⚠️ beer_name MUSÍ odpovídat beer_id. Dřív se určovaly dvěma
           // nezávislými cestami (id párováním s katalogem, název od AI) a nic
           // je nesrovnávalo — 25. 8. 2026 tak vznikla položka s beer_id

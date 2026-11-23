@@ -9,7 +9,7 @@ import { Modal } from './ui';
 import { X } from 'lucide-react';
 import { PlaceCombobox } from './PlaceCombobox';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
-import { saveAlias, canLearnBeerAlias, getOrCreatePlace } from '../lib/orderParser';
+import { getOrCreatePlace } from '../lib/orderParser';
 import { isTapMentioned, detectTapType } from '../lib/tapReservations';
 import { TapReservationModal } from './TapReservationModal';
 import { QuickQtySelect } from './QuickQtySelect';
@@ -137,7 +137,6 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
         }
       }
 
-      const toUpdate = rows.filter((r) => !r.removed && r.id && r.beerId && r.pkgId && Number(r.qty) > 0);
       const replacementItems = validRows.map((r) => {
         const beer = beers.find((b) => b.id === r.beerId);
         const pkg = packages.find((p) => p.id === r.pkgId);
@@ -170,28 +169,10 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
 
       // Items removed with no id (shouldn't happen since removeRow drops non-persisted rows immediately) — nothing to do
 
-      // 🧠 Nauč se aliasy z upravených položek — pokud někdo změnil pivo/obal,
-      // uložíme si to, aby příště parser (z fotky/emailu/hlasu) rovnou použil správnou hodnotu.
-      for (const r of toUpdate) {
-        const orig = items.find((i) => i.id === r.id);
-        if (!orig) continue;
-        const beerChanged = orig.beer_id !== r.beerId;
-        const pkgChanged = orig.package_id !== r.pkgId;
-        if (beerChanged || pkgChanged) {
-          // Zkusíme najít text, který by mohl být alias — použijeme beer_name z originálu.
-          // Trvalé pravidlo z toho ale uděláme jen tehdy, když dává smysl:
-          // text nesmí správně jmenovat jiné pivo z katalogu ani nést cizí
-          // stupeň (viz canLearnBeerAlias v orderParser.ts).
-          const origBeerName = orig.beer_name;
-          if (origBeerName && origBeerName.trim() && r.beerId && canLearnBeerAlias(origBeerName, r.beerId, beers)) {
-            await saveAlias(origBeerName, r.beerId, null).catch(() => {});
-          }
-          const origPkgLabel = orig.package_label;
-          if (origPkgLabel && origPkgLabel.trim()) {
-            await saveAlias(origPkgLabel, null, r.pkgId).catch(() => {});
-          }
-        }
-      }
+      // 🧠 Úprava existující objednávky NIC NEUČÍ. Dřív se tu z každé změny piva
+      // nebo obalu uložila „naučená zkratka" podle NÁZVU z katalogu („30l" → 1 l,
+      // „0.5l" → 1 l) a čtečka objednávek ji pak brala jako pravidlo. Změna
+      // v hotové objednávce je ale jen změna té objednávky, ne oprava čtení.
 
       // 🚰 Automatická rezervace výčepu, pokud je v poznámce zmínka (včetně synonym)
       const trimmedNote = note.trim();
