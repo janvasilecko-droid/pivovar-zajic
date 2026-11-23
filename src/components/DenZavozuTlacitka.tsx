@@ -16,8 +16,10 @@ function posunoutDatum(datum: string, dny: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function DenZavozuTlacitka({ den, datum, onDen, poznamka, zavoz, onZavoz, onDatum, dnes, bezVyberu }: {
+export function DenZavozuTlacitka({ den, datum, onDen, poznamka, zavoz, onZavoz, onDatum, dnes, bezVyberu, nadpis }: {
   den: string | null;
+  /** Nadpis nad tlačítky; u objednávky bez závozu „Den odběru". */
+  nadpis?: string;
   /** Co se stane bez vybraného dne (např. „nevybráno — pojede ve středu"); jinak jen „nevybráno". */
   bezVyberu?: string | null;
   /** Datum, které z volby vyjde (YYYY-MM-DD). */
@@ -36,7 +38,7 @@ export function DenZavozuTlacitka({ den, datum, onDen, poznamka, zavoz, onZavoz,
   return (
     <div className="space-y-1">
       <div className="text-xs font-black text-neutral-700">
-        Den závozu
+        {nadpis ?? 'Den závozu'}
         {datum && (
           <span className="ml-1.5 text-neutral-950">
             → {new Date(datum + 'T00:00:00').toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric' })}

@@ -7,6 +7,11 @@ export interface WhatsAppIncoming {
   id: string;
   /** Jen v appce při schvalování: 1. / 2. závoz nové objednávky (29. 9. 2026). */
   zavoz_cislo?: number | null;
+  /**
+   * Jen v appce při schvalování: zaškrtávátko „Bez závozu" z kontroly zprávy
+   * (23. 11. 2026). Chybí = rozhodne jméno odběratele (lib/bezZavozu.ts).
+   */
+  bez_zavozu?: boolean;
   created_at: string;
   sender_name: string;
   /** Skutečný pisatel zprávy VE SKUPINOVÉM chatu — u skupiny je `sender_name`

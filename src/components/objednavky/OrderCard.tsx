@@ -24,8 +24,9 @@ import { vracenoPodleObjednavky } from '../../lib/vraceniZObjednavky';
 import { maViceMist, mistaOdberatele, mistoObjednavky, nazevHlavnihoMista } from '../../lib/mistaZavozu';
 
 import { type Order, type OrderItem, dayColor, getTapNameForOrder } from './spolecne';
+import { IkonaBezZavozu, StitekBezZavozu, jeBezZavozu } from './BezZavozu';
 
-export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu, sudyPoPolozce, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onUpdateZavoz, onSetStatus, onDelete, onEdit, onSplit, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
+export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu, sudyPoPolozce, selected, onToggleSelect, onClick, onToggleFlag, onToggleItemFlag, onUpdateDeliveryDay, onUpdateZavoz, onPrepniBezZavozu, onSetStatus, onDelete, onEdit, onSplit, onVratitPivo, vracenoZaznamy, beers, packages, places, activeBeerId, activePackageId, itemMatchesFilter }: {
   o: Order; items: OrderItem[];
   /**
    * Zbytek skladu ke konci týdne PRO TUHLE KONKRÉTNÍ objednávku — objednávky
@@ -44,6 +45,11 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
   onUpdateDeliveryDay: (o: Order, day: string) => void;
   /** 1. / 2. závoz (29. 9. 2026: „dej ten druhý závoz i na objednávkách"). */
   onUpdateZavoz?: (o: Order, cislo: number) => void;
+  /**
+   * Přepne „bez závozu" u hotové objednávky — tlačítko „Bez" v řádku Závoz
+   * (23. 11. 2026). Bez něj se tlačítko neukáže; štítek se ukazuje vždy.
+   */
+  onPrepniBezZavozu?: (o: Order) => void;
   onSetStatus: (o: Order, status: string) => void;
   onDelete: (id: string) => void;
   onEdit: (o: Order) => void;
@@ -72,6 +78,9 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
 }) {
 
   const total = items.reduce((s, i) => s + Number(i.quantity), 0);
+  // 🚚❌ Bez závozu (lib/bezZavozu.ts) — odběratel si bere pivo sám. Do 23. 11.
+  // 2026 karta ukazovala auto a den jako u každé jiné objednávky a nešlo to poznat.
+  const bezZavozu = jeBezZavozu(o);
   // ⚠️ CO TENHLE ODZNAK VLASTNĚ MĚŘÍ. Ne „na tuhle objednávku nemám pivo",
   // ale „tahle kombinace piva a obalu je ke konci týdne závozu v mínusu" —
   // počítá se ze skladové knihy přes VŠECHNY pohyby toho týdne. Proto se
@@ -125,7 +134,9 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
       className={`card-hover p-2.5 cursor-pointer relative overflow-hidden transition-all border-2 bg-white border-neutral-200 ${selected ? 'ring-2 ring-primary-500' : ''}`}
       onClick={onClick}
     >
-      {dayColor(o.delivery_day) && (
+      {bezZavozu ? (
+        <div data-testid="prouzek-bez-zavozu" className="absolute left-0 top-0 bottom-0 w-1 bg-neutral-900" />
+      ) : dayColor(o.delivery_day) && (
         <div className={`absolute left-0 top-0 bottom-0 w-1 ${dayColor(o.delivery_day)!.bar}`} />
       )}
       <div className="flex flex-col gap-1.5 pl-1.5">
@@ -163,8 +174,10 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
               <Calendar size={12} /> {new Date(o.delivery_date).toLocaleDateString('cs-CZ')}
             </span>
           )}
-          {o.delivery_day && (
-            <span className={`text-lg font-black leading-none px-2 py-1 rounded shrink-0 flex items-center gap-1 ${dayColor(o.delivery_day)!.chip}`}>
+          {/* Bez závozu: na místě dne s autem černý štítek. Kdy si odběratel pivo
+              bere, říká datum vedle. */}
+          {bezZavozu ? <StitekBezZavozu /> : o.delivery_day && (
+            <span data-testid="stitek-dne-zavozu" className={`text-lg font-black leading-none px-2 py-1 rounded shrink-0 flex items-center gap-1 ${dayColor(o.delivery_day)!.chip}`}>
               <Truck size={18} /> {DAYS.find((d) => d.v === o.delivery_day)?.label ?? o.delivery_day}
             </span>
           )}
@@ -195,7 +208,7 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
             // V den závozu „závoz dnes“, ne „po termínu“ (5. 11. 2026).
             if (termin === 'dnes') return (
               <span className="text-lg font-black leading-none text-amber-900 bg-amber-100 border border-amber-300 rounded px-2 py-1 shrink-0">
-                závoz dnes
+                {bezZavozu ? 'odběr dnes' : 'závoz dnes'}
               </span>
             );
             return null;
@@ -390,6 +403,21 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
 
           <div className="flex items-center gap-1 ml-auto flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
             <span className="text-udaj font-extrabold text-neutral-900 shrink-0">Závoz:</span>
+            {/* „Bez" = bez závozu. S dny tvoří jednu volbu: buď nejede, nebo jede
+                v jeden z dnů. Přepnutí den ani datum nemění, takže se sklad nehýbe. */}
+            {onPrepniBezZavozu && (
+              <button
+                type="button"
+                data-testid="prepni-bez-zavozu"
+                className={`${bezZavozu ? 'btn-den-bez' : 'btn-den'} flex items-center gap-1`}
+                onClick={() => onPrepniBezZavozu(o)}
+                aria-pressed={bezZavozu}
+                aria-label={bezZavozu ? 'Bez závozu — klepnutím vrátit do závozu' : 'Označit bez závozu'}
+                title={bezZavozu ? 'Bez závozu — klepnutím vrátit do závozu' : 'Označit bez závozu — odběratel si bere pivo sám'}
+              >
+                <IkonaBezZavozu size={12} /> Bez
+              </button>
+            )}
             {/* Jedno klepnutí místo rozklikávacího <select>u — pivovar rozváží
                 jen v pracovní dny, proto jen 5 tlačítek (Po–Pá). Klepnutí na
                 už vybraný den ho zase zruší. */}
@@ -397,15 +425,15 @@ export function OrderCard({ o, items, stockRemainingForOrder, nadPocetMalychSudu
               <button
                 key={d.v}
                 type="button"
-                className={`btn-den ${o.delivery_day === d.v ? 'btn-den-aktivni' : ''}`}
-                onClick={() => onUpdateDeliveryDay(o, o.delivery_day === d.v ? '' : d.v)}
-                title={o.delivery_day === d.v ? `Zrušit den závozu (${d.label})` : `Nastavit den závozu: ${d.label}`}
+                className={`btn-den ${!bezZavozu && o.delivery_day === d.v ? 'btn-den-aktivni' : ''}`}
+                onClick={() => onUpdateDeliveryDay(o, !bezZavozu && o.delivery_day === d.v ? '' : d.v)}
+                title={bezZavozu ? `Pojede závozem: ${d.label}` : o.delivery_day === d.v ? `Zrušit den závozu (${d.label})` : `Nastavit den závozu: ${d.label}`}
               >
                 {d.label}
               </button>
             ))}
             {/* 1. / 2. závoz — jen když je sloupec v databázi (po migraci). */}
-            {onUpdateZavoz && o.zavoz_cislo !== undefined && o.delivery_day && [1, 2].map((c) => (
+            {onUpdateZavoz && !bezZavozu && o.zavoz_cislo !== undefined && o.delivery_day && [1, 2].map((c) => (
               <button
                 key={`z${c}`}
                 type="button"

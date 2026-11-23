@@ -2,7 +2,7 @@
 // automaticky ji zaskrtni kdyz bude mates,jitka,restaurace,terasa u zbytku
 // se musi zadat rucne."
 import { describe, it, expect } from 'vitest';
-import { denZavozuProUlozeni, jeAutomatickyBezZavozu } from './bezZavozu';
+import { denZavozuProUlozeni, jeAutomatickyBezZavozu, klicDne } from './bezZavozu';
 
 describe('jeAutomatickyBezZavozu', () => {
   it('zaškrtne se samo pro jmenované odběratele', () => {
@@ -16,6 +16,30 @@ describe('jeAutomatickyBezZavozu', () => {
     expect(jeAutomatickyBezZavozu('MATES')).toBe(true);
     expect(jeAutomatickyBezZavozu('restaurace')).toBe(true);
     expect(jeAutomatickyBezZavozu('  Terasa  ')).toBe(true);
+  });
+
+  // 23. 11. 2026: „egon, martin, jitka, toužim — to jde automaticky bez závozu."
+  // Názvy tak, jak stojí v katalogu odběratelů.
+  it('Egon, Martin a Chlapy z Toužimi jsou automaticky bez závozu', () => {
+    expect(jeAutomatickyBezZavozu('EGON')).toBe(true);
+    expect(jeAutomatickyBezZavozu('MARTIN')).toBe(true);
+    expect(jeAutomatickyBezZavozu('Chlapy z Toužimi')).toBe(true);
+    expect(jeAutomatickyBezZavozu('Toužim')).toBe(true);
+    expect(jeAutomatickyBezZavozu('chlapy  z  touzimi')).toBe(true);
+  });
+
+  // V katalogu není „Mates", ale „Mates Rybárna" — s přesnou shodou na „mates"
+  // se mu pole nezaškrtlo nikdy.
+  it('Mates se pozná i pod názvem z katalogu „Mates Rybárna"', () => {
+    expect(jeAutomatickyBezZavozu('Mates Rybárna')).toBe(true);
+    expect(jeAutomatickyBezZavozu('mates rybarna')).toBe(true);
+  });
+
+  it('jiný Martin, Egon nebo Toužim se nezaškrtne — musí sedět celý název', () => {
+    expect(jeAutomatickyBezZavozu('Martin Novák')).toBe(false);
+    expect(jeAutomatickyBezZavozu('Hospoda U Egona')).toBe(false);
+    expect(jeAutomatickyBezZavozu('Pivnice Toužim')).toBe(false);
+    expect(jeAutomatickyBezZavozu('Mates Rybárna Plzeň')).toBe(false);
   });
 
   // 🐛 Katalog má i „Restaurace Na Růžku" — skutečného odběratele s vlastním
@@ -35,6 +59,21 @@ describe('jeAutomatickyBezZavozu', () => {
     expect(jeAutomatickyBezZavozu('')).toBe(false);
     expect(jeAutomatickyBezZavozu(null)).toBe(false);
     expect(jeAutomatickyBezZavozu(undefined)).toBe(false);
+  });
+});
+
+describe('klicDne', () => {
+  it('den v týdnu z data', () => {
+    expect(klicDne('2026-11-23')).toBe('po');
+    expect(klicDne('2026-11-25')).toBe('st');
+    expect(klicDne('2026-11-29')).toBe('ne');
+  });
+
+  it('neplatné nebo chybějící datum nic nedomýšlí', () => {
+    expect(klicDne('')).toBeNull();
+    expect(klicDne(null)).toBeNull();
+    expect(klicDne('23. 11. 2026')).toBeNull();
+    expect(klicDne('2026-13-45')).toBeNull();
   });
 });
 

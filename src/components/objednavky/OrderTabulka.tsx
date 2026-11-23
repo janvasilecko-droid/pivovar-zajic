@@ -23,6 +23,7 @@ import { DAYS } from '../../lib/shared';
 import { rozdelSudyLahve } from '../../lib/sudyLahve';
 import { DvaSloupcePolozek } from '../DvaSloupcePolozek';
 import { type Order, type OrderItem, dayColor } from './spolecne';
+import { StitekBezZavozu, jeBezZavozu } from './BezZavozu';
 
 type Props = {
   objednavky: Order[];
@@ -109,9 +110,10 @@ export function OrderTabulka({
                         <div className="font-display font-black text-neutral-900 break-words">{jmeno}</div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-1">
                           <StitekStavu status={o.status} tridy="font-black shrink-0" />
-                          {den && barva && <span className={`chip ${barva.chip} shrink-0`}>{den}</span>}
+                          {/* Bez závozu: černý štítek místo dne, stejně jako na kartě. */}
+                          {jeBezZavozu(o) ? <StitekBezZavozu maly /> : den && barva && <span className={`chip ${barva.chip} shrink-0`}>{den}</span>}
                           <span className="text-udaj font-bold text-neutral-600 tabular-nums">{datumCesky(o.delivery_date || o.order_date)}</span>
-                          {o.zavoz_cislo === 2 && <span className="text-udaj font-black text-neutral-800 bg-neutral-100 rounded px-1">2. závoz</span>}
+                          {o.zavoz_cislo === 2 && !jeBezZavozu(o) && <span className="text-udaj font-black text-neutral-800 bg-neutral-100 rounded px-1">2. závoz</span>}
                         </div>
                       </div>
                     </div>

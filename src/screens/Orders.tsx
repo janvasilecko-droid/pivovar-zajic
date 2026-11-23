@@ -92,6 +92,7 @@ import { popisRezervaceVycepu, type KonceptObjednavky } from '../lib/objednavkaP
 import type { TapReservation } from './VycepyScreen';
 import { VariantTotalsPanel } from '../components/objednavky/VariantTotalsPanel';
 import { OrderCard } from '../components/objednavky/OrderCard';
+import { IkonaBezZavozu, NadpisBezZavozu, jeBezZavozu, rozdelPodleZavozu } from '../components/objednavky/BezZavozu';
 import { OrderTabulka } from '../components/objednavky/OrderTabulka';
 import { VraceniPiva } from '../components/objednavky/VraceniPiva';
 import { VratitPivoModal } from '../components/objednavky/VratitPivoModal';
@@ -103,6 +104,9 @@ import { PruhUlozeni } from '../components/PruhUlozeni';
 // nejčastější 50 l a 30 l jsou dole u palce, ať jde panel ovládat jednou rukou
 // („dej 50 dolů, ať se to dá líp ovládat jedním prstem"):
 // 0,33l → 0,5l → 10l → 15l → 20l → 1l → 1,5l → 30l → 50l
+/** Hodnota filtru dne „jen objednávky bez závozu" (vedle 'all', 'po'…'ne' a '_none' = bez dne). */
+const FILTR_BEZ_ZAVOZU = '_bez';
+
 const PKG_PANEL_ORDER = [0.33, 0.5, 10, 15, 20, 1, 1.5, 30, 50];
 function pkgPanelIndex(p: Package): number {
   const i = PKG_PANEL_ORDER.indexOf(p.volume_l);
@@ -565,6 +569,8 @@ export default function Orders({
     deliveryDate: string;
     note: string;
     whatsappMessageId?: string;
+    /** Bez závozu — odběratel si bere pivo sám (lib/bezZavozu.ts). */
+    bezZavozu?: boolean;
     items: { beerId: string; pkgId: string; qty: number }[];
   }[]) {
     const today = businessDateISO();
@@ -601,6 +607,7 @@ export default function Orders({
           status: 'nova',
           delivery_day: data.deliveryDay || null,
           delivery_date: data.deliveryDate || null,
+          no_delivery: data.bezZavozu === true,
           is_prepared: false,
           is_packaged: false,
           note: data.note || null,
@@ -788,6 +795,11 @@ export default function Orders({
       const denZavozu = message.parsed_delivery_day
         || parseDeliveryDayFromText(message.message_text || '')
         || null;
+      // 🚚❌ Bez závozu (23. 11. 2026): co je zaškrtnuté v kontrole zprávy. Kde se
+      // okno neptalo (odpověď schválená jako nová objednávka), rozhodne jméno
+      // odběratele (lib/bezZavozu.ts). Bez dne takové objednávce databáze doplní
+      // den objednávky (doplnit_datum_zavozu) — pivo odchází dnes.
+      const bezZavozu = message.bez_zavozu ?? jeAutomatickyBezZavozu(placeNameFree);
 
       // ⚠️ Kontrola duplicity — aby dva lidé nezadali ve stejnou chvíli stejnou
       // objednávku (např. oba kliknou na „Schválit“ u téže zprávy).
@@ -835,6 +847,7 @@ export default function Orders({
           status: 'nova',
           delivery_day: denZavozu,
           delivery_date: message.parsed_delivery_date || null,
+          no_delivery: bezZavozu,
           is_prepared: false,
           is_packaged: false,
           note: message.parsed_note || null,
@@ -847,7 +860,7 @@ export default function Orders({
       oznacVlastniObjednavku(newOrder.id);
       // 2. závoz vybraný při kontrole zprávy (29. 9. 2026). Zvlášť, ať bez
       // migrace zavoz_cislo neselže celé schválení.
-      if (message.zavoz_cislo && message.zavoz_cislo !== 1) {
+      if (message.zavoz_cislo && message.zavoz_cislo !== 1 && !bezZavozu) {
         await supabase.from('orders').update({ zavoz_cislo: message.zavoz_cislo }).eq('id', newOrder.id).then(() => {}, () => {});
       }
 
@@ -1555,8 +1568,26 @@ export default function Orders({
     // na budoucí týden zůstane) — lib/keggingPlan.ts datumProDenObjednavky.
     const noveDatum = day ? datumProDenObjednavky(day, o.delivery_date || o.order_date, businessDateISO()) : null;
     if (noveDatum) patch.delivery_date = noveDatum;
+    // „Bez" a dny jsou v řádku Závoz jedna volba: vybraný den u objednávky bez
+    // závozu znamená, že ten den pojede závozem.
+    if (day && jeBezZavozu(o)) patch.no_delivery = false;
     await supabase.from('orders').update(patch).eq('id', o.id);
     setOrders((arr) => arr.map((x) => x.id === o.id ? { ...x, ...patch } as Order : x));
+  }
+
+  // 🚚❌ Tlačítko „Bez" na kartě (23. 11. 2026): přepne bez závozu u hotové
+  // objednávky — do té doby to šlo nastavit jen při ručním zadání a pak už ne.
+  // Mění se JEN příznak: den ani datum zůstávají, takže se odpočet ze skladu
+  // nehýbe (databázové triggery na tenhle sloupec nereagují).
+  async function prepniBezZavozu(o: Order) {
+    const bez = !jeBezZavozu(o);
+    // Nejdřív se překreslí, pak se ukládá (jako toggleFlag níž).
+    setOrders((arr) => arr.map((x) => (x.id === o.id ? { ...x, no_delivery: bez } : x)));
+    const { error } = await supabase.from('orders').update({ no_delivery: bez }).eq('id', o.id);
+    if (error) {
+      setOrders((arr) => arr.map((x) => (x.id === o.id ? { ...x, no_delivery: !bez } : x)));
+      chyba('Nepovedlo se uložit: ' + error.message);
+    }
   }
   // ↩️ Zrušit objednávky, které už jsou odepsané ze skladu: odpočet zůstane
   // (uzavřený týden), kusy se vrátí na sklad DNEŠNÍM dnem jako vrácení přes
@@ -1721,8 +1752,9 @@ export default function Orders({
       if (overdueOnly && (o.is_delivered || o.status !== 'nova' || !o.delivery_date || o.delivery_date > dnes)) return false;
       if (statusFilter && o.status !== statusFilter) return false;
       if (deliveryDayFilter !== 'all') {
-        if (deliveryDayFilter === '_none' && o.delivery_day) return false;
-        if (deliveryDayFilter !== '_none' && o.delivery_day !== deliveryDayFilter) return false;
+        if (deliveryDayFilter === FILTR_BEZ_ZAVOZU) { if (!jeBezZavozu(o)) return false; }
+        else if (deliveryDayFilter === '_none') { if (o.delivery_day) return false; }
+        else if (o.delivery_day !== deliveryDayFilter) return false;
       }
       const its = items[o.id] ?? [];
       // Obal + druh piva se vyhodnocují SPOLEČNĚ na jedné položce (viz matchesItemFilters výše)
@@ -1764,16 +1796,20 @@ export default function Orders({
   // v aktuálně zvoleném rozsahu (týden / měsíc / vše). Storno se nepočítá.
   const variantTotals = useMemo(() => computeVariantTotals(filtered, items), [filtered, items]);
 
+  // 🚚❌ Objednávky bez závozu stojí ve vlastní skupině NA KONCI seznamu
+  // (23. 11. 2026, majitel k návrhu: „A a C") — nahoře zůstane to, co se veze.
+  const podleZavozu = useMemo(() => rozdelPodleZavozu(searchedFiltered), [searchedFiltered]);
+
   const groupedByDay = useMemo(() => {
     if (!groupByDay) return null;
     const map = new Map<string, Order[]>();
-    searchedFiltered.forEach((o) => {
+    podleZavozu.seZavozem.forEach((o) => {
       const key = o.delivery_day || '_none';
       (map.get(key) ?? map.set(key, []).get(key)!).push(o);
     });
     const order = ['po', 'ut', 'st', 'ct', 'pa', 'so', 'ne', '_none'];
     return order.filter((k) => map.has(k)).map((k) => ({ key: k, orders: map.get(k)! }));
-  }, [groupByDay, searchedFiltered]);
+  }, [groupByDay, podleZavozu]);
 
   // 📋 Karta objednávky + její otevřený detail — jedna věc pro seznam karet i pro tabulku
   // (components/objednavky/OrderTabulka.tsx rozbaluje pod řádkem právě tohle, ať se žádná funkce neztratí).
@@ -1783,6 +1819,7 @@ export default function Orders({
         <OrderCard o={o} items={items[o.id] ?? []} stockRemainingForOrder={stockRemainingForOrder} nadPocetMalychSudu={maleSudy.nadPoPolozce} sudyPoPolozce={maleSudy.poPolozce}
           selected={selectedIds.has(o.id)} onToggleSelect={() => toggleSelect(o.id)}
           onClick={() => openDetail(o)} onToggleFlag={toggleFlag} onToggleItemFlag={toggleItemFlag} onUpdateDeliveryDay={updateDeliveryDay} onUpdateZavoz={updateZavoz}
+          onPrepniBezZavozu={prepniBezZavozu}
           onSetStatus={setStatus} onDelete={del} onEdit={setEditOrder} onSplit={setSplitOrder} beers={beers} packages={packages} places={places}
           activeBeerId={itemFilterBeerId} activePackageId={itemFilterPackageId}
           onVratitPivo={setVratitObjednavka} vracenoZaznamy={vraceniPodleObjednavky[o.id]}
@@ -1814,6 +1851,14 @@ export default function Orders({
         )}
       </div>
     );
+  }
+
+  // Jeden úsek seznamu (den, „se závozem", „bez závozu") v právě zvoleném zobrazení.
+  function seznamObjednavek(usek: Order[]) {
+    return zobrazeni === 'tabulka'
+      ? <OrderTabulka objednavky={usek} items={items} beers={beers} packages={packages} places={places} selectedIds={selectedIds} onToggleSelect={toggleSelect}
+          stockRemainingForOrder={stockRemainingForOrder} otevrenaId={detail?.id ?? null} renderKarta={kartaObjednavky} itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
+      : usek.map((o) => kartaObjednavky(o));
   }
 
   // ---- Hromadné akce ----
@@ -1921,10 +1966,13 @@ export default function Orders({
         radky: its.map((i) => ({ beerId: i.beer_id, pkgId: i.package_id, qty: Number(i.quantity) })),
       });
       if (shody?.length && (await zeptejSeNaDuplicitu(shody, nazvyZKatalogu(beers, packages))) !== 'presto') return;
+      // 🚚❌ Kopie objednávky bez závozu (nebo jmenovaného odběratele) je taky bez
+      // závozu a odchází dnes — den předlohy by ji poslal až na příští takový den.
+      const bezZavozu = jeBezZavozu(o) || jeAutomatickyBezZavozu(o.place_name);
       const { data: newOrder, error } = await supabase.from('orders').insert({
         order_date: today, place_id: o.place_id, place_name: o.place_name,
-        source: 'duplikat', status: 'nova', delivery_day: o.delivery_day,
-        delivery_date: null, is_prepared: false, is_packaged: false, note: o.note,
+        source: 'duplikat', status: 'nova', delivery_day: bezZavozu ? null : o.delivery_day,
+        delivery_date: null, no_delivery: bezZavozu, is_prepared: false, is_packaged: false, note: o.note,
         // 📍 Kopie jede tam, kam předloha (Radek: Hradec / Praha). Hodnota je v řádku
         // jen po migraci 20261231450000 — do té doby se sloupec neposílá.
         ...(o.misto_zavozu ? { misto_zavozu: o.misto_zavozu } : {}),
@@ -2897,6 +2945,28 @@ export default function Orders({
           >
             <span className="inline-flex items-center gap-1.5"><Truck size={14} /> Všechny dny</span>
           </button>
+          {/* 🚚❌ Bez závozu — hned za „Všechny dny", ať je vidět bez posouvání lišty.
+              Černý jako štítek na kartě; vybraný se přebarví jako ostatní filtry. */}
+          {(() => {
+            const pocet = filtered.filter((o) => jeBezZavozu(o) && o.status !== 'storno').length;
+            const vybrany = deliveryDayFilter === FILTR_BEZ_ZAVOZU;
+            return (
+              <button
+                data-testid="filtr-bez-zavozu"
+                aria-pressed={vybrany}
+                onClick={() => setDeliveryDayFilter(vybrany ? 'all' : FILTR_BEZ_ZAVOZU)}
+                className={`tap btn-filtr-bez-tvar ${vybrany ? 'btn-filtr-bez-aktivni' : pocet > 0 ? 'btn-filtr-bez' : 'btn-filtr-bez-prazdny'}`}
+              >
+                <IkonaBezZavozu size={14} />
+                <span>Bez závozu</span>
+                {pocet > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-udaj ${vybrany ? 'bg-neutral-900/10 text-neutral-900' : 'bg-white/25'}`}>
+                    {pocet}
+                  </span>
+                )}
+              </button>
+            );
+          })()}
           {DAYS.map((d) => {
             const count = filtered.filter((o) => o.delivery_day === d.v && o.status !== 'storno').length;
             const hasOrders = count > 0;
@@ -3127,7 +3197,7 @@ export default function Orders({
         <div data-testid="souhrn-zobrazenych" className="rounded-xl border-2 border-amber-300 bg-amber-50 px-3 py-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="font-display font-black text-lg text-amber-950 tabular-nums">{souhrnZobrazenych.kusu} ks</span>
           <span className="text-xs font-bold text-amber-900">
-            {polozkovyFiltrAktivni ? 'podle filtru' : 'v tomto dni'} · {souhrnZobrazenych.objednavek} {souhrnZobrazenych.objednavek === 1 ? 'objednávka' : souhrnZobrazenych.objednavek < 5 ? 'objednávky' : 'objednávek'}
+            {polozkovyFiltrAktivni ? 'podle filtru' : deliveryDayFilter === FILTR_BEZ_ZAVOZU ? 'bez závozu' : 'v tomto dni'} · {souhrnZobrazenych.objednavek} {souhrnZobrazenych.objednavek === 1 ? 'objednávka' : souhrnZobrazenych.objednavek < 5 ? 'objednávky' : 'objednávek'}
           </span>
           {souhrnZobrazenych.poObalech.length > 1 && (
             <span className="text-xs font-semibold text-amber-900 tabular-nums">
@@ -3140,9 +3210,9 @@ export default function Orders({
       {/* Při načítání se dřív nezobrazovalo nic — na pomalém připojení bylo pod
           filtry prázdno a objednávky se pak „samy objevily". Nešlo poznat,
           jestli se načítá, nebo je opravdu prázdno. */}
-      {viewMode !== 'celkem' && viewMode !== 'text' && viewMode !== 'vraceni' && (loading ? <Spinner /> : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon={Receipt} akce={{ popis: 'Zrušit filtry a hledání', onClick: () => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); setPackageKindFilter('all'); setZavozOnly(false); setOverdueOnly(false); } }} /> : (viewMode === 'detail' && groupedByDay) ? (
+      {viewMode !== 'celkem' && viewMode !== 'text' && viewMode !== 'vraceni' && (loading ? <Spinner /> : searchedFiltered.length === 0 ? <EmptyState text="Žádné objednávky pro zvolené filtry." icon={Receipt} akce={{ popis: 'Zrušit filtry a hledání', onClick: () => { setSearchText(''); setStatusFilter(''); setDeliveryDayFilter('all'); setItemFilterBeerId(null); setItemFilterPackageId(null); setPackageKindFilter('all'); setZavozOnly(false); setOverdueOnly(false); } }} /> : viewMode === 'detail' && (
         <div className="space-y-6">
-          {groupedByDay.map((grp) => (
+          {groupedByDay ? groupedByDay.map((grp) => (
             <div key={grp.key}>
               <div className="flex items-center gap-2 mb-2">
                 <span className={`chip ${grp.key === '_none' ? 'bg-primary-100 text-primary-600' : dayColor(grp.key)!.chip}`}>
@@ -3150,21 +3220,18 @@ export default function Orders({
                 </span>
                 <span className="text-xs text-primary-400">{grp.orders.length} objednávek</span>
               </div>
-              <div className="space-y-3">
-                {zobrazeni === 'tabulka'
-                  ? <OrderTabulka objednavky={grp.orders} items={items} beers={beers} packages={packages} places={places} selectedIds={selectedIds} onToggleSelect={toggleSelect}
-                      stockRemainingForOrder={stockRemainingForOrder} otevrenaId={detail?.id ?? null} renderKarta={kartaObjednavky} itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
-                  : grp.orders.map((o) => kartaObjednavky(o))}
-              </div>
+              <div className="space-y-3">{seznamObjednavek(grp.orders)}</div>
             </div>
-          ))}
-        </div>
-      ) : (viewMode === 'detail' && !groupedByDay) && (
-        <div className="space-y-3">
-          {zobrazeni === 'tabulka'
-            ? <OrderTabulka objednavky={searchedFiltered} items={items} beers={beers} packages={packages} places={places} selectedIds={selectedIds} onToggleSelect={toggleSelect}
-                stockRemainingForOrder={stockRemainingForOrder} otevrenaId={detail?.id ?? null} renderKarta={kartaObjednavky} itemMatchesFilter={polozkovyFiltrAktivni ? matchesItemFilters : undefined} />
-            : searchedFiltered.map((o) => kartaObjednavky(o))}
+          )) : podleZavozu.seZavozem.length > 0 && (
+            <div className="space-y-3" data-testid="objednavky-se-zavozem">{seznamObjednavek(podleZavozu.seZavozem)}</div>
+          )}
+          {/* 🚚❌ Bez závozu — vlastní skupina na konci, pod tím, co se veze. */}
+          {podleZavozu.bezZavozu.length > 0 && (
+            <div className="space-y-3" data-testid="objednavky-bez-zavozu">
+              <NadpisBezZavozu pocet={podleZavozu.bezZavozu.length} />
+              {seznamObjednavek(podleZavozu.bezZavozu)}
+            </div>
+          )}
         </div>
       ))}
 
