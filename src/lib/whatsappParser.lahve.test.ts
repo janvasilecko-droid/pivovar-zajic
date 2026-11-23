@@ -8,12 +8,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const db = vi.hoisted(() => ({
   lahve: [] as Record<string, any>[],
   zkratky: [] as Record<string, any>[],
+  opravy: [] as Record<string, any>[],
 }));
 vi.mock('./supabase', () => {
   const h = (r: Record<string, any>, s: string) => s.split('.').reduce((o: any, k) => (o == null ? undefined : o[k]), r);
   function dotaz(tabulka: string) {
     const podminky: ((r: Record<string, any>) => boolean)[] = [];
-    const radky = () => (tabulka === 'order_items' ? db.lahve : tabulka === 'parser_aliases' ? db.zkratky : []).filter((r) => podminky.every((p) => p(r)));
+    const radky = () => (tabulka === 'order_items' ? db.lahve : tabulka === 'parser_aliases' ? db.zkratky : tabulka === 'naucene_opravy' ? db.opravy : []).filter((r) => podminky.every((p) => p(r)));
     const b: any = {
       select: () => b, order: () => b, lt: () => b, not: () => b, range: () => b,
       eq: (s: string, v: any) => { if (tabulka === 'order_items') podminky.push((r) => h(r, s) === v); return b; },
@@ -63,7 +64,7 @@ const radky = (r: { items: { quantity: number | null; package_label: string | nu
   r.items.map((i) => `${i.quantity}× ${i.beer_name} / ${String(i.package_label).trim()}`);
 
 describe('parseWhatsAppOrderMessageWithAI — obal podle toho, co ve zprávě stojí a co odběratel bere', () => {
-  beforeEach(() => { localStorage.clear(); vi.unstubAllGlobals(); db.lahve = []; db.zkratky = []; });
+  beforeEach(() => { localStorage.clear(); vi.unstubAllGlobals(); db.lahve = []; db.zkratky = []; db.opravy = []; });
 
   it('Lužec bere třetinky → „5 beden světlého a 3 tmavého" jsou lahve 0,33 l', async () => {
     db.lahve = [
@@ -115,5 +116,44 @@ describe('parseWhatsAppOrderMessageWithAI — obal podle toho, co ve zprávě st
     expect(tela[0].aliases).toBeUndefined();
     expect(JSON.stringify(tela[0])).not.toContain('keg 15l');
     expect(radky(r)).toEqual(['3× 10° Desítka / 15l']);
+  });
+
+  // 🧠 „Naučit" (23. 11. 2026): opravy, které uživatel výslovně potvrdil
+  // v kontrole zprávy (tabulka naucene_opravy) — stejně jako na serveru.
+  const naucena = (navic: Record<string, unknown>) => ({
+    id: 'o1', misto_klic: 'm-luzec', place_id: 'm-luzec', place_name: 'Lužec', radek: '10x zajíc 15l', klic: 'zajic 15l',
+    beer_id: 'b12', package_id: null, created_at: '2026-11-10T10:00:00Z', ...navic,
+  });
+
+  it('naučená oprava: AI ji dostane jako příklad a stejně napsaný řádek se u téhož odběratele přečte stejně', async () => {
+    db.opravy = [naucena({})];
+    const text = 'Lužec 5x zajíc 15l';
+    const tela = ctecka({ place_name: 'Lužec', raw_text: text, items: [
+      { beer_name: null, degree: null, package_label: 'KEG 15l', quantity: 5, raw_line: '5x zajíc 15l', place_name: 'Lužec' },
+    ] });
+    const r = await parseWhatsAppOrderMessageWithAI(text, BEERS, PACKAGES, PLACES, 'Radek', '2026-11-23T07:42:00Z');
+    expect(tela[0].opravy).toEqual([{ odberatel: 'Lužec', radek: '10x zajíc 15l', pivo: '12° Světlá', obal: null }]);
+    expect(radky(r)).toEqual(['5× 12° Světlá / 15l']);
+  });
+
+  it('u jiného odběratele naučená oprava neplatí', async () => {
+    db.opravy = [naucena({})];
+    const text = 'Maneo 5x zajíc 15l';
+    ctecka({ place_name: 'Maneo', raw_text: text, items: [
+      { beer_name: null, degree: null, package_label: 'KEG 15l', quantity: 5, raw_line: '5x zajíc 15l', place_name: 'Maneo' },
+    ] });
+    const r = await parseWhatsAppOrderMessageWithAI(text, BEERS, PACKAGES, PLACES, 'Radek', '2026-11-23T07:42:00Z');
+    expect(r.items.map((i) => i.beer_id)).toEqual([null]);
+  });
+
+  it('naučená velikost lahve má přednost před zvykem z historie', async () => {
+    db.lahve = [lahve('o1', '2026-11-03', 'm-maneo', 'l05'), lahve('o2', '2026-11-10', 'm-maneo', 'l05')];
+    db.opravy = [naucena({ misto_klic: 'm-maneo', place_id: 'm-maneo', place_name: 'Maneo', radek: '2 bedny světlého', klic: 'bedny svetleho', beer_id: null, package_id: 'l033' })];
+    const text = 'Maneo 3 bedny tmavého';
+    ctecka({ place_name: 'Maneo', raw_text: text, items: [
+      { beer_name: '12° Tmavá', degree: '12°', package_label: 'Lahve 0.5l', quantity: 60, raw_line: '3 bedny tmavého', place_name: 'Maneo' },
+    ] });
+    const r = await parseWhatsAppOrderMessageWithAI(text, BEERS, PACKAGES, PLACES, 'Radek', '2026-11-23T07:42:00Z');
+    expect(radky(r)).toEqual(['60× 12° Tmavá / 0.33l']);
   });
 });
