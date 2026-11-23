@@ -10,7 +10,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ObjednavkaPruvodce } from './ObjednavkaPruvodce';
 import type { DataPruvodce, VolbyUlozeni } from './pruvodceTypy';
-import type { KonceptObjednavky } from '../../lib/objednavkaPruvodce';
+import { KLIC_REZIMU_PRUVODCE, type KonceptObjednavky } from '../../lib/objednavkaPruvodce';
 import type { Beer, Package, Place } from '../../lib/supabase';
 import type { Order, OrderItem } from './spolecne';
 import { chyba, oznam, potvrd, toastZpet, uspech } from '../../lib/toast';
@@ -116,6 +116,9 @@ beforeEach(() => {
   vi.mocked(potvrd).mockResolvedValue(true);
   window.history.replaceState({}, '');
   window.localStorage.clear();
+  // Tenhle soubor zkouší JEDNU STRÁNKU (všechny části pod sebou, na počítači vedle sebe). Od 23. 11. 2026 se okno
+  // bez zapamatované volby otevírá po krocích — ty zkouší ObjednavkaPruvodce.kroky.test.tsx.
+  window.localStorage.setItem(KLIC_REZIMU_PRUVODCE, JSON.stringify('stranka'));
 });
 
 describe('odběratel a den (nahoře na stránce)', () => {
@@ -882,10 +885,11 @@ describe('jedna stránka místo tří kroků (19. 11. 2026)', () => {
     expect(screen.queryByRole('progressbar')).toBeNull();
   });
 
-  it('v hlavičce je jen křížek a název; vybraný odběratel s dnem je vidět vpravo', () => {
+  it('v hlavičce je křížek, název a přepínač způsobu; vybraný odběratel s dnem je vidět vpravo', () => {
     pripravit();
     const hlavicka = screen.getByRole('banner');
-    expect(within(hlavicka).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Zavřít']);
+    // Od 23. 11. 2026 je u křížku i přepínač „Po krocích" (jedna stránka je volba, ne jediný způsob).
+    expect(within(hlavicka).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Zavřít', 'Po krocích']);
     expect(within(hlavicka).getByRole('heading', { name: 'Nová objednávka' })).toBeTruthy();
     vyberOdberatele('Žižkov');
     expect(hlavicka.textContent).toContain('Žižkov · St 18. 11.');

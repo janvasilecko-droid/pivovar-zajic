@@ -88,6 +88,16 @@ async function polohaPoRolovani(locator) {
   return predchozi;
 }
 
+/**
+ * Okno „Nová objednávka" se od 23. 11. 2026 otevírá po krocích; jak ho člověk zvolil, si pamatuje
+ * zařízení (lib/objednavkaPruvodce.ts → KLIC_REZIMU_PRUVODCE). Scénáře jedné stránky si ji proto
+ * předem přišpendlí; scénář po krocích nechává výchozí volbu.
+ */
+const KLIC_REZIMU_PRUVODCE = 'objednavky_pruvodce_rezim_v1';
+async function pripnoutRezim(page, rezim) {
+  await page.addInitScript(([klic, hodnota]) => window.localStorage.setItem(klic, JSON.stringify(hodnota)), [KLIC_REZIMU_PRUVODCE, rezim]);
+}
+
 /** Počká na písmo appky (včetně českých znaků) a řekne, jestli se opravdu načetlo. */
 async function pockejNaPisma(page) {
   return page.evaluate(async () => {
@@ -195,10 +205,12 @@ try {
   const pruvodce = await b.newPage({ viewport: { width: 390, height: 844 } });
   const chybyPruvodce = [];
   pruvodce.on('pageerror', (e) => chybyPruvodce.push(String(e)));
+  await pripnoutRezim(pruvodce, 'stranka');
   await pruvodce.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
 
-  const kontrolaRozlozeni = async (kde) => {
-    const r = await pruvodce.evaluate(() => {
+  /** Rozložení okna: nic se nerozjíždí do stran a každý cíl pro prst má aspoň 44 px. */
+  const kontrolaRozlozeniNa = async (strana, kde) => {
+    const r = await strana.evaluate(() => {
       const male = [];
       for (const el of document.querySelectorAll('button, input:not([type=checkbox]), select, [role=radio]')) {
         const box = el.getBoundingClientRect();
@@ -213,6 +225,7 @@ try {
     overit(r.plocha <= 1, `${kde}: ani rolovací plocha okna se nerozjíždí do stran (přesah ${r.plocha} px)`);
     overit(r.male.length === 0, `${kde}: každý cíl pro prst má aspoň 44 px${r.male.length ? ` — malé: ${r.male.join(', ')}` : ''}`);
   };
+  const kontrolaRozlozeni = (kde) => kontrolaRozlozeniNa(pruvodce, kde);
 
   const tlUlozit = pruvodce.getByRole('button', { name: 'Uložit objednávku', exact: true });
   const tlWhatsapp = pruvodce.getByRole('button', { name: 'Uložit a odeslat na WhatsApp', exact: true });
@@ -321,6 +334,7 @@ try {
   const abeceda = await b.newPage({ viewport: { width: 390, height: 844 } });
   const chybyAbeceda = [];
   abeceda.on('pageerror', (e) => chybyAbeceda.push(String(e)));
+  await pripnoutRezim(abeceda, 'stranka');
   await abeceda.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
   const kontrolaAbecedy = async (kde) => {
     const r = await abeceda.evaluate(() => {
@@ -356,10 +370,10 @@ try {
   const nejcastejsiNahore = await abeceda.evaluate(() => {
     const dlazdice = document.querySelector('[role=group][aria-label="Odběratelé"]');
     const nadpis = [...document.querySelectorAll('h3')].find((h) => h.textContent?.trim() === 'CH');
-    return !!dlazdice && !!nadpis && dlazdice.querySelectorAll('button').length === 6
+    return !!dlazdice && !!nadpis && dlazdice.querySelectorAll('button').length === 10
       && !!(dlazdice.compareDocumentPosition(nadpis) & Node.DOCUMENT_POSITION_FOLLOWING);
   });
-  overit(nejcastejsiNahore, 'nahoře zůstává 6 nejčastějších odběratelů i při rozbalené abecedě');
+  overit(nejcastejsiNahore, 'nahoře zůstává 10 nejčastějších odběratelů i při rozbalené abecedě (majitel 23. 11.: „nejčastějších 10")');
   await abeceda.getByRole('button', { name: /^Chlapy z Toužimi/ }).click();
   await abeceda.waitForTimeout(200);
   overit(await abeceda.getByRole('heading', { name: 'CH', exact: true }).count() === 0, 'po výběru se seznam sbalí');
@@ -372,6 +386,7 @@ try {
   const pocitac = await b.newPage({ viewport: { width: 1280, height: 800 } });
   const chybyPocitac = [];
   pocitac.on('pageerror', (e) => chybyPocitac.push(String(e)));
+  await pripnoutRezim(pocitac, 'stranka');
   await pocitac.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
   await pocitac.getByRole('region', { name: 'Souhrn objednávky' }).waitFor();
   overit(await pocitac.getByRole('region', { name: 'Pro koho a na kdy' }).isVisible(), 'počítač: vidět odběratele a den');
@@ -384,6 +399,179 @@ try {
   overit(sirkaPc.doc <= sirkaPc.okno + 1, `počítač: stránka se neroluje do stran (${sirkaPc.doc} ≤ ${sirkaPc.okno})`);
   overit(chybyPocitac.length === 0, `průvodce na počítači nevyhodil chybu${chybyPocitac.length ? ': ' + chybyPocitac[0] : ''}`);
   await pocitac.close();
+
+  // ── Scénář 3b: průvodce PO KROCÍCH (výchozí způsob od 23. 11. 2026) ───
+  // Majitel: „otevře se strana s odběrateli, dlaždice jak jsou včetně A–Ž, nejčastějších 10;
+  // když vyberu odběratele, vyberu den závozu, datum, poznámku; další je záložka piva;
+  // pak můžu potvrdit nebo zahodit … dej možnost kliknout po pořadě, stejně jako se dělá
+  // inventura položka po položce." Bez zapamatované volby se okno otevře po krocích; tenhle
+  // scénář ho proklikne skutečným CSS na telefonu: lišta kroků, Dál / Zpět dole pořád
+  // v okně, nic se nerozjíždí do stran a žádný cíl pro prst není menší než 44 px.
+  console.log('\nScénář: nová objednávka — průvodce po krocích na telefonu (výchozí)');
+  const kroky = await b.newPage({ viewport: { width: 390, height: 844 } });
+  const chybyKroky = [];
+  kroky.on('pageerror', (e) => chybyKroky.push(String(e)));
+  await kroky.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
+
+  const NADPISY_KROKU = ['Pro koho?', 'Kdy se veze?', 'Které pivo?', 'Souhrn objednávky'];
+  /** Na stránce je vidět jen jeden krok (nic se neskládá pod sebe). */
+  const jenNadpis = async (kde, nadpis) => {
+    const pocty = {};
+    for (const n of NADPISY_KROKU) pocty[n] = await kroky.getByRole('heading', { name: n }).count();
+    const ok = Object.entries(pocty).every(([n, p]) => p === (n === nadpis ? 1 : 0));
+    overit(ok, `${kde}: vidět je jen „${nadpis}"${ok ? '' : ` — ${JSON.stringify(pocty)}`}`);
+  };
+  const krokNyni = () => kroky.locator('[aria-current="step"]').getAttribute('aria-label');
+  const celeVOkne = async (locator, kde) => {
+    const box = await locator.boundingBox();
+    overit(box !== null && box.y >= 0 && box.y + box.height <= 844.5, `${kde}: je celé v okně (dole ${Math.round((box?.y ?? 0) + (box?.height ?? 0))} ≤ 844)`);
+  };
+  const tlDal = kroky.getByRole('button', { name: /^Dál/ });
+  const tlZpet = kroky.getByRole('button', { name: /^Zpět/ });
+  const tlUlozitKroky = kroky.getByRole('button', { name: 'Uložit objednávku', exact: true });
+  const tlWhatsappKroky = kroky.getByRole('button', { name: 'Uložit a odeslat na WhatsApp', exact: true });
+  const otevritKroky = kroky.getByRole('button', { name: 'Otevřít průvodce' });
+
+  // 1. krok: jen odběratelé.
+  await jenNadpis('1. krok', 'Pro koho?');
+  overit(await krokNyni() === 'Krok 1 ze 4: Odběratel', 'lišta kroků: jsme na 1. ze 4 kroků (Odběratel)');
+  overit(await kroky.getByRole('group', { name: 'Odběratelé' }).getByRole('button').count() === 10, 'nahoře je 10 nejčastějších odběratelů');
+  overit(await kroky.getByRole('navigation', { name: 'Přeskočit na písmeno' }).isVisible(), 'pod dlaždicemi je pořád lišta písmen A–Ž');
+  overit(await tlDal.isDisabled(), 'bez odběratele je „Dál" zamčené');
+  overit(await kroky.getByRole('button', { name: /^Krok 3 ze 4/ }).isDisabled(), 'v liště se na 3. krok přeskočit nedá, dokud není odběratel');
+  overit(await kroky.getByRole('button', { name: /^Zrušit/ }).isVisible() && await tlZpet.count() === 0, 'na prvním kroku je místo „Zpět" tlačítko „Zrušit"');
+  await celeVOkne(tlDal, '1. krok: „Dál"');
+  await kontrolaRozlozeniNa(kroky, '1. krok');
+
+  // Odběratel s jedním místem pošle okno dál hned po klepnutí.
+  await kroky.getByRole('button', { name: /^Žižkov/ }).click();
+  await kroky.getByRole('heading', { name: 'Kdy se veze?' }).waitFor();
+  await jenNadpis('2. krok', 'Kdy se veze?');
+  overit(await krokNyni() === 'Krok 2 ze 4: Kdy', 'po klepnutí na Žižkov okno samo přešlo na 2. krok (Kdy)');
+  overit((await kroky.getByTestId('pruvodce-kontext').textContent())?.startsWith('Žižkov') === true, 'nad krokem je vidět odběratel („Žižkov · …")');
+  // Den, datum a poznámka jsou na jedné stránce.
+  const dnyKroku = kroky.getByRole('group', { name: 'Kdy se veze?' }).getByRole('button');
+  const prvniDen = dnyKroku.nth(0);
+  const [zkratkaDne, kratceDne] = (await prvniDen.innerText()).split('\n');
+  await prvniDen.click();
+  overit(await prvniDen.getAttribute('aria-pressed') === 'true', 'den závozu jde vybrat klepnutím');
+  overit((await kroky.getByTestId('pruvodce-kontext').textContent())?.includes(`${zkratkaDne} ${kratceDne.split(' · ')[0]}`) === true, 'vybraný den je vidět nad krokem');
+  // Neděle na konci měsíce: první nabízený den je už v dalším měsíci a okno chce potvrzení (jinak se nepokračuje).
+  const dalsiMesicKroky = kroky.getByRole('checkbox', { name: /Potvrzuji, že závoz/ });
+  if (await dalsiMesicKroky.count() > 0) await dalsiMesicKroky.check();
+  overit(await kroky.getByLabel('Jiné datum závozu (i zpětně)').isVisible(), 'je tu i pole pro jiné datum');
+  await kroky.getByLabel('Poznámka').fill('zavolat před závozem');
+  await celeVOkne(tlDal, '2. krok: „Dál"');
+  await kontrolaRozlozeniNa(kroky, '2. krok');
+  await tlDal.click();
+
+  // 3. krok: piva.
+  await kroky.getByRole('heading', { name: 'Které pivo?' }).waitFor();
+  await jenNadpis('3. krok', 'Které pivo?');
+  overit(await tlDal.isDisabled(), 'bez piva je „Dál" zamčené');
+  overit((await kroky.getByTestId('pruvodce-hlaseni').textContent())?.includes('Přidej aspoň jedno pivo') === true, 'u „Dál" stojí „Přidej aspoň jedno pivo."');
+  await kontrolaRozlozeniNa(kroky, '3. krok');
+  await kroky.getByRole('button', { name: /^12° Světlá/ }).click();
+  await kroky.getByRole('textbox', { name: 'Kolik kusů?' }).fill('2');
+  await kroky.getByRole('button', { name: /^Hotovo/ }).click();
+  overit(await kroky.getByRole('button', { name: /^12° Světlá.*2×50/ }).count() > 0, 'dlaždice piva ukazuje rozepsané „2×50"');
+  overit(await tlDal.isEnabled(), 's pivem je „Dál" odemčené');
+  await celeVOkne(tlDal, '3. krok: „Dál"');
+  await tlDal.click();
+
+  // 4. krok: souhrn — uložit, nebo zahodit.
+  await kroky.getByRole('heading', { name: 'Souhrn objednávky' }).waitFor();
+  await jenNadpis('4. krok', 'Souhrn objednávky');
+  overit(await kroky.getByText('2× 50 l').count() > 0, 'souhrn ukazuje „2× 50 l"');
+  overit((await kroky.getByTestId('souhrn-poznamka').textContent())?.includes('zavolat před závozem') === true, 'souhrn ukazuje poznámku z kroku „kdy"');
+  overit(await kroky.getByLabel('Poznámka', { exact: true }).count() === 0, 'v souhrnu už není druhé pole pro poznámku');
+  const horniUlozeni = await tlUlozitKroky.boundingBox();
+  const dolniUlozeni = await tlWhatsappKroky.boundingBox();
+  overit(
+    horniUlozeni !== null && dolniUlozeni !== null && horniUlozeni.y >= 0 && horniUlozeni.y + horniUlozeni.height <= dolniUlozeni.y + 1 && dolniUlozeni.y + dolniUlozeni.height <= 844.5,
+    '4. krok: dole v okně jsou pod sebou „Uložit objednávku" a „Uložit a odeslat na WhatsApp"',
+  );
+  await celeVOkne(tlZpet, '4. krok: „Zpět"');
+  await celeVOkne(kroky.getByRole('button', { name: /^Zahodit/ }), '4. krok: „Zahodit"');
+  overit(await tlDal.count() === 0, 'v souhrnu už není „Dál"');
+  await kontrolaRozlozeniNa(kroky, '4. krok');
+
+  // Zpět a lišta: rozepsané zůstává.
+  await tlZpet.click();
+  await kroky.getByRole('heading', { name: 'Které pivo?' }).waitFor();
+  overit(await krokNyni() === 'Krok 3 ze 4: Piva', 'Zpět vrátilo na 3. krok');
+  overit(await kroky.getByRole('button', { name: /^12° Světlá.*2×50/ }).count() > 0, 'rozepsané pivo zůstalo (2×50)');
+  await kroky.getByRole('button', { name: /^Krok 2 ze 4/ }).click();
+  await kroky.getByRole('heading', { name: 'Kdy se veze?' }).waitFor();
+  overit(await kroky.getByLabel('Poznámka').inputValue() === 'zavolat před závozem', 'v liště jde skočit na hotový krok a poznámka je tam');
+  await kroky.getByRole('button', { name: /^Krok 4 ze 4/ }).click();
+  await kroky.getByRole('heading', { name: 'Souhrn objednávky' }).waitFor();
+  overit(await krokNyni() === 'Krok 4 ze 4: Souhrn', 'v liště jde skočit rovnou na souhrn (všechny kroky před ním jsou hotové)');
+
+  await tlUlozitKroky.click();
+  await otevritKroky.waitFor();
+  overit(await kroky.getByRole('dialog', { name: 'Nová objednávka' }).count() === 0, 'po uložení se okno samo zavřelo');
+  overit(await kroky.getByText(/Objednávka uložena: Žižkov/).count() > 0, 'naskočilo krátké potvrzení „Objednávka uložena: Žižkov …“');
+  let ulozenoKroky = JSON.parse((await kroky.getByTestId('ulozeno').textContent()) ?? '[]');
+  overit(
+    ulozenoKroky.length === 1 && ulozenoKroky[0].placeId === 'p-zizkov' && ulozenoKroky[0].poznamka === 'zavolat před závozem'
+      && ulozenoKroky[0].radky.length === 1 && ulozenoKroky[0].radky[0].qty === 2 && ulozenoKroky[0].odeslatNaWhatsApp === false,
+    'uložila se jedna objednávka: Žižkov, 2× sud 50 l, s poznámkou',
+  );
+
+  // Zahodit: okno se zeptá a po potvrzení nic neuloží.
+  await otevritKroky.click();
+  await kroky.getByRole('button', { name: /^Žižkov/ }).click();
+  await tlDal.click();
+  await kroky.getByRole('button', { name: /^Jantar/ }).click();
+  await kroky.getByRole('textbox', { name: 'Kolik kusů?' }).fill('1');
+  await kroky.getByRole('button', { name: /^Hotovo/ }).click();
+  await tlDal.click();
+  await kroky.getByRole('button', { name: /^Zahodit/ }).click();
+  const potvrzeni = kroky.locator('[role=dialog]', { hasText: 'Zahodit rozepsanou objednávku?' });
+  await potvrzeni.waitFor();
+  await potvrzeni.getByRole('button', { name: 'Zahodit', exact: true }).click();
+  await otevritKroky.waitFor();
+  ulozenoKroky = JSON.parse((await kroky.getByTestId('ulozeno').textContent()) ?? '[]');
+  overit(ulozenoKroky.length === 1, '„Zahodit" po potvrzení okno zavřelo a nic dalšího neuložilo');
+
+  // Přepínač „Jedna stránka" / „Po krocích": volba se pamatuje v zařízení.
+  await otevritKroky.click();
+  await kroky.getByTestId('pruvodce-rezim').click();
+  await kroky.getByRole('button', { name: 'Po krocích', exact: true }).waitFor();
+  const pocetyJedna = await Promise.all(NADPISY_KROKU.map((n) => kroky.getByRole('heading', { name: n }).count()));
+  overit(pocetyJedna.every((p) => p === 1), 'po „Jedna stránka" leží všechny čtyři části pod sebou');
+  await kroky.reload({ waitUntil: 'networkidle' });
+  await kroky.getByRole('button', { name: 'Po krocích', exact: true }).waitFor();
+  overit((await Promise.all(NADPISY_KROKU.map((n) => kroky.getByRole('heading', { name: n }).count()))).every((p) => p === 1), 'po obnovení stránky se okno otevře na jedné stránce (volba se zapamatovala)');
+  await kroky.getByTestId('pruvodce-rezim').click();
+  await kroky.getByRole('button', { name: 'Jedna stránka', exact: true }).waitFor();
+  await jenNadpis('po návratu na kroky', 'Pro koho?');
+  overit(chybyKroky.length === 0, `průvodce po krocích nevyhodil chybu${chybyKroky.length ? ': ' + chybyKroky[0] : ''}`);
+  await kroky.close();
+
+  // Na počítači je po krocích jeden sloupec uprostřed a tlačítka uložení jsou v souhrnu jen jednou (v patičce).
+  console.log('\nScénář: nová objednávka — průvodce po krocích na počítači');
+  const krokyPc = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const chybyKrokyPc = [];
+  krokyPc.on('pageerror', (e) => chybyKrokyPc.push(String(e)));
+  await krokyPc.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
+  await krokyPc.getByRole('heading', { name: 'Pro koho?' }).waitFor();
+  overit(await krokyPc.getByRole('navigation', { name: 'Kroky objednávky' }).isVisible(), 'počítač: nahoře je lišta kroků');
+  overit(await krokyPc.getByRole('region', { name: 'Souhrn objednávky' }).count() === 0, 'počítač: po krocích nejsou tři sloupce vedle sebe');
+  await krokyPc.getByRole('button', { name: /^Žižkov/ }).click();
+  await krokyPc.getByRole('button', { name: /^Dál/ }).click();
+  await krokyPc.getByRole('button', { name: /^Jantar/ }).click();
+  await krokyPc.getByRole('textbox', { name: 'Kolik kusů?' }).fill('1');
+  await krokyPc.getByRole('button', { name: /^Hotovo/ }).click();
+  await krokyPc.getByRole('button', { name: /^Dál/ }).click();
+  await krokyPc.getByRole('heading', { name: 'Souhrn objednávky' }).waitFor();
+  overit(await krokyPc.getByRole('button', { name: 'Uložit objednávku', exact: true }).count() === 1, 'počítač: „Uložit objednávku" je v souhrnu jen jednou');
+  overit(await krokyPc.getByRole('button', { name: 'Uložit a odeslat na WhatsApp', exact: true }).count() === 1, 'počítač: „Uložit a odeslat na WhatsApp" je v souhrnu jen jednou');
+  const sirkaKrokyPc = await krokyPc.evaluate(() => ({ doc: document.documentElement.scrollWidth, okno: window.innerWidth }));
+  overit(sirkaKrokyPc.doc <= sirkaKrokyPc.okno + 1, `počítač: stránka se neroluje do stran (${sirkaKrokyPc.doc} ≤ ${sirkaKrokyPc.okno})`);
+  overit(chybyKrokyPc.length === 0, `průvodce po krocích na počítači nevyhodil chybu${chybyKrokyPc.length ? ': ' + chybyKrokyPc[0] : ''}`);
+  await krokyPc.close();
 
   // ── Scénář 4: štítky fáze tanku na ploše ─────────────────────────────
   // 18. 11. 2026: „vysanitovaný" se na telefonu ořízl na „vysanitovan…". Šířku
