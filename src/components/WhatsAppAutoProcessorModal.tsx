@@ -9,6 +9,7 @@ import { AlertCircle, AlertTriangle, ArrowDownUp, Check, CheckSquare, Clock, Cop
 import { zalogujANahlas } from '../lib/chybyHlaseni';
 import { businessDateISO } from '../lib/businessDate';
 import { denADatumZeZpravyNeboVychozi } from '../lib/denZavozu';
+import { jeAutomatickyBezZavozu } from '../lib/bezZavozu';
 import { textRikaPristiTyden } from '../../supabase/functions/_shared/den-zavozu';
 
 interface WhatsAppAutoProcessorModalProps {
@@ -157,11 +158,17 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
       const message = messages.find(m => m.id === messageId);
       if (!message) return;
 
-      // Den ze zprávy, jinak výchozí den odběratele (středa) — lib/denZavozu.ts.
+      // 🚚❌ Jmenovaní odběratelé jsou bez závozu i tady (lib/bezZavozu.ts) — název
+      // z katalogu má přednost před tím, jak ho napsala zpráva.
+      const bezZavozu = jeAutomatickyBezZavozu(
+        props.places.find((p) => p.id === parsedResult.placeId)?.name ?? parsedResult.placeName,
+      );
+      // Den ze zprávy, jinak výchozí den odběratele (středa), bez závozu dnešek — lib/denZavozu.ts.
       const zavoz = denADatumZeZpravyNeboVychozi({
         den: parsedResult.deliveryDay, datum: parsedResult.deliveryDate,
         mista: props.places, placeId: parsedResult.placeId, placeName: parsedResult.placeName,
         dnes: businessDateISO(), pristiTyden: textRikaPristiTyden(message.message_text),
+        bezZavozu,
       });
       const orderData = {
         placeId: parsedResult.placeId,
@@ -169,6 +176,7 @@ export function WhatsAppAutoProcessorModal(props: WhatsAppAutoProcessorModalProp
         orderDate: businessDateISO(),
         deliveryDay: zavoz.den,
         deliveryDate: zavoz.datum,
+        bezZavozu,
         note: parsedResult.note || '',
         whatsappMessageId: message.id, // zpětný odkaz objednávka → zpráva (#18)
         items: parsedResult.items.map((item: any) => ({

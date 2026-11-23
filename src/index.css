@@ -262,6 +262,36 @@ html, body { overscroll-behavior-y: contain; }
     @apply bg-amber-500 text-neutral-950 border-amber-500 shadow-2xs hover:bg-amber-500;
   }
 
+  /* 🚚❌ „Bez závozu" — černá jako štítek objednávky bez závozu
+     (components/objednavky/BezZavozu.tsx). `btn-den-bez` je zmáčknuté „Bez"
+     v řádku Závoz na kartě objednávky (místo `btn-den`, ne vedle něj);
+     `btn-filtr-bez` je filtr „Bez závozu" v liště dnů nad seznamem — jeho tvar
+     drží `btn-filtr-bez-tvar` a barvu právě JEDNA z `btn-filtr-bez` (černý),
+     `-aktivni` (vybraný, jantarový jako ostatní dny) a `-prazdny` (bez
+     objednávek, šedý). Barvy žijí tady, ne v tlačítkách — hlídač
+     zkontroluj-tlacitka pak nevidí další ručně malované tlačítko.
+     POZOR: každá barevná třída je samostatná a nic nepřebíjí. Centrální
+     kontrast (viz níže) dává každé třídě s tmavým nebo světlým podkladem bez
+     `text-` v názvu třídy barvu písma s vyšší přednostní — kdyby se „vybraný"
+     stav skládal přes černý, měl by na jantaru bílé písmo, a zmáčknuté „Bez"
+     přes `btn-den` by mělo tmavé písmo na černé. */
+  .btn-den-bez {
+    @apply h-7 px-1.5 rounded font-black text-[11px] leading-none transition shrink-0
+           bg-neutral-900 text-white border border-neutral-900 shadow-2xs hover:bg-neutral-800 active:scale-95;
+  }
+  .btn-filtr-bez-tvar {
+    @apply px-3 py-1.5 rounded font-black text-xs shrink-0 transition-all flex items-center gap-1.5;
+  }
+  .btn-filtr-bez {
+    @apply bg-neutral-900 text-white ring-1 ring-neutral-500/50 hover:bg-neutral-800;
+  }
+  .btn-filtr-bez-aktivni {
+    @apply bg-amber-500 text-neutral-950 shadow-xs hover:bg-amber-500;
+  }
+  .btn-filtr-bez-prazdny {
+    @apply bg-neutral-100 text-neutral-600 border border-neutral-200 hover:bg-neutral-200;
+  }
+
   /* Záložka nebo přepínač filtru (Sklad: Zásoby / Pohyby / Festival / Merch,
      filtry druhu pohybu). Stejný vzhled, jaký měly záložky Skladu ručně
      malované, jen s 44px cílem na telefon. */

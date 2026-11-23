@@ -9,6 +9,7 @@ import { isoWeekKey, weekRange, shiftWeek } from '../components/WeeklyOrderSumma
 import { souhrnCyklu, cilPoPrecerpani, cyklusSPrecerpanim, STAVY_S_PIVEM } from '../lib/tankCyklus';
 import { Beer, CellarTank, CellarTankCycle, CellarTransfer, EntryRow, Package, beerBorder, fetchAllRows, supabase, useRealtime } from '../lib/supabase';
 import { EmptyState, Field, Kostra, Modal, UkazatelPlnosti } from '../components/ui';
+import { PivoVTanku } from '../components/PivoVTanku';
 import { chyba, oznam, potvrd } from '../lib/toast';
 import { usePosledniNacteni, prvniChyba } from '../lib/nacitani';
 import { IkonaSud } from '../components/ikony';
@@ -681,13 +682,15 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
               const isLow = t.status === 'active' && remaining > 0 && remaining < LOW_VOLUME_THRESHOLD;
               // Starší tanky mají u piva jen jméno bez ID — dohledá se podle jména.
               const pivoId = t.current_beer_id ?? beers.find((b) => b.name === t.current_beer_name)?.id ?? null;
+              // Pivo z katalogu — dává barvu plakety s názvem i rámečku karty.
+              const pivoTanku = pivoId ? beers.find((b) => b.id === pivoId) ?? null : null;
               const objednavkyPiva = pivoId ? orderedHlByBeer.get(pivoId) : undefined;
               const recentCycles = (cyclesByTank.get(t.id) ?? []).slice(0, 3);
 
               return (
                 <div key={t.id} className={`card border-2 p-4 flex flex-col ${isLow ? 'ring-2 ring-amber-400' : ''}`}
                   style={{
-                    borderColor: beerBorder(t.current_beer_name ? beers.find((b) => b.name === t.current_beer_name) : null),
+                    borderColor: beerBorder(t.current_beer_name ? pivoTanku : null),
                   }}>
                   <div className="flex items-start justify-between">
                     <div>
@@ -741,9 +744,13 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                       </div>
                     </div>
                   ) : (
+                    <>
+                    {/* 🍺 Pivo v tanku jako plaketa v barvě piva — dřív stálo jméno obyčejným
+                        písmem mezi popisky a splývalo s nimi (23. 11. 2026: „ať je výrazněji
+                        vidět, co tam je za pivo, moc to splývá s tím textem"). */}
+                    <PivoVTanku className="mt-2" jmeno={t.current_beer_name} pivo={pivoTanku} />
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <div className="text-sm text-primary-700 min-w-0">
-                        {t.current_beer_name ? <span className="font-semibold">{t.current_beer_name}</span> : <span className="text-primary-400">— prázdno —</span>}
                         {t.current_beer_name && (
                           <div className="text-udaj text-primary-500 mt-0.5">
                             Počáteční objem: <span className="font-semibold text-primary-700">{(initialVol / 100).toFixed(2)} hl</span>
@@ -775,6 +782,7 @@ export default function CellarScreen({ setPage, initialSubTab }: { setPage?: (p:
                         {t.current_beer_name ? 'Změnit pivo' : 'Nastavit pivo'}
                       </button>
                     </div>
+                    </>
                   )}
 
                   {/* 🛢️ Plnost tanku pruhem — dřív tu byly jen litry a to,

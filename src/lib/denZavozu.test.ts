@@ -96,6 +96,30 @@ describe('denADatumZeZpravyNeboVychozi — rychlý import zprávy bez kontrolní
     expect(denADatumZeZpravyNeboVychozi({ ...zaklad, placeId: 'p-rest', placeName: 'Restaurace', dnes: '2026-11-17' })).toEqual({ den: 'ut', datum: '2026-11-17' });
   });
 
+  // 23. 11. 2026: Egon, Martin, Jitka, Toužim, Mates, Restaurace a Terasa jsou bez
+  // závozu („3 ano" — platí i pro zprávy z WhatsAppu): pivo si berou sami, takže
+  // zpráva bez dne znamená dnešek, ne výchozí den závozu.
+  it('bez závozu: zpráva bez dne odchází DNES (den v týdnu i datum), ne ve výchozí den závozu', () => {
+    expect(denADatumZeZpravyNeboVychozi({ ...zaklad, bezZavozu: true })).toEqual({ den: 'po', datum: '2026-11-16' });
+    expect(denADatumZeZpravyNeboVychozi({ ...zaklad, bezZavozu: true, dnes: '2026-11-18' })).toEqual({ den: 'st', datum: '2026-11-18' });
+    expect(denADatumZeZpravyNeboVychozi({ ...zaklad, bezZavozu: true, dnes: '2026-11-19' })).toEqual({ den: 'ct', datum: '2026-11-19' });
+    // i odběratel s vlastním výchozím dnem (Seeberg → pátek): bez závozu je dnešek
+    expect(denADatumZeZpravyNeboVychozi({ ...zaklad, placeId: 'p-seeberg', placeName: 'Seeberg', bezZavozu: true })).toEqual({ den: 'po', datum: '2026-11-16' });
+    // bez příznaku zůstává výchozí den jako dřív
+    expect(denADatumZeZpravyNeboVychozi({ ...zaklad, bezZavozu: false })).toEqual({ den: 'st', datum: '2026-11-18' });
+  });
+
+  it('bez závozu: den ze zprávy má přednost; „příští týden" posune dnešek o týden', () => {
+    expect(denADatumZeZpravyNeboVychozi({ ...zaklad, bezZavozu: true, den: 'pa' })).toEqual({ den: 'pa', datum: '2026-11-20' });
+    expect(denADatumZeZpravyNeboVychozi({ ...zaklad, bezZavozu: true, den: 'pa', datum: '2026-11-20' })).toEqual({ den: 'pa', datum: '2026-11-20' });
+    expect(denADatumZeZpravyNeboVychozi({ ...zaklad, bezZavozu: true, pristiTyden: true })).toEqual({ den: 'po', datum: '2026-11-23' });
+  });
+
+  it('bez závozu a jen datum ve zprávě: den v týdnu podle toho data (štítek dne a datum si neodporují)', () => {
+    expect(denADatumZeZpravyNeboVychozi({ ...zaklad, bezZavozu: true, datum: '2026-11-20' })).toEqual({ den: 'pa', datum: '2026-11-20' });
+    expect(denADatumZeZpravyNeboVychozi({ ...zaklad, bezZavozu: true, datum: '2026-11-14' })).toEqual({ den: 'so', datum: '2026-11-14' });
+  });
+
   it('datum ze zprávy bez dne: den výchozí, datum ze zprávy', () => {
     expect(denADatumZeZpravyNeboVychozi({ ...zaklad, datum: '2026-11-27' })).toEqual({ den: 'st', datum: '2026-11-27' });
   });

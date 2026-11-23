@@ -4,14 +4,27 @@
 // automaticky ji zaskrtni kdyz bude mates,jitka,restaurace,terasa u zbytku
 // se musi zadat rucne."
 //
+// Zadání 23. 11. 2026: „egon, martin, jitka, toužim — to jde automaticky bez
+// závozu"; Mates, Restaurace a Terasa zůstávají („2 ano"). Platí pro každou
+// cestu, kterou objednávka vzniká — ruční zadání, průvodce, fotka i zpráva
+// z WhatsAppu („3 ano"). Do té doby se pole zaškrtlo jen při ručním zadání,
+// takže objednávky z WhatsAppu (Jitka, Egon) bez závozu nikdy nebyly.
+//
 // Porovnává se PŘESNÝ název odběratele (po sjednocení diakritiky/velikosti
 // písmen), ne jestli ve jméně jde najít slovo „restaurace" jako podřetězec —
 // v katalogu je i „Restaurace Na Růžku", opravdový odběratel s vlastním
 // závozem, a ten se tímhle omylem zaškrtnout nesmí.
-const AUTOMATICKY_BEZ_ZAVOZU = ['mates', 'jitka', 'restaurace', 'terasa'];
+//
+// „Mates" samotný v katalogu není — odběratel se jmenuje „Mates Rybárna",
+// proto tu jsou oba názvy (do 23. 11. 2026 se mu pole nezaškrtlo nikdy).
+// Stejně „Toužim": v katalogu „Chlapy z Toužimi".
+const AUTOMATICKY_BEZ_ZAVOZU = [
+  'mates', 'mates rybarna', 'jitka', 'restaurace', 'terasa',
+  'egon', 'martin', 'chlapy z touzimi', 'touzim',
+];
 
 function norm(s: string): string {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 /** Má se u tohohle odběratele „Bez závozu" zaškrtnout automaticky? */
@@ -22,6 +35,13 @@ export function jeAutomatickyBezZavozu(placeName: string | null | undefined): bo
 }
 
 const KLICE_DNU = ['po', 'ut', 'st', 'ct', 'pa', 'so', 'ne'] as const;
+
+/** Den v týdnu ('po'…'ne') z data RRRR-MM-DD; neplatné datum → null. */
+export function klicDne(datumISO: string | null | undefined): string | null {
+  if (!datumISO || !/^\d{4}-\d{2}-\d{2}$/.test(datumISO)) return null;
+  const d = new Date(`${datumISO}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : KLICE_DNU[(d.getUTCDay() + 6) % 7];
+}
 
 /**
  * Den a datum závozu, se kterými se nová objednávka uloží.

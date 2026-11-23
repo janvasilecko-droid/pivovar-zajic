@@ -37,6 +37,8 @@ import { datumZeZpravy, relativniDen } from '../../supabase/functions/_shared/da
 import { DenZavozuTlacitka } from './DenZavozuTlacitka';
 import { nactiZvyklosti, neobvykleMnozstvi, type Zvyklosti } from '../lib/zvyklostiOdberatele';
 import { vychoziDenZavozu } from '../lib/denZavozu';
+import { jeAutomatickyBezZavozu, klicDne } from '../lib/bezZavozu';
+import { IkonaBezZavozu } from './objednavky/BezZavozu';
 import { useMaleSudy, useHlidaniMalychSudu } from '../lib/useMaleSudy';
 import { rozdelMaleSudyVObjednavce, silaPiva } from '../lib/maleSudy';
 import { MaleSudyRadek, tridaRadkuSudu } from './MaleSudyVolne';
@@ -229,6 +231,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   const [vlastniSudRucne, setVlastniSudRucne] = useState<boolean | null>(null);
   // 📅 Datum závozu zadané rukou (pole „nebo datum“) — přebíjí den i dopočet.
   const [datumRucne, setDatumRucne] = useState<string | null>(null);
+  // 🚚❌ Bez závozu (23. 11. 2026): u jmenovaných odběratelů (lib/bezZavozu.ts)
+  // platí samo, člověk to smí přebít zaškrtávátkem (null = rozhoduje jméno).
+  // Do té doby objednávka ze zprávy bez závozu být nemohla.
+  const [bezZavozuRucne, setBezZavozuRucne] = useState<boolean | null>(null);
 
   // Synchronizace s prop (otevření nové zprávy).
   useEffect(() => {
@@ -240,6 +246,7 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
     setZpusobNapojeni(null);
     setVlastniSudRucne(null);
     setDatumRucne(null);
+    setBezZavozuRucne(null);
   }, [props.message?.id]);
 
   // Přísný režim: zakázat schválení, dokud nejsou nesoulady opraveny.
@@ -979,8 +986,19 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
   // „nevybráno"; teď je den vidět předem a jde změnit. Den ze zprávy, od AI
   // nebo vybraný rukou má vždy přednost.
   // Odpověď, která jen doplňuje existující objednávku, její den nemění — tam se výchozí den neukazuje.
+  // 🚚❌ Bez závozu — odběratel si bere pivo sám. Když zpráva den neříká, pivo
+  // odchází DNES (v den objednávky), ne ve výchozí den závozu: stejné pravidlo
+  // jako u ručního zadání a v databázi (lib/bezZavozu.ts, doplnit_datum_zavozu).
+  // Výchozím dnem je proto dnešní den v týdnu — datum z něj vyjde dnešní
+  // (a s „příští týden" ve zprávě tentýž den o týden později).
+  // Majitel 23. 11. 2026 k objednávkám z WhatsAppu: „3 ano".
+  // Odpověď upravující existující objednávku její hlavičku nemění — tam se neptáme.
+  const bezZavozuSamo = jeAutomatickyBezZavozu(placeName || msg?.parsed_place_name);
+  const bezZavozu = !msg?.amends_order_id && (bezZavozuRucne ?? bezZavozuSamo);
+  const dnesProDen = businessDateISO();
   const denVychozi = msg?.amends_order_id
     ? null
+    : bezZavozu ? klicDne(dnesProDen)
     : vychoziDenZavozu(props.places, placeId || msg?.parsed_place_id || null, placeName || msg?.parsed_place_name || null);
   const den = denZavozu ?? (datumRucne ? null : denVychozi);
   const denJeVychozi = !denZavozu && !!den;
@@ -1213,7 +1231,10 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
         parsed_place_name: placeName || message.parsed_place_name,
         parsed_delivery_day: den,
         parsed_delivery_date: datumDneZavozu,
-        zavoz_cislo: zavozCislo,
+        zavoz_cislo: bezZavozu ? 1 : zavozCislo,
+        // Bez závozu: co je zaškrtnuté v okně. U odpovědi schvalované jako nová
+        // se okno neptalo — rozhodne jméno odběratele (Orders.tsx).
+        ...(message.amends_order_id ? {} : { bez_zavozu: bezZavozu }),
         // „Do jejich sudu" se k objednávce připíše do poznámky — pozná ji
         // pak plán stáčení, malé sudy i karta objednávky (lib/vlastniSudy.ts).
         ...(zpravaRikaVlastniSud && vlastniSudZpravy
@@ -1261,16 +1282,27 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
           const place = await getOrCreatePlace(resolvedPlaceName, props.places);
           if (place) { resolvedPlaceId = place.id; resolvedPlaceName = place.name; }
         }
+        // 🚚❌ Druhý odběratel má vlastní „bez závozu" i vlastní výchozí den: den
+        // vybraný v okně (ze zprávy, rukou) platí pro obě objednávky, ale výchozí
+        // den prvního (středa, nebo dnešek u objednávky bez závozu) druhému nepatří.
+        const druhaBezZavozu = jeAutomatickyBezZavozu(resolvedPlaceName);
+        const dnesDruha = businessDateISO();
+        const denDruhe = !denJeVychozi ? den
+          : druhaBezZavozu ? klicDne(dnesDruha)
+          : vychoziDenZavozu(props.places, resolvedPlaceId, resolvedPlaceName);
+        const datumDruhe = !denJeVychozi ? datumDneZavozu
+          : denDruhe ? datumDne(denDruhe, dnesDruha, pristiTyden) : null;
         const { data: newOrder, error: orderErr } = await supabase.from('orders').insert({
-          order_date: businessDateISO(),
+          order_date: dnesDruha,
           place_id: resolvedPlaceId, place_name: resolvedPlaceName || null,
           source: 'whatsapp', status: 'nova',
-          delivery_day: den,
-          delivery_date: datumDneZavozu,
+          delivery_day: denDruhe,
+          delivery_date: datumDruhe,
+          no_delivery: druhaBezZavozu,
           is_prepared: false, is_packaged: false, is_delivered: false,
         }).select().single();
         if (orderErr || !newOrder) throw new Error(orderErr?.message ?? 'Druhá objednávka se nepovedla založit.');
-        if (zavozCislo !== 1) {
+        if (zavozCislo !== 1 && !druhaBezZavozu) {
           // Bez migrace zavoz_cislo to jen tiše neprojde — objednávka platí.
           await supabase.from('orders').update({ zavoz_cislo: zavozCislo }).eq('id', newOrder.id).then(() => {}, () => {});
         }
@@ -2030,18 +2062,46 @@ export function WhatsAppOrderReviewModal(props: WhatsAppOrderReviewModalProps) {
                 </div>
               )}
 
+              {/* 🚚❌ Bez závozu — u jmenovaných odběratelů zaškrtnuté samo, jde přepnout. */}
+              {!message.amends_order_id && (
+                <label
+                  data-bez-zavozu
+                  className={`flex items-start gap-2 cursor-pointer rounded border px-2.5 py-2 ${bezZavozu ? 'border-neutral-900 bg-neutral-100' : 'border-neutral-200 bg-white'}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="w-5 h-5 mt-0.5 shrink-0"
+                    checked={bezZavozu}
+                    onChange={(e) => setBezZavozuRucne(e.target.checked)}
+                  />
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-1 text-sm font-black text-neutral-900">
+                      <IkonaBezZavozu size={14} /> Bez závozu
+                    </span>
+                    <span className="block text-udaj font-bold text-neutral-700">
+                      {!bezZavozu
+                        ? 'Zaškrtni, když si odběratel bere pivo sám a nejde do trasy.'
+                        : `${bezZavozuRucne === null ? 'Zaškrtnuto samo podle odběratele. ' : ''}${
+                          denJeVychozi
+                            ? 'Den ve zprávě není — pivo se odečte ze skladu dnes. Jiný den vyber níž.'
+                            : 'Odběratel si bere pivo sám, nejde do trasy.'}`}
+                    </span>
+                  </span>
+                </label>
+              )}
+
               <DenZavozuTlacitka
+                nadpis={bezZavozu ? 'Den odběru' : undefined}
                 den={den}
                 datum={datumDneZavozu}
                 onDen={(d) => { setDenZavozu(d); setDatumRucne(null); }}
                 onDatum={(d) => { setDatumRucne(d); if (d) setDenZavozu(dayKeyFromISO(d)); }}
                 dnes={businessDateISO()}
                 poznamka={[
-                  denJeVychozi ? 'výchozí den, jde změnit' : null,
+                  denJeVychozi ? (bezZavozu ? 'bez závozu — dnes, jde změnit' : 'výchozí den, jde změnit') : null,
                   pristiTyden && !datumRucne ? 'příští týden podle zprávy' : null,
                 ].filter(Boolean).join(', ') || null}
-                zavoz={zavozCislo}
-                onZavoz={setZavozCislo}
+                {...(bezZavozu ? {} : { zavoz: zavozCislo, onZavoz: setZavozCislo })}
               />
 
               {/* 🛢️ Zpráva říká „do jejich sudu“ — malé sudy pivovaru se pro

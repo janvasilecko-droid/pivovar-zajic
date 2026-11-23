@@ -2,6 +2,7 @@
 // může použít i výpočet malých sudů (lib/maleSudy.ts) a testy bez Supabase.
 // Stejný vzorec jako databáze (ucinny_den_zavozu). Dřív žily v
 // lib/zavozDeduction.ts, ten je dál vyváží.
+import { klicDne } from './bezZavozu';
 
 const DAY_OFFSET: Record<string, number> = {
   po: 0,
@@ -91,6 +92,9 @@ const KLICE_DNU_OD_PONDELI = ['po', 'ut', 'st', 'ct', 'pa', 'so', 'ne'] as const
  * pondělí s dnešním datem — objednávka se pak hned odečetla ze skladu, i když
  * měla jet až ve středu. Odběratel bez výchozího dne (Restaurace, Prodejna)
  * zůstává na dnešku jako dřív, jen se správným dnem v týdnu.
+ *
+ * `bezZavozu` (lib/bezZavozu.ts, 23. 11. 2026): odběratel si bere pivo sám —
+ * zpráva bez dne znamená dnešek, ne výchozí den závozu.
  */
 export function denADatumZeZpravyNeboVychozi(p: {
   den?: string | null;
@@ -100,10 +104,13 @@ export function denADatumZeZpravyNeboVychozi(p: {
   placeName?: string | null;
   dnes: string;
   pristiTyden?: boolean;
+  bezZavozu?: boolean;
 }): { den: string; datum: string } {
   const dnesD = new Date(`${p.dnes}T00:00:00Z`);
   const denDnes = KLICE_DNU_OD_PONDELI[(dnesD.getUTCDay() + 6) % 7];
-  const den = (p.den ?? '').trim() || vychoziDenZavozu(p.mista, p.placeId, p.placeName);
+  // Bez závozu a jen datum ve zprávě: den v týdnu podle toho data, ať si štítek dne a datum neodporují.
+  const denZeDatumu = p.bezZavozu && p.datum ? klicDne(p.datum.slice(0, 10)) : null;
+  const den = (p.den ?? '').trim() || denZeDatumu || (p.bezZavozu ? denDnes : vychoziDenZavozu(p.mista, p.placeId, p.placeName));
   if (p.datum) return { den: den || denDnes, datum: p.datum.slice(0, 10) };
   if (!den || !(den in DAY_OFFSET)) return { den: denDnes, datum: p.dnes };
   // Nejbližší takový den od dneška (dnešek včetně); s „příští týden" den příštího týdne.

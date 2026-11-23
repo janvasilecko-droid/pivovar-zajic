@@ -11,6 +11,12 @@
 // pátek — „u objednávek Seeberg, Lužec dávej automaticky objednávky na pátek";
 // Restaurace a Prodejna žádný — stejné pravidlo jako databáze, která ho dosud
 // doplnila potichu až po schválení). Je vidět předem a jde změnit.
+//
+// 23. 11. 2026: Martin, Egon, Jitka, Toužim, Mates, Restaurace a Terasa jsou
+// automaticky BEZ ZÁVOZU — zpráva bez dne se u nich odečte dnes, ne ve výchozí
+// den závozu (viz WhatsAppOrderReviewModal.bez-zavozu.test.tsx). Tenhle soubor
+// proto zkouší výchozí den na odběrateli SE závozem („Hospoda U Lípy") a „bez
+// výchozího dne" na Prodejně — dřív na Martinovi a Restauraci.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { WhatsAppOrderReviewModal } from './WhatsAppOrderReviewModal';
@@ -52,24 +58,24 @@ vi.mock('../lib/whatsappParser', () => ({
 const beers: any[] = [{ id: 'b-11', name: '11° Světlá' }];
 const packages: any[] = [{ id: 'p10', label: '10l', kind: 'keg', volume_l: 10 }];
 const places: any[] = [
-  { id: 'pl-martin', name: 'Martin' },
-  { id: 'pl-rest', name: 'Restaurace', vychozi_den_zavozu: 'zadny' },
+  { id: 'pl-lipa', name: 'Hospoda U Lípy' },
+  { id: 'pl-prodejna', name: 'Prodejna', vychozi_den_zavozu: 'zadny' },
   { id: 'pl-seeberg', name: 'Seeberg', vychozi_den_zavozu: 'pa' },
 ];
 
 const zprava = (extra: Record<string, unknown> = {}): any => ({
-  id: 'martin-1',
+  id: 'lipa-1',
   sender_name: 'Objednávky pivovar',
-  message_text: 'martin 1x10l 11sv',
+  message_text: 'lipa 1x10l 11sv',
   message_type: 'text',
   status: 'parsed',
   created_at: '2026-10-29T08:10:00+00:00',
-  parsed_place_id: 'pl-martin',
-  parsed_place_name: 'Martin',
+  parsed_place_id: 'pl-lipa',
+  parsed_place_name: 'Hospoda U Lípy',
   parsed_delivery_day: null,
   parsed_delivery_date: null,
   parsed_items: [{ beer_id: 'b-11', pkg_id: 'p10', qty: 1, degree: null, beer_name: '11° Světlá', package_label: '10l', raw_line: '1x10l 11sv' }],
-  parsed_raw_text: 'martin 1x10l 11sv',
+  parsed_raw_text: 'lipa 1x10l 11sv',
   ...extra,
 });
 
@@ -139,7 +145,7 @@ describe('WhatsAppOrderReviewModal — výchozí den závozu (středa) a den ze 
   });
 
   it('den napsaný ve zprávě má přednost: „2x30 na pátek“ označí pátek (i když ho server nepřečetl)', async () => {
-    renderModal(zprava({ message_text: 'martin 2x30 na pátek', parsed_raw_text: 'martin 2x30 na pátek' }));
+    renderModal(zprava({ message_text: 'lipa 2x30 na pátek', parsed_raw_text: 'lipa 2x30 na pátek' }));
     await waitFor(() => expect(screen.getByText(/pá 30\. 10\./)).toBeTruthy());
     expect(jeZmacknuto('Pá')).toBe(true);
     expect(jeZmacknuto('St')).toBe(false);
@@ -147,7 +153,7 @@ describe('WhatsAppOrderReviewModal — výchozí den závozu (středa) a den ze 
   });
 
   it('den napsaný ve zprávě platí dál (ve čtvrtek „na středu“ = 4. 11.) a není označený jako výchozí', async () => {
-    renderModal(zprava({ message_text: 'martin na stredu 1x10l 11sv', parsed_delivery_day: 'st' }));
+    renderModal(zprava({ message_text: 'lipa na stredu 1x10l 11sv', parsed_delivery_day: 'st' }));
     await waitFor(() => expect(screen.getByText(/st 4\. 11\./)).toBeTruthy());
     expect(jeZmacknuto('St')).toBe(true);
     expect(screen.queryByText(/výchozí den/)).toBeNull();
@@ -175,8 +181,8 @@ describe('WhatsAppOrderReviewModal — výchozí den závozu (středa) a den ze 
     expect(onApprove.mock.calls[0][0]).toMatchObject({ parsed_delivery_day: 'st', parsed_delivery_date: '2026-11-04' });
   });
 
-  it('odběratel bez výchozího dne (Restaurace): zůstane nevybráno a schválení pošle bez dne i data', async () => {
-    const { onApprove } = renderModal(zprava({ parsed_place_id: 'pl-rest', parsed_place_name: 'Restaurace', message_text: 'restaurace 1x10l 11sv', parsed_raw_text: 'restaurace 1x10l 11sv' }));
+  it('odběratel bez výchozího dne (Prodejna): zůstane nevybráno a schválení pošle bez dne i data', async () => {
+    const { onApprove } = renderModal(zprava({ parsed_place_id: 'pl-prodejna', parsed_place_name: 'Prodejna', message_text: 'prodejna 1x10l 11sv', parsed_raw_text: 'prodejna 1x10l 11sv' }));
     await pockejNaZvyklosti();
 
     expect(screen.getByText('nevybráno')).toBeTruthy();
