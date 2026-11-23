@@ -18,6 +18,17 @@
 // Pivo, obal a počet se zadává STEJNÝM panelem jako ve Fasování a Lahvích
 // (KrokoveZadavani: jedna otázka, velké pole, pět nejčastějších čísel).
 //
+// 23. 11. 2026 (majitel: „dám nová: otevře se strana s odběrateli, dlaždice jak jsou
+// včetně A–Ž, nejčastějších 10; když vyberu odběratele, vyberu den závozu, datum,
+// poznámku; další je záložka piva; pak můžu potvrdit nebo zahodit — vždyť jsme to
+// tak měli nastavený a teď je to na jedný stránce … dej možnost kliknout po
+// pořadě, stejně jako se dělá inventura položka po položce"): okno se otevře
+// PO KROCÍCH — odběratel → kdy (den, datum, poznámka) → piva → souhrn, kde se
+// objednávka uloží, uloží a odešle na WhatsApp, nebo zahodí. Lišta kroků nahoře
+// ukazuje, kde člověk je, a dovolí vrátit se. Odběratel s jedním místem pošle
+// dál sám hned po klepnutí. Jedna stránka (výše) zůstala jako volba v záhlaví
+// („Jedna stránka" / „Po krocích"); zapamatuje se v zařízení.
+//
 // Okno NEUKLÁDÁ samo. Hotový koncept předá obrazovce Objednávky (onUlozit),
 // která ho uloží stejnou cestou jako starý formulář — kontrola zdvojené
 // objednávky, potvrzení „závoz v minulém týdnu", upomínky, rezervace výčepu.
@@ -30,8 +41,8 @@
 // rezervace, které patří obrazovce Objednávky (vyberVycep). Rezervace potvrzená
 // před uložením se po uložení naváže na objednávku; při odškrtnutí nebo zahození
 // rozepsané objednávky se zruší (zrusVycep), ať výčep zbytečně neblokuje.
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, MessageCircle, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, MessageCircle, Trash2, X } from 'lucide-react';
 import type { Beer } from '../../lib/supabase';
 import { KrokoveZadavani, type KrokDef } from '../KrokoveZadavani';
 import { MaleSudyVolne } from '../MaleSudyVolne';
@@ -42,13 +53,15 @@ import { useViditelnaOblast } from '../../lib/useViditelnaOblast';
 import { useZavriNaEscape, useZpetNaKrok } from '../../lib/zavriNaZpet';
 import { chyba as ohlasChybu, potvrd, uspech } from '../../lib/toast';
 import {
-  chybaKroku, konceptMaObsah, mistaKVolbe, mnozstvi, nastavMnozstvi, nastavVycep, nejcastejsiObal, obalyProPanel, odberatelKonceptu,
-  popisObalu, popisZavozu, potvrdRezervaciVycepu, prazdnyKoncept, skupinaObalu, stavVycepu,
-  ucinnyZavoz, zalohaRychlych,
-  type KonceptObjednavky,
+  KROKY_PRUVODCE, NAZVY_KROKU, chybaKroku, dalsiKrok, jeKrokDostupny, konceptMaObsah, mistaKVolbe, mnozstvi, nactiRezimPruvodce, nastavMnozstvi,
+  nastavVycep, nejcastejsiObal, obalyProPanel, odberatelKonceptu, popisObalu, popisObsahu, popisZavozu, potvrdRezervaciVycepu, prazdnyKoncept,
+  predchoziKrok, prvniNeuplnyKrok, skupinaObalu, souctyObjednavky, stavVycepu, ucinnyZavoz, ulozRezimPruvodce, zalohaRychlych,
+  type KonceptObjednavky, type KrokPruvodce, type RezimPruvodce,
 } from '../../lib/objednavkaPruvodce';
+import { PruvodceKroky } from './PruvodceKroky';
 import { PruvodceOdberatel } from './PruvodceOdberatel';
 import { PruvodcePivo } from './PruvodcePivo';
+import { PruvodcePoznamka } from './PruvodcePoznamka';
 import { PruvodceSouhrn } from './PruvodceSouhrn';
 import { PruvodceVycep } from './PruvodceVycep';
 import type { DataPruvodce, PrideleniMalychSudu, VolbyUlozeni, VyberVycepu, VysledekUlozeni, ZmenaKonceptu, ZrusVycep } from './pruvodceTypy';
@@ -95,6 +108,9 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
   const nadKlavesnici = useViditelnaOblast();
 
   const [koncept, setKoncept] = useState<KonceptObjednavky>(prazdnyKoncept);
+  /** Po krocích (výchozí), nebo všechno na jedné stránce — pamatuje si ho zařízení. */
+  const [rezim, setRezim] = useState<RezimPruvodce>(nactiRezimPruvodce);
+  const [krok, setKrok] = useState<KrokPruvodce>('odberatel');
   const [panel, setPanel] = useState<{ beerId: string; pkgId?: string } | null>(null);
   /** Co se právě ukládá: obyčejné uložení, nebo uložení s odesláním na WhatsApp. */
   const [ukladam, setUkladam] = useState<null | 'ulozit' | 'whatsapp'>(null);
@@ -130,6 +146,8 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
     if (vycepOtevren) return 'zustan'; // okno rezervace leží nad průvodcem a zavírá se samo
     if (panel) { setPanel(null); return 'zustan'; }
     if (ukladam) return 'zustan';
+    // Po krocích Zpět (i Escape) vrací o krok; zavírá až z prvního.
+    if (rezim === 'kroky' && krok !== 'odberatel') { setKrok(predchoziKrok(krok)); return 'zustan'; }
     if (konceptMaObsah(koncept)) { void zavritSPotvrzenim(); return 'zustan'; }
     onZavrit();
     return 'zavri';
@@ -199,6 +217,25 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
     }
   }
 
+  // ── Způsob zadávání: kroky / jedna stránka ───────────────────────────────
+
+  function prepniRezim() {
+    const novy: RezimPruvodce = rezim === 'kroky' ? 'stranka' : 'kroky';
+    ulozRezimPruvodce(novy);
+    setRezim(novy);
+    // Na kroky se přepíná tam, kde se má pokračovat (rozepsané se neztrácí).
+    if (novy === 'kroky') setKrok(prvniNeuplnyKrok(koncept, ctx));
+  }
+
+  const poKrocich = rezim === 'kroky';
+  const chybaTohotoKroku = chybaKroku(koncept, krok, ctx);
+  /** Nový krok vždy od začátku stránky (rolovací plocha je jedna a drží polohu). */
+  const hlavni = useRef<HTMLElement>(null);
+  useEffect(() => { hlavni.current?.scrollTo?.({ top: 0 }); }, [krok, rezim]);
+
+  // „Dál" je zamčené, dokud krok chybí něco (chybaTohotoKroku), takže tu žádná další kontrola není.
+  function dal() { setKrok(dalsiKrok(krok)); }
+
   // ── Uložení ───────────────────────────────────────────────────────────────
 
   async function ulozit(poslatNaWhatsApp: boolean) {
@@ -232,6 +269,7 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
 
   /** Tužky u „Komu" a „Kdy" v souhrnu: stránku to přeroluje k odběrateli, nebo ke dnům závozu. */
   function naSekci(cil: 'odberatel' | 'kdy') {
+    if (poKrocich) { setKrok(cil === 'kdy' ? 'kdy' : 'odberatel'); return; }
     const prvek = document.getElementById(cil === 'kdy' ? 'pruvodce-kdy' : 'pruvodce-hledani');
     prvek?.scrollIntoView?.({ behavior: 'smooth', block: cil === 'kdy' ? 'start' : 'center' });
   }
@@ -254,10 +292,12 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
       </button>
     </div>
   );
+  // Po krocích se u „Dál" hlásí, co chybí v otevřeném kroku; na jedné stránce to, co chybí celé objednávce.
+  const chybaZobrazena = poKrocich ? chybaTohotoKroku : chybaCelkem;
   const hlaseniUlozeni = (
     <div aria-live="polite" data-testid="pruvodce-hlaseni" className="space-y-1">
       {chyba && <p role="alert" className="rounded-xl bg-rose-50 border border-rose-300 px-3 py-2 text-sm font-bold text-rose-800">{chyba}</p>}
-      {!chyba && chybaCelkem && <p className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{chybaCelkem}</p>}
+      {!chyba && chybaZobrazena && <p className="text-xs font-bold text-neutral-700 dark:text-neutral-300">{chybaZobrazena}</p>}
     </div>
   );
 
@@ -270,24 +310,111 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
       naSekci={naSekci}
       prideleniSudu={prideleni}
       vycep={vyberVycep ? <PruvodceVycep zaskrtnuto={koncept.vycep} stav={stavVycepu(koncept)} prepni={() => void prepniVycep()} /> : undefined}
-      patka={siroka ? <div className="space-y-2 pt-1">{hlaseniUlozeni}{tlacitkaUlozeni}</div> : undefined}
+      patka={siroka && !poKrocich ? <div className="space-y-2 pt-1">{hlaseniUlozeni}{tlacitkaUlozeni}</div> : undefined}
+      poKrocich={poKrocich}
     />
   );
 
   const hlavicka = (
-    <header className="flex items-center gap-3 px-4 h-[60px] shrink-0 bg-neutral-900 text-white">
+    <header className="flex items-center gap-2 px-4 h-[60px] shrink-0 bg-neutral-900 text-white">
       <button type="button" onClick={() => void zavritSPotvrzenim()} className="w-11 h-11 -ml-2 grid place-items-center rounded-xl hover:bg-white/10" aria-label="Zavřít">
         <X size={22} />
       </button>
       <h2 id="pruvodce-nadpis" className="flex-1 min-w-0 truncate font-display font-black text-xl">Nová objednávka</h2>
-      {koncept.placeName && (
-        <span className="max-w-[45%] text-sm font-semibold text-neutral-300 truncate">{`${koncept.placeName} · ${popisZavozu(zavoz)}`}</span>
+      {/* Na jedné stránce je odběratel a den vidět v záhlaví; po krocích ho nese lišta pod ním. */}
+      {!poKrocich && koncept.placeName && (
+        <span className="max-w-[38%] text-sm font-semibold text-neutral-300 truncate">{`${koncept.placeName} · ${popisZavozu(zavoz)}`}</span>
       )}
+      <button
+        type="button"
+        data-testid="pruvodce-rezim"
+        onClick={prepniRezim}
+        className="shrink-0 min-h-[44px] px-3 rounded-xl border border-white/30 text-xs font-black text-white hover:bg-white/10"
+        title={poKrocich ? 'Všechno na jedné stránce pod sebou' : 'Jedna část po druhé: odběratel, kdy, piva, souhrn'}
+      >
+        {poKrocich ? 'Jedna stránka' : 'Po krocích'}
+      </button>
     </header>
   );
 
+  // ── Po krocích: lišta, obsah kroku a tlačítka Dál / Zpět ──────────────────
+
+  const lisaKroku = poKrocich && (
+    <div className="shrink-0 border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-4 py-2.5">
+      <div className="max-w-3xl mx-auto w-full space-y-1.5">
+        <PruvodceKroky krok={krok} dostupny={(k) => jeKrokDostupny(koncept, k, ctx)} naKrok={(k) => { setKrok(k); setChyba(null); }} />
+        {krok !== 'odberatel' && koncept.placeName && (
+          <p data-testid="pruvodce-kontext" className="text-xs font-bold text-neutral-700 dark:text-neutral-300 truncate">
+            {koncept.placeName}{(() => { const m = mistaKVolbe(odberatelKonceptu(koncept, places)).find((x) => x.id === koncept.mistoZavozu); return m ? ` · ${m.nazev}` : ''; })()}
+            {` · ${popisZavozu(zavoz)}`}{koncept.bezZavozu ? ' · bez závozu' : ''}
+          </p>
+        )}
+        <p className="sr-only" aria-live="polite" data-testid="pruvodce-krok-oznameni">
+          {`Krok ${KROKY_PRUVODCE.indexOf(krok) + 1} ze ${KROKY_PRUVODCE.length}: ${NAZVY_KROKU[krok]}`}
+        </p>
+      </div>
+    </div>
+  );
+
+  const obsahKroku = (
+    <div className="max-w-3xl mx-auto w-full pt-4">
+      {krok === 'odberatel' && <PruvodceOdberatel data={data} koncept={koncept} zmen={zmen} cast="odberatel" naVyber={() => { setKrok('kdy'); setChyba(null); }} />}
+      {krok === 'kdy' && (
+        <div className="space-y-4">
+          <PruvodceOdberatel data={data} koncept={koncept} zmen={zmen} cast="kdy" />
+          <PruvodcePoznamka koncept={koncept} zmen={zmen} />
+        </div>
+      )}
+      {krok === 'pivo' && (
+        <div className="space-y-3">
+          {pivoEl}
+          <p data-testid="pruvodce-obsah-piv" className="text-sm font-bold text-neutral-700 dark:text-neutral-300">
+            V objednávce: {popisObsahu(souctyObjednavky(koncept.radky, packages))}
+          </p>
+        </div>
+      )}
+      {krok === 'souhrn' && souhrnEl}
+    </div>
+  );
+
+  const patkaKroky = poKrocich && (
+    <footer className="shrink-0 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-4 pt-3" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}>
+      <div className="max-w-3xl mx-auto w-full space-y-2">
+        {hlaseniUlozeni}
+        {krok === 'souhrn' ? (
+          <>
+            {tlacitkaUlozeni}
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setKrok(predchoziKrok(krok))} disabled={!!ukladam} className="btn-ghost w-full min-h-[48px]">
+                <ArrowLeft size={18} aria-hidden="true" /> Zpět
+              </button>
+              <button type="button" onClick={() => void zavritSPotvrzenim()} disabled={!!ukladam} className="btn-danger w-full min-h-[48px]">
+                <Trash2 size={18} aria-hidden="true" /> Zahodit
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="grid grid-cols-[1fr_2fr] gap-2">
+            {krok === 'odberatel' ? (
+              <button type="button" onClick={() => void zavritSPotvrzenim()} className="btn-ghost w-full min-h-[52px]">
+                <X size={18} aria-hidden="true" /> Zrušit
+              </button>
+            ) : (
+              <button type="button" onClick={() => { setKrok(predchoziKrok(krok)); setChyba(null); }} className="btn-ghost w-full min-h-[52px]">
+                <ArrowLeft size={18} aria-hidden="true" /> Zpět
+              </button>
+            )}
+            <button type="button" onClick={dal} disabled={!!chybaTohotoKroku} className="btn-primary w-full min-h-[52px] !text-lg">
+              Dál <ArrowRight size={20} aria-hidden="true" />
+            </button>
+          </div>
+        )}
+      </div>
+    </footer>
+  );
+
   // Telefon: tlačítka uložení jsou pořád dole (pod nimi už nic není), na počítači v sloupci souhrnu.
-  const patkaTelefon = !siroka && (
+  const patkaTelefon = !poKrocich && !siroka && (
     <footer className="shrink-0 border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-4 pt-3 space-y-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}>
       {hlaseniUlozeni}
       {tlacitkaUlozeni}
@@ -303,9 +430,12 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
       style={nadKlavesnici ? { top: nadKlavesnici.odshora, height: nadKlavesnici.vyska, bottom: 'auto' } : undefined}
     >
       {hlavicka}
+      {lisaKroku}
 
-      {siroka ? (
-        <main className="flex-1 min-h-0 grid grid-cols-[minmax(280px,1fr)_minmax(0,1.3fr)_minmax(320px,1fr)] gap-5 p-4">
+      {poKrocich ? (
+        <main ref={hlavni} className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">{obsahKroku}</main>
+      ) : siroka ? (
+        <main ref={hlavni} className="flex-1 min-h-0 grid grid-cols-[minmax(280px,1fr)_minmax(0,1.3fr)_minmax(320px,1fr)] gap-5 p-4">
           <section aria-label="Pro koho a na kdy" className="overflow-y-auto pr-1 min-h-0">{odberatelEl}</section>
           <section aria-label="Pivo, obal a počet" className="overflow-y-auto pr-1 min-h-0">{pivoEl}</section>
           <section aria-label="Souhrn objednávky" className="overflow-y-auto pr-1 min-h-0">{souhrnEl}</section>
@@ -313,7 +443,7 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
       ) : (
         // Horní odsazení je až uvnitř (pt-4), ne na rolovací ploše: lišta písmen u odběratelů se přilepí
         // k úplnému hornímu okraji a pod ní není mezera, kterou by prosvítal rolovaný obsah.
-        <main className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+        <main ref={hlavni} className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
           <div className="pt-4 space-y-6">
             {odberatelEl}
             <div className="border-t-2 border-neutral-200 dark:border-neutral-700 pt-6">{pivoEl}</div>
@@ -322,6 +452,7 @@ export function ObjednavkaPruvodce({ data, historie, idUzivatele, onUlozit, onZa
         </main>
       )}
 
+      {patkaKroky}
       {patkaTelefon}
 
       {panelPivo && panel && (

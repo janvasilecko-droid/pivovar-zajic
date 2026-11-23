@@ -12,6 +12,11 @@
 // klepnutí na písmeno rozbalí všechny odběratele podle abecedy (s nadpisy
 // písmen) a skočí na něj. A hned potom: „ať je nahoře primárně 6 nejčastějších" —
 // nejčastější odběratelé zůstávají nahoře i při rozbaleném seznamu, abeceda je pod nimi.
+//
+// 23. 11. 2026 („nejčastějších 10; když vyberu odběratele, vyberu den závozu,
+// datum, poznámku"): komponenta umí i jen jednu půlku — `cast="odberatel"`
+// (hledání, dlaždice, A–Ž, místo závozu) a `cast="kdy"` (den, datum, další
+// měsíc, bez závozu) — pro okno po krocích. Na jedné stránce jsou obě pod sebou.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Check, Search, UserPlus } from 'lucide-react';
 import type { Place } from '../../lib/supabase';
@@ -49,10 +54,17 @@ const CIP = 'min-h-[52px] rounded-2xl border-2 flex flex-col items-center justif
 const CIP_VLASTNI = 'border-primary-600 bg-primary-600 text-white';
 const CIP_VYCHOZI = 'border-dashed border-primary-600 bg-primary-50 text-primary-900';
 
-export function PruvodceOdberatel({ data, koncept, zmen }: {
+export function PruvodceOdberatel({ data, koncept, zmen, cast = 'vse', naVyber }: {
   data: DataPruvodce;
   koncept: KonceptObjednavky;
   zmen: ZmenaKonceptu;
+  /** Jen výběr odběratele, jen „kdy se veze", nebo obojí pod sebou (jedna stránka). */
+  cast?: 'vse' | 'odberatel' | 'kdy';
+  /**
+   * Zavolá se, jakmile je výběr odběratele KOMPLETNÍ — odběratel s jedním místem hned
+   * po klepnutí, odběratel s víc místy až po výběru místa. Okno po krocích tím jde samo dál.
+   */
+  naVyber?: () => void;
 }) {
   const { places, orders, dnes } = data;
   const [hledani, setHledani] = useState('');
@@ -107,8 +119,10 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
     });
     setHledani('');
     sbal();
+    // Odběratel s víc místy ještě nemá „kam"; s jedním místem (nebo s místem z hledání) je výběr hotový.
+    if (mistaKVolbe(p).length === 0 || misto) naVyber?.();
   };
-  const vyberNoveho = (nazev: string) => { zmen((k) => vyberOdberatele(k, null, nazev)); setHledani(''); sbal(); };
+  const vyberNoveho = (nazev: string) => { zmen((k) => vyberOdberatele(k, null, nazev)); setHledani(''); sbal(); naVyber?.(); };
 
   function skocNaPismeno(pismeno: string) {
     if (rozbaleno) nadpisy.current[pismeno]?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
@@ -183,8 +197,10 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
     </nav>
   ) : null;
 
+  const jenKdy = cast === 'kdy';
   return (
     <div ref={koren} data-testid="pruvodce-odberatel" className="space-y-4">
+      {!jenKdy && <>
       <h2 className="font-display font-black text-2xl text-neutral-900 dark:text-neutral-100">Pro koho?</h2>
 
       {/* Lupa je součástí řádku (ne položená přes pole), takže se nikdy nepřekryje s textem —
@@ -255,7 +271,7 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
                   key={m.id}
                   type="button"
                   aria-pressed={vyb}
-                  onClick={() => zmen((k) => nastavMisto(k, m.id))}
+                  onClick={() => { zmen((k) => nastavMisto(k, m.id)); naVyber?.(); }}
                   className={`${vyb ? 'btn-primary' : 'btn-ghost'} min-h-[44px] !px-4`}
                 >
                   {m.nazev}
@@ -265,8 +281,9 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
           </div>
         </section>
       )}
+      </>}
 
-      <section aria-labelledby="pruvodce-kdy" className="space-y-2">
+      {cast !== 'odberatel' && <section aria-labelledby="pruvodce-kdy" className="space-y-2">
         <h2 id="pruvodce-kdy" className="font-display font-black text-lg text-neutral-900 dark:text-neutral-100">Kdy se veze?</h2>
         <div className="grid grid-cols-3 gap-2" role="group" aria-labelledby="pruvodce-kdy">
           {dny.map((d) => {
@@ -327,7 +344,7 @@ export function PruvodceOdberatel({ data, koncept, zmen }: {
           />
           <span>Bez závozu — odběratel si bere pivo sám, nejde do trasy.</span>
         </label>
-      </section>
+      </section>}
     </div>
   );
 }

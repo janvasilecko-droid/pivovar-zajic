@@ -78,6 +78,15 @@ const orders = [
   objednavka('o-malesice', 'p-malesice', 'Malešice', 6),
   objednavka('o-seeberg', 'p-seeberg', 'Seeberg', 7),
   objednavka('o-luzec', 'p-luzec', 'Lužec', 8),
+  // Dalších sedm odběratelů s objednávkou — 13 celkem, takže nahoře je jen 10 nejčastějších (majitel 23. 11. 2026)
+  // a tři další jsou jen v abecedě. Chlapy z Toužimi a Sklad záměrně nemají žádnou: v E2E se hledají v abecedě.
+  ...[9, 16].map((d, i) => objednavka(`o-mates-${i}`, 'p-mates', 'Mates', d)),
+  objednavka('o-restaurace', 'p-restaurace', 'Restaurace', 9),
+  objednavka('o-karlin', 'p-karlin', '7 stupňů Karlín', 10),
+  objednavka('o-adam', 'p-adam', 'Adam', 11),
+  objednavka('o-borek', 'p-borek', 'Bořek', 12),
+  objednavka('o-cenek', 'p-cenek', 'Čeněk', 13),
+  objednavka('o-dadali', 'p-dadali', 'Dadali', 14),
 ];
 const polozka = (id: string, order_id: string, beer_id: string, beer_name: string, package_id: string, package_label: string, quantity: number) =>
   ({ id, order_id, beer_id, beer_name, package_id, package_label, quantity, is_prepared: false, is_bottled: false });

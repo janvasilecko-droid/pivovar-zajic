@@ -9,7 +9,7 @@
 // a že „Uložit a odeslat na WhatsApp" (19. 11. 2026) objednávku uloží a teprve
 // potom otevře WhatsApp s hotovou zprávou.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent, within, act } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, fireEvent, within, act } from '@testing-library/react';
 
 type Zapis = { tabulka: string; typ: 'insert' | 'update' | 'delete'; data?: any; ids?: string[] };
 
@@ -259,6 +259,9 @@ const zapsano = (tabulka: string, typ?: Zapis['typ']) => h.zapisy.filter((z) => 
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
+  // Tenhle soubor zkouší okno na JEDNÉ STRÁNCE (všechny části pod sebou). Od 23. 11. 2026 se okno bez zapamatované
+  // volby otevírá po krocích — ty zkouší Orders.pruvodce-kroky.test.tsx.
+  localStorage.setItem('objednavky_pruvodce_rezim_v1', JSON.stringify('stranka'));
   vi.clearAllMocks();
   h.zapisy.length = 0;
   h.dalsiId = 1;
@@ -871,5 +874,95 @@ describe('půjčení výčepu ve starém formuláři (beze změny)', () => {
     await waitFor(() => expect(screen.queryByTestId('okno-vycep')).toBeNull());
     fireEvent.click(poleStarehoFormulare());
     await waitFor(() => expect(h.smazVycep).toHaveBeenCalledWith('rez-1'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Průvodce PO KROCÍCH — výchozí od 23. 11. 2026
+// ---------------------------------------------------------------------------
+// Majitel: „dám nová: otevře se strana s odběrateli …; když vyberu odběratele, vyberu den
+// závozu, datum, poznámku; další je záložka piva; pak můžu potvrdit nebo zahodit."
+// Okno z tlačítka „Nová objednávka" se bez zapamatované volby otevírá po krocích.
+describe('průvodce po krocích na obrazovce Objednávky (výchozí způsob)', () => {
+  beforeEach(() => { localStorage.removeItem('objednavky_pruvodce_rezim_v1'); });
+
+  const dalTl = () => okno().getByRole('button', { name: /^Dál/ }) as HTMLButtonElement;
+
+  it('otevře se na odběratelích; po výběru den a poznámka, pak piva a souhrn; Uložit zapíše objednávku', async () => {
+    render(<Orders mode="entry_only" />);
+    await otevriPruvodce();
+    // 1. odběratel — jen odběratelé, bez dnů a piv
+    expect(okno().getByRole('heading', { name: 'Pro koho?' })).toBeTruthy();
+    expect(okno().queryByRole('heading', { name: 'Které pivo?' })).toBeNull();
+    hledej('u lipy');
+    fireEvent.click(dlazdiceOdberatele('Hospoda U Lípy'));
+    // 2. kdy — den, datum, poznámka
+    expect(okno().getByRole('heading', { name: 'Kdy se veze?' })).toBeTruthy();
+    expect(okno().getByTestId('pruvodce-vychozi-den').textContent).toContain('St 21. 10.');
+    fireEvent.change(okno().getByLabelText('Poznámka'), { target: { value: 'zavolat před závozem' } });
+    fireEvent.click(dalTl());
+    // 3. piva
+    expect(okno().getByRole('heading', { name: 'Které pivo?' })).toBeTruthy();
+    expect(dalTl().disabled).toBe(true);
+    pridejPivo(/Světlá/, '2');
+    fireEvent.click(dalTl());
+    // 4. souhrn — uložit, nebo zahodit
+    expect(okno().getByRole('heading', { name: 'Souhrn objednávky' })).toBeTruthy();
+    expect(okno().getByRole('button', { name: /^Zahodit/ })).toBeTruthy();
+    expect(zapsano('orders', 'insert')).toHaveLength(0);
+    await act(async () => { ulozitObjednavku(); });
+
+    await cekejNaZavreniOkna();
+    expect(zapsano('orders', 'insert')).toHaveLength(1);
+    expect(zapsano('orders', 'insert')[0].data).toMatchObject({
+      order_date: '2026-10-15', place_id: 'p-lipa', place_name: 'Hospoda U Lípy', delivery_day: 'st', delivery_date: '2026-10-21',
+      no_delivery: false, note: 'zavolat před závozem',
+    });
+    expect(zapsano('order_items', 'insert')[0].data).toEqual([
+      expect.objectContaining({ beer_id: 'beer-12', package_id: 'keg-50', quantity: 2 }),
+    ]);
+    expect(h.uspech).toHaveBeenCalledWith('Objednávka uložena: Hospoda U Lípy · St 21. 10.');
+  });
+
+  it('„Zahodit" v souhrnu okno zavře a nic nezapíše', async () => {
+    render(<Orders mode="entry_only" />);
+    await otevriPruvodce();
+    hledej('u lipy');
+    fireEvent.click(dlazdiceOdberatele('Hospoda U Lípy'));
+    fireEvent.click(dalTl());
+    pridejPivo(/Světlá/, '1');
+    fireEvent.click(dalTl());
+    await act(async () => { fireEvent.click(okno().getByRole('button', { name: /^Zahodit/ })); });
+    await cekejNaZavreniOkna();
+    expect(h.potvrd).toHaveBeenCalledWith('Zahodit rozepsanou objednávku?', expect.objectContaining({ potvrdit: 'Zahodit' }));
+    expect(zapsano('orders', 'insert')).toHaveLength(0);
+  });
+
+  it('Restaurace je automaticky bez závozu: krok „kdy" to ukáže a objednávka se uloží s dnešním dnem', async () => {
+    render(<Orders mode="entry_only" />);
+    await otevriPruvodce();
+    hledej('restaurace');
+    fireEvent.click(dlazdiceOdberatele('Restaurace'));
+    expect((okno().getByRole('checkbox', { name: /Bez závozu/ }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(dalTl());
+    pridejPivo(/Světlá/, '1');
+    fireEvent.click(dalTl());
+    await act(async () => { ulozitObjednavku(); });
+    await cekejNaZavreniOkna();
+    expect(zapsano('orders', 'insert')[0].data).toMatchObject({ place_id: 'p-rest', no_delivery: true, delivery_day: 'ct', delivery_date: '2026-10-15' });
+  });
+
+  it('přepínač „Jedna stránka" otevře všechno pod sebou a volba se zapamatuje pro příští otevření', async () => {
+    const { unmount } = render(<Orders mode="entry_only" />);
+    await otevriPruvodce();
+    fireEvent.click(okno().getByRole('button', { name: 'Jedna stránka' }));
+    expect(okno().getByRole('heading', { name: 'Souhrn objednávky' })).toBeTruthy();
+    expect(okno().getByRole('heading', { name: 'Pro koho?' })).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem('objednavky_pruvodce_rezim_v1')!)).toBe('stranka');
+    unmount();
+    cleanup();
+    render(<Orders mode="entry_only" />);
+    await otevriPruvodce();
+    expect(okno().getByRole('heading', { name: 'Souhrn objednávky' })).toBeTruthy();
   });
 });

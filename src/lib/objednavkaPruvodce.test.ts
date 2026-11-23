@@ -3,8 +3,10 @@
 // Majitel 18. 11. 2026: „udělej ty objednávky tak jako první návrh" (třikrokové
 // zadání jako Fasování). Tady se hlídá všechno, co se dá zkoušet bez obrazovky:
 // koncept objednávky, dny závozu, místa závozu, řádky, souhrny a kontrola kroků.
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  KLIC_REZIMU_PRUVODCE, KROKY_PRUVODCE, NAZVY_KROKU, POCET_RYCHLYCH_ODBERATELU, dalsiKrok, jeKrokDostupny, nactiRezimPruvodce,
+  predchoziKrok, prvniNeuplnyKrok, ulozRezimPruvodce,
   chybaKroku, datumKratce, denKlic, hledejOdberatele, jeDalsiMesic, konceptMaObsah, mistaKVolbe, mnozstvi, nabidkaDnu, nejcastejsiObal, odberateleKVyberu,
   nastavBezZavozu, nastavDatum, nastavDen, nastavMisto, nastavMnozstvi, nastavVycep, obalyProPanel, odberatelKonceptu, odeberRadek,
   pocetSlov, popisMist, popisObalu, popisObsahu, popisRezervaceVycepu, popisSouctu, popisZavozu, posledniObjednavka, potvrdDalsiMesic,
@@ -379,20 +381,32 @@ describe('kontrola kroků', () => {
     expect(chybaKroku(vyberOdberatele(prazdnyKoncept(), null, 'radek'), 'odberatel', ctx)).toMatch(/kam se veze/);
   });
 
-  it('závoz v dalším měsíci chce potvrzení', () => {
+  // 23. 11. 2026: potvrzení dalšího měsíce se zaškrtává v kroku „kdy" — z kroku „odberatel" by
+  // se na ně nedalo dosáhnout, takže ho první krok nesmí požadovat (jinak slepá ulička).
+  it('závoz v dalším měsíci chce potvrzení — v kroku „kdy", první krok to neblokuje', () => {
     let k = vyberOdberatele(prazdnyKoncept(), { id: 'p-zizkov', name: 'Žižkov' });
     k = nastavDatum(k, '2026-12-02');
-    expect(chybaKroku(k, 'odberatel', ctx)).toMatch(/dalšího měsíce/);
-    expect(chybaKroku(potvrdDalsiMesic(k, true), 'odberatel', ctx)).toBeNull();
+    expect(chybaKroku(k, 'odberatel', ctx)).toBeNull();
+    expect(chybaKroku(k, 'kdy', ctx)).toMatch(/dalšího měsíce/);
+    expect(chybaKroku(potvrdDalsiMesic(k, true), 'kdy', ctx)).toBeNull();
     // Změna data potvrzení zruší.
-    expect(chybaKroku(nastavDatum(potvrdDalsiMesic(k, true), '2026-12-03'), 'odberatel', ctx)).toMatch(/dalšího měsíce/);
+    expect(chybaKroku(nastavDatum(potvrdDalsiMesic(k, true), '2026-12-03'), 'kdy', ctx)).toMatch(/dalšího měsíce/);
+    // Pozdější kroky na ně narazí taky.
+    expect(chybaKroku(zRadkem(k), 'pivo', ctx)).toMatch(/dalšího měsíce/);
+    expect(chybaKroku(zRadkem(k), 'souhrn', ctx)).toMatch(/dalšího měsíce/);
   });
 
   it('i výchozí den v dalším měsíci chce potvrzení (poslední týden měsíce)', () => {
     // Středa 25. 11. → výchozí den závozu nového odběratele je ten den; v pondělí 30. 11. už středa 2. 12.
     const k = vyberOdberatele(prazdnyKoncept(), { id: 'p-zizkov', name: 'Žižkov' });
-    expect(chybaKroku(k, 'odberatel', { odberatele, dnes: '2026-11-30' })).toMatch(/dalšího měsíce/);
-    expect(chybaKroku(k, 'odberatel', { odberatele, dnes: DNES })).toBeNull();
+    expect(chybaKroku(k, 'kdy', { odberatele, dnes: '2026-11-30' })).toMatch(/dalšího měsíce/);
+    expect(chybaKroku(k, 'odberatel', { odberatele, dnes: '2026-11-30' })).toBeNull();
+    expect(chybaKroku(k, 'kdy', { odberatele, dnes: DNES })).toBeNull();
+  });
+
+  it('krok „kdy" bez odběratele nebo bez místa nepustí dál', () => {
+    expect(chybaKroku(prazdnyKoncept(), 'kdy', ctx)).toBe('Vyber odběratele.');
+    expect(chybaKroku(vyberOdberatele(prazdnyKoncept(), { id: 'p-radek', name: 'Radek' }), 'kdy', ctx)).toMatch(/kam se veze/);
   });
 
   it('pivo: bez řádku nejde na souhrn, s řádkem ano', () => {
@@ -405,6 +419,80 @@ describe('kontrola kroků', () => {
   it('souhrn zkontroluje i dřívější kroky', () => {
     const radek1 = zRadkem(vyberOdberatele(prazdnyKoncept(), { id: 'p-radek', name: 'Radek' }));
     expect(chybaKroku(radek1, 'souhrn', ctx)).toMatch(/kam se veze/);
+  });
+});
+
+// 23. 11. 2026, majitel: „otevře se strana s odběrateli, … nejčastějších 10; když vyberu odběratele,
+// vyberu den závozu, datum, poznámku; další je záložka piva; pak můžu potvrdit nebo zahodit."
+describe('kroky průvodce', () => {
+  const ctx = { odberatele, dnes: DNES };
+  const zizkov = vyberOdberatele(prazdnyKoncept(), { id: 'p-zizkov', name: 'Žižkov' });
+  const zRadkem = (k: KonceptObjednavky) => ({ ...k, radky: [radek('1', 'b12', 'k50', 1)] });
+
+  it('jsou čtyři a jdou po sobě: odběratel → kdy → piva → souhrn', () => {
+    expect(KROKY_PRUVODCE).toEqual(['odberatel', 'kdy', 'pivo', 'souhrn']);
+    expect(KROKY_PRUVODCE.map((k) => NAZVY_KROKU[k])).toEqual(['Odběratel', 'Kdy', 'Piva', 'Souhrn']);
+  });
+
+  it('dalsiKrok a predchoziKrok se na koncích zastaví', () => {
+    expect(dalsiKrok('odberatel')).toBe('kdy');
+    expect(dalsiKrok('kdy')).toBe('pivo');
+    expect(dalsiKrok('pivo')).toBe('souhrn');
+    expect(dalsiKrok('souhrn')).toBe('souhrn');
+    expect(predchoziKrok('souhrn')).toBe('pivo');
+    expect(predchoziKrok('pivo')).toBe('kdy');
+    expect(predchoziKrok('kdy')).toBe('odberatel');
+    expect(predchoziKrok('odberatel')).toBe('odberatel');
+  });
+
+  it('na pozdější krok se dá přeskočit jen přes hotové dřívější', () => {
+    // prázdný koncept: jen první krok
+    expect(KROKY_PRUVODCE.map((k) => jeKrokDostupny(prazdnyKoncept(), k, ctx))).toEqual([true, false, false, false]);
+    // odběratel vybraný: i „kdy" a piva (z „kdy" se jde dál bez výběru dne), souhrn ne
+    expect(KROKY_PRUVODCE.map((k) => jeKrokDostupny(zizkov, k, ctx))).toEqual([true, true, true, false]);
+    // s pivem i souhrn
+    expect(KROKY_PRUVODCE.map((k) => jeKrokDostupny(zRadkem(zizkov), k, ctx))).toEqual([true, true, true, true]);
+    // odběratel s víc místy bez místa: nikam dál
+    const radek1 = vyberOdberatele(prazdnyKoncept(), { id: 'p-radek', name: 'Radek' });
+    expect(KROKY_PRUVODCE.map((k) => jeKrokDostupny(radek1, k, ctx))).toEqual([true, false, false, false]);
+    // závoz v dalším měsíci bez potvrzení zastaví před pivy
+    const prosinec = nastavDatum(zizkov, '2026-12-02');
+    expect(KROKY_PRUVODCE.map((k) => jeKrokDostupny(prosinec, k, ctx))).toEqual([true, true, false, false]);
+  });
+
+  it('prvniNeuplnyKrok: kde má člověk pokračovat po přepnutí na kroky', () => {
+    expect(prvniNeuplnyKrok(prazdnyKoncept(), ctx)).toBe('odberatel');
+    expect(prvniNeuplnyKrok(vyberOdberatele(prazdnyKoncept(), { id: 'p-radek', name: 'Radek' }), ctx)).toBe('odberatel');
+    expect(prvniNeuplnyKrok(zizkov, ctx)).toBe('pivo');
+    expect(prvniNeuplnyKrok(nastavDatum(zRadkem(zizkov), '2026-12-02'), ctx)).toBe('kdy');
+    expect(prvniNeuplnyKrok(zRadkem(zizkov), ctx)).toBe('souhrn');
+  });
+
+  it('nahoře je 10 nejčastějších odběratelů (dřív 6)', () => {
+    expect(POCET_RYCHLYCH_ODBERATELU).toBe(10);
+  });
+
+  describe('zapamatovaný způsob (kroky / jedna stránka)', () => {
+    beforeEach(() => { localStorage.clear(); });
+
+    it('bez záznamu jsou kroky — výchozí způsob', () => {
+      expect(nactiRezimPruvodce()).toBe('kroky');
+    });
+
+    it('jedna stránka se pamatuje a kroky taky', () => {
+      ulozRezimPruvodce('stranka');
+      expect(nactiRezimPruvodce()).toBe('stranka');
+      expect(JSON.parse(localStorage.getItem(KLIC_REZIMU_PRUVODCE)!)).toBe('stranka');
+      ulozRezimPruvodce('kroky');
+      expect(nactiRezimPruvodce()).toBe('kroky');
+    });
+
+    it('rozbitý nebo cizí záznam znamená kroky, ne pád', () => {
+      localStorage.setItem(KLIC_REZIMU_PRUVODCE, '{rozbite');
+      expect(nactiRezimPruvodce()).toBe('kroky');
+      localStorage.setItem(KLIC_REZIMU_PRUVODCE, JSON.stringify('cokoli'));
+      expect(nactiRezimPruvodce()).toBe('kroky');
+    });
   });
 });
 

@@ -2,9 +2,18 @@
 // ---------------------------------------------------------------------------
 // Majitel 18. 11. 2026: „návrh, jak by vypadalo zadávání objednávek stejně jako
 // zadávání stáčení lahví nebo fasování" a potom „udělej ty objednávky tak jako
-// první návrh". Okno (components/objednavky/ObjednavkaPruvodce.tsx) vede třemi
-// kroky: odběratel a den → pivo (dlaždice a krokové zadávání obalu a počtu,
-// úplně jako ve Fasování) → souhrn a uložení.
+// první návrh". Okno (components/objednavky/ObjednavkaPruvodce.tsx) vede po
+// krocích: odběratel → kdy (den, datum, poznámka) → piva (dlaždice a krokové
+// zadávání obalu a počtu, úplně jako ve Fasování) → souhrn, kde se objednávka
+// uloží, nebo zahodí. Na přání jde stejné okno i na jedné stránce.
+//
+// 23. 11. 2026, majitel: „dám nová: otevře se strana s odběrateli, dlaždice jak
+// jsou včetně A–Ž, nejčastějších 10; když vyberu odběratele, vyberu den závozu,
+// datum, poznámku; další je záložka piva; pak můžu potvrdit nebo zahodit —
+// vždyť jsme to tak měli nastavený a teď je to na jedný stránce … jen k tomu
+// dej možnost kliknout po pořadě, stejně jako se dělá inventura položka po
+// položce." Kroky se proto vrátily jako výchozí způsob a jedna stránka zůstala
+// jako volba (RezimPruvodce).
 //
 // Tady je jen to, co jde zkoušet bez obrazovky: rozepsaný „koncept" objednávky,
 // úpravy jeho řádků, nabídka dnů, místa závozu odběratele, souhrny a kontrola,
@@ -12,6 +21,7 @@
 // cestou jako starý formulář (kontrola duplicit, potvrzení minulého týdne,
 // upomínky) — průvodce jen předvyplní stejná pole, ať se pravidla nerozejdou.
 import { objemObalu } from './dnesUlozeno';
+import { nactiJson, ulozJson } from './uloziste';
 import { poradiLahvi } from './krokoveZadavani';
 import { denZavozuProUlozeni, jeAutomatickyBezZavozu } from './bezZavozu';
 import { vychoziDenZavozu, type MistoSVychozimDnem } from './denZavozu';
@@ -54,8 +64,32 @@ export type RezervaceVycepuKonceptu = { id: string; popis: string };
 
 export type OdberatelPruvodce = MistoSVychozimDnem & OdberatelSMisty;
 
-export type KrokPruvodce = 'odberatel' | 'pivo' | 'souhrn';
-export const KROKY_PRUVODCE: readonly KrokPruvodce[] = ['odberatel', 'pivo', 'souhrn'];
+export type KrokPruvodce = 'odberatel' | 'kdy' | 'pivo' | 'souhrn';
+export const KROKY_PRUVODCE: readonly KrokPruvodce[] = ['odberatel', 'kdy', 'pivo', 'souhrn'];
+/** Jak se krok jmenuje v liště kroků. */
+export const NAZVY_KROKU: Record<KrokPruvodce, string> = { odberatel: 'Odběratel', kdy: 'Kdy', pivo: 'Piva', souhrn: 'Souhrn' };
+
+/** Okno vede po krocích (výchozí), nebo má všechno na jedné stránce. */
+export type RezimPruvodce = 'kroky' | 'stranka';
+/** Pod tímhle klíčem si zařízení pamatuje, jak člověk okno zvolil. */
+export const KLIC_REZIMU_PRUVODCE = 'objednavky_pruvodce_rezim_v1';
+
+/** Zapamatovaný způsob; bez záznamu (nebo s rozbitým) kroky. */
+export function nactiRezimPruvodce(): RezimPruvodce {
+  return nactiJson<string>(KLIC_REZIMU_PRUVODCE, 'kroky') === 'stranka' ? 'stranka' : 'kroky';
+}
+export function ulozRezimPruvodce(rezim: RezimPruvodce): void {
+  ulozJson(KLIC_REZIMU_PRUVODCE, rezim);
+}
+
+/** Krok za tímhle (poslední zůstává poslední). */
+export function dalsiKrok(krok: KrokPruvodce): KrokPruvodce {
+  return KROKY_PRUVODCE[Math.min(KROKY_PRUVODCE.indexOf(krok) + 1, KROKY_PRUVODCE.length - 1)];
+}
+/** Krok před tímhle (první zůstává první). */
+export function predchoziKrok(krok: KrokPruvodce): KrokPruvodce {
+  return KROKY_PRUVODCE[Math.max(KROKY_PRUVODCE.indexOf(krok) - 1, 0)];
+}
 
 export function prazdnyKoncept(): KonceptObjednavky {
   return {
@@ -479,8 +513,10 @@ export function popisObsahu(s: SouctyObjednavky): string {
 // ── Kontrola kroků ──────────────────────────────────────────────────────────
 
 /**
- * Proč se z kroku nedá jít dál (text pro člověka), nebo null. U souhrnu platí
- * i všechno z dřívějších kroků — uložit jde jen úplná objednávka.
+ * Proč se z kroku nedá jít dál (text pro člověka), nebo null. U každého kroku
+ * platí i všechno z dřívějších — uložit jde jen úplná objednávka. Potvrzení
+ * dalšího měsíce patří ke kroku „kdy", ne k odběrateli: zaškrtává se tam, kde
+ * se vybírá den, a z prvního kroku by se na ně nedalo dosáhnout.
  */
 export function chybaKroku(
   k: KonceptObjednavky,
@@ -490,11 +526,32 @@ export function chybaKroku(
   if (!k.placeName.trim()) return 'Vyber odběratele.';
   const odberatel = odberatelKonceptu(k, ctx.odberatele);
   if (odberatel && maViceMist(odberatel) && k.mistoZavozu === null) return `Vyber, kam se veze (${odberatel.name} má víc míst).`;
+  if (krok === 'odberatel') return null;
   const z = ucinnyZavoz(k, ctx.odberatele, ctx.dnes);
   if (jeDalsiMesic(z.datum, ctx.dnes) && !k.potvrzenoDalsiMesic) return 'Závoz spadá do dalšího měsíce — potvrď to zaškrtnutím.';
-  if (krok === 'odberatel') return null;
+  if (krok === 'kdy') return null;
   if (k.radky.length === 0) return 'Přidej aspoň jedno pivo.';
   return null;
+}
+
+/** Dá se na tenhle krok přeskočit? Jen když jsou v pořádku všechny kroky před ním. */
+export function jeKrokDostupny(
+  k: KonceptObjednavky,
+  krok: KrokPruvodce,
+  ctx: { odberatele: readonly OdberatelPruvodce[]; dnes: string },
+): boolean {
+  return KROKY_PRUVODCE.slice(0, KROKY_PRUVODCE.indexOf(krok)).every((p) => chybaKroku(k, p, ctx) === null);
+}
+
+/**
+ * Krok, na kterém má člověk pokračovat: první, ze kterého se nedá jít dál;
+ * hotová objednávka končí na souhrnu. Po přepnutí z jedné stránky na kroky.
+ */
+export function prvniNeuplnyKrok(
+  k: KonceptObjednavky,
+  ctx: { odberatele: readonly OdberatelPruvodce[]; dnes: string },
+): KrokPruvodce {
+  return KROKY_PRUVODCE.find((p) => p !== 'souhrn' && chybaKroku(k, p, ctx) !== null) ?? 'souhrn';
 }
 
 // ── Zopakování poslední objednávky ──────────────────────────────────────────
@@ -535,5 +592,8 @@ export function zopakujPolozky(
 
 // ── Seznam odběratelů ───────────────────────────────────────────────────────
 
-/** Kolik odběratelů se ukáže hned, když se nic nehledá. */
-export const POCET_RYCHLYCH_ODBERATELU = 6;
+/**
+ * Kolik odběratelů se ukáže hned, když se nic nehledá. Majitel 18. 11. 2026 chtěl
+ * „primárně 6 nejčastějších"; 23. 11. 2026 „nejčastějších 10".
+ */
+export const POCET_RYCHLYCH_ODBERATELU = 10;

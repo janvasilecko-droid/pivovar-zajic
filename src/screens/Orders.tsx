@@ -2229,9 +2229,11 @@ export default function Orders({
       </div>
       )}
 
-      {/* 🧭 Nová objednávka na jedné stránce (18. 11. 2026: „udělej ty objednávky
-          tak jako první návrh", 19. 11.: „vše na jedné stránce"): odběratel a den,
-          pivo a souhrn pod sebou, pivo zadává stejný panel jako Fasování a Lahve.
+      {/* 🧭 Nová objednávka (18. 11. 2026: „udělej ty objednávky tak jako první návrh",
+          19. 11.: „vše na jedné stránce", 23. 11.: „otevře se strana s odběrateli … další
+          je záložka piva, pak potvrdit nebo zahodit … dej možnost kliknout po pořadě"):
+          okno se otevírá po krocích (odběratel → kdy → piva → souhrn), v záhlaví jde
+          přepnout na jednu stránku. Pivo zadává stejný panel jako Fasování a Lahve.
           Starý formulář je hned pod tím a funguje dál. */}
       {mode !== 'overviews_only' && viewMode === 'summary' && (
         <div className="rounded-2xl border border-primary-200 bg-primary-50 p-3 space-y-1.5">
@@ -2243,7 +2245,7 @@ export default function Orders({
           >
             <Plus size={20} aria-hidden="true" /> Nová objednávka
           </button>
-          <p className="text-xs font-semibold text-neutral-700">Odběratel, pivo a souhrn na jedné stránce, dole uložit i s odesláním na WhatsApp. Podrobný formulář je níž.</p>
+          <p className="text-xs font-semibold text-neutral-700">Po krocích: odběratel, den, piva a souhrn — uložit jde i s odesláním na WhatsApp. Podrobný formulář je níž.</p>
         </div>
       )}
 

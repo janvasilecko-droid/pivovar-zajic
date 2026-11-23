@@ -9,6 +9,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { beerBg, beerName } from '../../lib/supabase';
 import { toastZpet } from '../../lib/toast';
 import { MaleSudyRadek, tridaRadkuSudu } from '../MaleSudyVolne';
+import { PruvodcePoznamka } from './PruvodcePoznamka';
 import {
   mistaKVolbe, mnozstvi, nastavMnozstvi, odberatelKonceptu, odeberRadek, popisSouctu, popisZavozu, skupinyPodlePiv,
   souctyObjednavky, ucinnyZavoz, type KonceptObjednavky, type RadekKonceptu,
@@ -17,19 +18,24 @@ import type { DataPruvodce, PrideleniMalychSudu, ZmenaKonceptu } from './pruvodc
 
 const KARTA = 'rounded-2xl border border-neutral-200 bg-white dark:bg-neutral-800 dark:border-neutral-700';
 
-export function PruvodceSouhrn({ data, koncept, zmen, upravPivo, naSekci, prideleniSudu, vycep, patka }: {
+export function PruvodceSouhrn({ data, koncept, zmen, upravPivo, naSekci, prideleniSudu, vycep, patka, poKrocich = false }: {
   data: DataPruvodce;
   koncept: KonceptObjednavky;
   zmen: ZmenaKonceptu;
   /** Úprava řádku: otevře krokové zadávání piva s předvoleným obalem. */
   upravPivo: (beerId: string, pkgId: string) => void;
-  /** Změna odběratele nebo dne: stránka se přerolují k odběrateli, nebo ke dnům závozu. */
+  /** Změna odběratele nebo dne: stránka se přerolují k odběrateli, nebo ke dnům závozu (po krocích se vrátí na ten krok). */
   naSekci: (cil: 'odberatel' | 'kdy') => void;
   prideleniSudu?: PrideleniMalychSudu;
   /** Pole „Půjčení výčepu" pod poznámkou (PruvodceVycep); bez něj se výčep nenabízí. */
   vycep?: ReactNode;
   /** Tlačítka uložení uvnitř souhrnu (na počítači; na telefonu jsou v patičce okna). */
   patka?: ReactNode;
+  /**
+   * Okno po krocích: poznámka se píše v kroku „kdy", takže tu je jen řádek s ní
+   * (a tužkou zpět na ten krok); na jedné stránce zůstává pole pod souhrnem.
+   */
+  poKrocich?: boolean;
 }) {
   const { places, beers, packages, dnes } = data;
   const odberatel = odberatelKonceptu(koncept, places);
@@ -71,6 +77,17 @@ export function PruvodceSouhrn({ data, koncept, zmen, upravPivo, naSekci, pridel
           </span>
           <button type="button" onClick={() => naSekci('kdy')} className={tuzka} aria-label="Změnit den závozu"><Pencil size={16} /></button>
         </div>
+        {poKrocich && koncept.poznamka.trim() && (
+          // Poznámka je pod svým štítkem, ne vedle: „POZNÁMKA" je delší než štítky Komu a Kdy (šířka 4rem)
+          // a dlouhý text (až 500 znaků) potřebuje celou šířku řádku.
+          <div className={`${radekKarty} py-2`} data-testid="souhrn-poznamka">
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-black uppercase tracking-wider text-neutral-600 dark:text-neutral-300">Poznámka</div>
+              <div className="text-base font-bold text-neutral-900 dark:text-neutral-100 break-words">{koncept.poznamka.trim()}</div>
+            </div>
+            <button type="button" onClick={() => naSekci('kdy')} className={tuzka} aria-label="Změnit poznámku"><Pencil size={16} /></button>
+          </div>
+        )}
       </section>
 
       <section aria-label="Položky objednávky" className={`${KARTA} py-2`}>
@@ -117,19 +134,7 @@ export function PruvodceSouhrn({ data, koncept, zmen, upravPivo, naSekci, pridel
         )}
       </section>
 
-      <div>
-        <label htmlFor="pruvodce-poznamka" className="label">Poznámka</label>
-        <input
-          id="pruvodce-poznamka"
-          type="text"
-          maxLength={500}
-          autoComplete="off"
-          className="input"
-          value={koncept.poznamka}
-          onChange={(e) => zmen((k) => ({ ...k, poznamka: e.target.value }))}
-          placeholder="Nepovinné — třeba „vozí řidič Petr“"
-        />
-      </div>
+      {!poKrocich && <PruvodcePoznamka koncept={koncept} zmen={zmen} />}
 
       {vycep}
 
