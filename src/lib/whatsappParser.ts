@@ -2,9 +2,11 @@ import { Beer, Package, Place, supabase } from './supabase';
 import { normPlaceName, stripSenderName, resolvePlace, odberatelZHistorie, preferujExaktniOdberatele, wantsOwnOrder as textWantsOwnOrder } from '../../supabase/functions/_shared/place-match';
 import { odberatelZVety } from '../../supabase/functions/_shared/odberatel-z-vety';
 import { nactiHistorii } from '../../supabase/functions/_shared/historie-objednavek';
+import { nactiZvykLahve } from '../../supabase/functions/_shared/zvyk-lahve';
+import { lahevBezUdaneVelikosti } from '../../supabase/functions/_shared/beer-match';
 import { textRikaPristiTyden } from '../../supabase/functions/_shared/den-zavozu';
 import { jeDocasnaChyba, UPOZORNENI_ZALOZNI_CTENI } from '../../supabase/functions/_shared/opakovani-cteni';
-import { parseGeminiItems, detectOrderNotes, parseOrderText, loadAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
+import { parseGeminiItems, detectOrderNotes, parseOrderText, emptyAliasMap, loadPlaceAliasMap, ParserAliasMap, ParsedLine, GeminiItem } from './orderParser';
 import { parseExplicitDate } from './orderDates';
 import { businessNow } from './businessDate';
 import { authenticatedFunctionHeaders } from './functionAuth';
@@ -476,25 +478,13 @@ export async function parseWhatsAppOrderMessageWithAI(
   messageId?: string,
   imageUrl?: string | null,
 ): Promise<ParsedWhatsAppResult> {
-  // 1. Naučené zkratky (piva + obaly) a aliasy odběratelů — stejné hinty
-  //    jako posílá čtení z fotky (ImportFromImage).
-  const [aliasMap, placeAliasMap] = await Promise.all([
-    aliasMapOverride ?? loadAliasMap(),
-    placeAliasMapOverride ?? loadPlaceAliasMap(),
-  ]);
-
-  const aliasList = [
-    ...[...aliasMap.beer.entries()].map(([alias_text, beer_id]) => ({
-      alias_text,
-      beer_name: beers.find((b) => b.id === beer_id)?.name ?? null,
-      package_label: null as string | null,
-    })),
-    ...[...aliasMap.package.entries()].map(([alias_text, package_id]) => ({
-      alias_text,
-      beer_name: null as string | null,
-      package_label: packages.find((p) => p.id === package_id)?.label ?? null,
-    })),
-  ].slice(0, 80);
+  // 1. Aliasy odběratelů jako nápověda pro AI. Naučené zkratky piv a obalů
+  //    (parser_aliases) se AI NEPOSÍLAJÍ — ukládaly se potichu z každé ruční
+  //    změny a čtení kazily (viz whatsapp-auto-parse/index.ts). Nepoužívá je
+  //    ani párování položek níž: bez výslovně předané mapy je prázdná, stejně
+  //    jako na serveru — jinak by „Přečíst znovu" četlo jinak než první čtení.
+  const aliasMap = aliasMapOverride ?? emptyAliasMap();
+  const placeAliasMap = placeAliasMapOverride ?? await loadPlaceAliasMap();
 
   const placeAliasList = [...placeAliasMap.entries()]
     .map(([wrong_name, place_id]) => {
@@ -619,7 +609,6 @@ export async function parseWhatsAppOrderMessageWithAI(
       beers: beers.map((b) => ({ id: b.id, name: b.name, degree: b.degree ?? '' })),
       packages: packages.map((p) => ({ id: p.id, label: p.label })),
       places: places.map((pl) => pl.name),
-      aliases: aliasList,
       placeAliases: placeAliasList,
       historie: historieText,
       messages: [
@@ -803,6 +792,25 @@ export async function parseWhatsAppOrderMessageWithAI(
     }
   } catch (e) {
     console.warn('[whatsappParser] záchranné čtení textu selhalo:', e);
+  }
+
+  // 🍾 Lahve/bedny bez udané velikosti („5 beden světlého"): rozhodne, co
+  // odběratel bere, jinak 0,5 l — stejně jako server (whatsapp-auto-parse,
+  // lahevBezUdaneVelikosti v _shared/beer-match.ts). AI ani místní parser
+  // velikost lahve neurčují.
+  const jeSklo = (id: string | null) => [0.33, 0.5].includes(Number(packages.find((p) => p.id === id)?.volume_l));
+  if (items.some((l) => jeSklo(l.package_id))) {
+    const zvyk = await nactiZvykLahve(supabase, {
+      placeId, placeName, kdy: messageTimestamp || new Date().toISOString(), packages,
+    });
+    for (const l of items) {
+      if (!jeSklo(l.package_id)) continue;
+      const velikost = lahevBezUdaneVelikosti(l.raw, zvyk);
+      const lahev = velikost ? packages.find((p) => Number(p.volume_l) === velikost) : null;
+      if (!lahev) continue;
+      l.package_id = lahev.id;
+      l.package_label = lahev.label;
+    }
   }
 
   return { placeId, placeName, deliveryDay: day, deliveryDate: dateStr, note, items, raw_text: rawTextFromAi, otazky };

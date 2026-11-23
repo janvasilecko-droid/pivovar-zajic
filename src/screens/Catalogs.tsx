@@ -202,11 +202,11 @@ function BeerForm({ beer, onClose, onSaved }: { beer: Beer | null; onClose: () =
 }
 
 /**
- * Naučené zkratky piv/obalů — přehled toho, co si appka zapamatovala při
- * rozpoznávání WhatsApp/hlasových/fotoobjednávek (tabulka parser_aliases,
- * čtená matchBeerFromHints/matchPackage v lib/orderParser.ts). Stejně jako
- * u Naučených odběratelů jde zkratku i ručně přidat nebo upravit — zápis
- * jde do stejné tabulky, takže se ruční a naučená zkratka chovají stejně.
+ * Naučené zkratky piv/obalů (tabulka parser_aliases, čtená
+ * matchBeerFromHints/matchPackage v lib/orderParser.ts). Do 23. 11. 2026 je
+ * appka ukládala potichu z každé ruční změny; od té doby se neučí sama a čtení
+ * zpráv z WhatsAppu je nepoužívá vůbec (whatsapp-auto-parse). Stejně jako
+ * u Naučených odběratelů jde zkratku ručně přidat, upravit i smazat.
  */
 function NauceneZkratkyModal({ beers, onClose }: { beers: Beer[]; onClose: () => void }) {
   const [zkratky, setZkratky] = useState<ParserAliasRow[]>([]);
@@ -290,9 +290,12 @@ function NauceneZkratkyModal({ beers, onClose }: { beers: Beer[]; onClose: () =>
     <Modal open={true} onClose={onClose} title="Naučené zkratky">
       <div className="space-y-4">
         <p className="text-sm text-neutral-600">
-          Když appka (nebo člověk) opraví špatně rozpoznané pivo nebo obal, zapamatuje si
-          „tenhle text = tohle pivo/obal" pro příště. Tady jde vidět, co se naučila,
-          smazat špatné naučení — a taky přidat nebo upravit zkratku ručně.
+          Zkratky, které tu jsou, vznikly do 23. 11. 2026 samy z každé ruční změny piva
+          nebo obalu — i když šlo o záměnu jen pro jednu objednávku („30l" → 1 l).
+          Čtení zpráv z WhatsAppu je proto už nepoužívá a appka se z ručních změn sama
+          neučí. Zkratku jde přidat, upravit nebo smazat ručně; platí pro text a hlas
+          zadaný v appce a pro „Načíst z fotky", a jen když obal opravdu pojmenovává
+          („malý soudek"), ne když sama říká jiný objem.
         </p>
 
         {formularOtevreny ? (

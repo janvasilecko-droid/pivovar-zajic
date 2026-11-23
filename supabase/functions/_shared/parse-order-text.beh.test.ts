@@ -41,6 +41,9 @@ beforeAll(async () => {
   await import('../parse-order-text/index.ts');
 });
 
+/** Těla požadavků poslaných Gemini (tedy i celý pokyn) — plní se v `sluzby`. */
+const pokyny: string[] = [];
+
 /** Napodobené služby. `volani` = co všechno funkce zavolala (služba:model). */
 function sluzby(nastaveni: {
   ocrMs?: number;
@@ -50,6 +53,7 @@ function sluzby(nastaveni: {
   openrouter?: Record<string, Chovani>;
 }) {
   const volani: string[] = [];
+  pokyny.length = 0;
   const poradi = new Map<string, number>();
   const odpovez = (ch: Chovani | undefined, signal: AbortSignal | undefined, telo: (text: string) => unknown) =>
     new Promise<Response>((ok, chyba) => {
@@ -76,6 +80,7 @@ function sluzby(nastaveni: {
       if (u.includes('/models?')) return odpovez({ ms: 300 }, init.signal, () => ({ models: NABIDKA.map((m) => ({ name: `models/${m}` })) }));
       const model = u.match(/models\/([^:]+):generateContent/)![1];
       volani.push(`gemini:${model}`);
+      pokyny.push(init.body ?? '');
       const n = poradi.get(model) ?? 0;
       poradi.set(model, n + 1);
       const ch = nastaveni.gemini?.[model];
@@ -293,5 +298,28 @@ describe('parse-order-text: čtení se vejde do času serveru (17. 11. 2026 — 
     expect(json._provider).toBe('gemini'); // bez „ocr+"
     expect(trvalo).toBeLessThan(45_000);
     expect(volani[0]).toBe('ocr');
+  });
+
+  // 23. 11. 2026: „naučené zkratky" se ukládaly potichu z každé ruční změny
+  // obalu („keg 15l → 20l", „0.33l → 0.5l") a pokyn AI říkal, ať se jimi řídí.
+  // Do pokynu už nesmí, ani když je pošle starší verze appky.
+  it('„naučené zkratky" z těla požadavku se do pokynu pro AI nedostanou', async () => {
+    sluzby({ gemini: { 'gemini-3.5-flash': { ms: 2_000 }, 'gemini-flash-latest': { visi: true }, 'gemini-3.8-flash': { visi: true } } });
+    const { status } = await zavolej({
+      rawText: 'Maneo 3x 15l desitka',
+      aliases: [
+        { alias_text: 'keg 15l', beer_name: null, package_label: 'KEG 20l' },
+        { alias_text: '0.33l', beer_name: null, package_label: 'Lahve 0.5l' },
+        { alias_text: 'hazy spring day', beer_name: 'winter', package_label: null },
+      ],
+    });
+    expect(status).toBe(200);
+    expect(pokyny.length).toBeGreaterThan(0);
+    const pokyn = pokyny.join('\n');
+    expect(pokyn).toContain('Maneo 3x 15l desitka');
+    expect(pokyn).not.toContain('keg 15l');
+    expect(pokyn).not.toContain('hazy spring day');
+    expect(pokyn).not.toContain('→ Lahve 0.5l');
+    expect(pokyn).toContain('(žádné naučené zkratky zatím)');
   });
 });

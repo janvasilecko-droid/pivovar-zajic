@@ -651,6 +651,9 @@ export default function Orders({
 
   // Schválení WhatsApp objednávky - vytvoří objednávku z rozparsované zprávy
   const handleApproveWhatsAppOrder = useCallback(async (message: WhatsAppIncoming) => {
+    // Zprávy z WhatsAppu se čtou bez „naučených zkratek" (viz whatsapp-auto-parse)
+    // — ani záložní párování položky bez piva/obalu je tu proto nepoužije.
+    const bezZkratek = emptyAliasMap();
     try {
       // Prázdná objednávka jde založit (Schválit jde vždycky, 2. 10. 2026) —
       // položky se doplní v Objednávkách. U ODPOVĚDI na existující objednávku
@@ -675,11 +678,11 @@ export default function Orders({
         const zOdpovedi = (message.parsed_items || []).map((item) => {
           const beer =
             beers.find((b) => b.id === item.beer_id) ??
-            matchBeerFromHints(normalize([item.raw_line, item.degree].filter(Boolean).join(' ')), beers, aliasMap).beer ??
-            matchBeerFromHints(normalize(item.beer_name || ''), beers, aliasMap).beer;
+            matchBeerFromHints(normalize([item.raw_line, item.degree].filter(Boolean).join(' ')), beers, bezZkratek).beer ??
+            matchBeerFromHints(normalize(item.beer_name || ''), beers, bezZkratek).beer;
           const pkg =
             packages.find((p) => p.id === item.pkg_id) ??
-            matchPackage(normalize([item.package_label, item.raw_line].filter(Boolean).join(' ')), packages, aliasMap);
+            matchPackage(normalize([item.package_label, item.raw_line].filter(Boolean).join(' ')), packages, bezZkratek);
           const beer_id = beer?.id ?? null;
           const package_id = pkg?.id ?? null;
           // Jméno/obal si drž stranou i pro nespárované položky (id = null),
@@ -857,19 +860,19 @@ export default function Orders({
           matchBeerFromHints(
             normalize([item.raw_line, item.degree].filter(Boolean).join(' ')),
             beers,
-            aliasMap
+            bezZkratek
           ).beer ??
           matchBeerFromHints(
             normalize(item.beer_name || ''),
             beers,
-            aliasMap
+            bezZkratek
           ).beer;
         const pkg =
           packages.find((p) => p.id === item.pkg_id) ??
           matchPackage(
             normalize([item.package_label, item.raw_line].filter(Boolean).join(' ')),
             packages,
-            aliasMap
+            bezZkratek
           );
         return {
           order_id: newOrder.id,
@@ -916,7 +919,7 @@ export default function Orders({
       zalogujANahlas('Chyba při schvalování WhatsApp objednávky', error);
       throw error;
     }
-  }, [beers, packages, aliasMap, load]);
+  }, [beers, packages, load]);
 
   // Zamítnutí WhatsApp objednávky - označí jako ignorovanou
   const handleRejectWhatsAppOrder = useCallback(async (message: WhatsAppIncoming) => {
