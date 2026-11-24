@@ -14,6 +14,7 @@
     "20261111030000_bible_chat.sql",
     "20261111040000_bible_hledani_filtry.sql",
     "20261111050000_bible_dodatky.sql",
-    "20261114000000_bible_dotazy_claude.sql"
+    "20261114000000_bible_dotazy_claude.sql",
+    "20261124000000_bible_vektory.sql"
   ]
 }

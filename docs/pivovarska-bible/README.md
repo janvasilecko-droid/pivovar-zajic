@@ -60,6 +60,7 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | AI sládek jako plnohodnotný chatbot na pivovarské problémy — rozhovor (doptání, příčiny od nejpravděpodobnější, co změřit), „Uložit do bible“ u zdrojů z internetu, přehled knih v chatu „Z čeho AI sládek čerpá“ (R34) | hotovo (24. 11. 2026) — bez migrace |
 | AI sládek zná stav sklepa — tanky, co je v nich a od kdy, sanitace, přečerpání, ztráty; přepínač „Přiložit stav sklepa“ (R35) | hotovo (24. 11. 2026) — bez migrace |
 | AI sládek jako normální chatbot na všechno kolem pivovaru — návody (vaření, varna), hygiena a plísně, vady, výpočty; knihy hlavní zdroj, jinak obecná odborná praxe (označená), nikdy nevydávaná za citaci (R36) | hotovo (24. 11. 2026) — bez migrace |
+| Hledání podle významu — vektory pasáží (pgvector, embeddingy OpenAI) spojené s hledáním podle slov metodou RRF; stav ve Správě znalostí (R38) | hotovo (24. 11. 2026) — migrace `20261124000000_bible_vektory` (Databáze bible) a zpracování knih ručně |
 | Přísný režim „Jen z knih a dat“ — přepínač v chatu: odpovídá výhradně z knih, zkušeností, várek, profilu a výpočtů, bez obecné znalosti a bez internetu (R37) | hotovo (24. 11. 2026) — bez migrace |
 
 ## AI sládek — chatbot v appce (etapa 5)

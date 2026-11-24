@@ -64,4 +64,7 @@
   prohlížeč zavřená; appka chodí jen přes edge funkci bible-api
   (`bible/supabase/functions`, ověří přihlášení v hlavním projektu).
 - Přístup je fail-closed (`bible_pristup()` v DB, `lib/bibleOpravneni.ts`).
+- Hledání v knihách je dvojí: podle slov a podle významu (vektory, R38: OpenAI embeddingy, klíč
+  `OPENAI_API_KEY` v app_secrets hlavního projektu; bez klíče, migrace nebo vektorů se hledá jen podle
+  slov). Vektory počítá worker v Actions; stav je ve Správě znalostí → AI a náklady.
 - Repo je veřejné: obsah knih nesmí do gitu, migrací, logů ani artefaktů Actions.

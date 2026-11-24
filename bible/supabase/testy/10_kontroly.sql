@@ -394,6 +394,82 @@ UPDATE public.bible_kapitoly SET nazev_cs = NULL WHERE id = '33333333-3333-3333-
 UPDATE public.bible_dokumenty SET stav = 'zpracovava' WHERE id = pg_temp.dok('a');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej('amyl')) = 0, 'rozpracovaná kniha se nehledá');
 UPDATE public.bible_dokumenty SET stav = 'hotovo' WHERE id = pg_temp.dok('a');
+
+-- Vektorové hledání (20261124000000_bible_vektory): vektory s jedničkou na jedné pozici (tvar [0,1,0,…])
+-- jsou na sebe kolmé, takže „nejbližší“ je jednoznačně ta pasáž, jejíž vektor se shoduje.
+CREATE OR REPLACE FUNCTION pg_temp.vek(p_pozice integer) RETURNS extensions.halfvec LANGUAGE sql IMMUTABLE AS $$
+  SELECT ('[' || string_agg(CASE WHEN g = p_pozice THEN '1' ELSE '0' END, ',' ORDER BY g) || ']')::extensions.halfvec(1024)
+    FROM generate_series(1, 1024) AS g
+$$;
+SELECT pg_temp.ocekavam((SELECT count(*) FROM pg_extension WHERE extname = 'vector') = 1, 'pgvector je zapnutý');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_vektory_chybi('zkouska', 10)) = 2, 'obě pasáže čekají na vektor');
+SELECT pg_temp.ocekavam((SELECT pasazi = 2 AND s_vektorem = 0 FROM public.bible_vektory_stav('zkouska')), 'stav: dvě pasáže, žádný vektor');
+INSERT INTO public.bible_vektory (pasaz_id, model_key, embedding)
+  SELECT p.id, 'zkouska', pg_temp.vek(p.poradi) FROM public.bible_pasaze p WHERE p.dokument_id = pg_temp.dok('a');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_vektory_chybi('zkouska', 10)) = 0, 'pasáž s vektorem už nečeká');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_vektory_chybi('jiny-model', 10)) = 2, 'vektor jiného modelu se nepočítá');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_vektory_chybi('jiny-model', 10, ARRAY(SELECT id FROM public.bible_pasaze WHERE poradi = 1))) = 1
+                        AND (SELECT count(*) FROM public.bible_vektory_chybi('jiny-model', 1)) = 1
+                        AND (SELECT count(*) FROM public.bible_vektory_chybi('jiny-model', 10, '{}')) = 2,
+  'pasáže, které se nepodařilo převést, se nevyžadují znovu; limit platí');
+SELECT pg_temp.ocekavam((SELECT pasazi = 2 AND s_vektorem = 2 FROM public.bible_vektory_stav('zkouska')), 'stav: obě pasáže mají vektor');
+SELECT pg_temp.ocekavam((SELECT string_agg(pdf_index::text, ',' ORDER BY skore DESC, pdf_index) FROM public.bible_hledej_vektor(pg_temp.vek(2), 'zkouska', NULL, 5)) = '2,1',
+  'vektorové hledání vrátí nejbližší pasáž první');
+SELECT pg_temp.ocekavam((SELECT string_agg(zdroj || ':' || pdf_index || ':' || tistena_strana || ':' || kapitola || ':' || druh, ',') FROM public.bible_hledej_vektor(pg_temp.vek(1), 'zkouska', NULL, 1))
+                        = 'original:1:158:Maischen:text',
+  'vektorové hledání ukáže stejné údaje o místě jako slovní hledání');
+SELECT pg_temp.ocekavam((SELECT round(skore::numeric, 3) FROM public.bible_hledej_vektor(pg_temp.vek(1), 'zkouska', NULL, 1)) = 1.000
+                        AND (SELECT round(skore::numeric, 3) FROM public.bible_hledej_vektor(pg_temp.vek(1), 'zkouska', NULL, 5) WHERE pdf_index = 2) = 0.000,
+  'skóre je 1 − kosinová vzdálenost: shoda 1, kolmé vektory 0');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_vektor(pg_temp.vek(1), 'zkouska', NULL, 1)) = 1
+                        AND (SELECT count(*) FROM public.bible_hledej_vektor(pg_temp.vek(1), 'zkouska', NULL, 5)) = 2,
+  'vektorové hledání: limit platí');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_vektor(pg_temp.vek(1), 'jiny-model', NULL, 5)) = 0, 'vektory jiného modelu se nehledají');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_vektor(pg_temp.vek(1), 'zkouska', '{"jazyk": "cs"}', 5)) = 0
+                        AND (SELECT count(*) FROM public.bible_hledej_vektor(pg_temp.vek(1), 'zkouska', '{"jazyk": "de"}', 5)) = 2
+                        AND (SELECT count(*) FROM public.bible_hledej_vektor(pg_temp.vek(1), 'zkouska', jsonb_build_object('dokument', pg_temp.dok('a')), 5)) = 2
+                        AND (SELECT count(*) FROM public.bible_hledej_vektor(pg_temp.vek(1), 'zkouska', jsonb_build_object('dokument', gen_random_uuid()), 5)) = 0
+                        AND (SELECT count(*) FROM public.bible_hledej_vektor(pg_temp.vek(1), 'zkouska', '{}', 5)) = 2,
+  'vektorové hledání: filtry (jazyk, kniha) jako u slovního hledání, prázdný filtr = bez filtru');
+UPDATE public.bible_dokumenty SET stav = 'zpracovava' WHERE id = pg_temp.dok('a');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_hledej_vektor(pg_temp.vek(1), 'zkouska', NULL, 5)) = 0
+                        AND (SELECT count(*) FROM public.bible_hledej_vektor(pg_temp.vek(1), 'zkouska', '{"jazyk": "de"}', 5)) = 0
+                        AND (SELECT count(*) FROM public.bible_vektory_chybi('jiny-model', 10)) = 0
+                        AND (SELECT pasazi FROM public.bible_vektory_stav('zkouska')) = 0,
+  'rozpracovaná kniha se nehledá podle významu a nečeká na vektory');
+UPDATE public.bible_dokumenty SET stav = 'hotovo' WHERE id = pg_temp.dok('a');
+SELECT pg_temp.selze($q$INSERT INTO public.bible_vektory (pasaz_id, model_key, embedding) VALUES (gen_random_uuid(), 'zkouska', pg_temp.vek(1))$q$,
+  'vektor jen k existující pasáži', '23503');
+-- Vektor jiné velikosti než 1024 se odmítne (sloupec je halfvec(1024)); přesný kód chyby určuje pgvector (chyba dat).
+DO $$
+DECLARE
+  v_odmitnuto boolean := false;
+BEGIN
+  BEGIN
+    INSERT INTO public.bible_vektory (pasaz_id, model_key, embedding)
+      SELECT id, 'zkouska-rozmer', '[1,2,3]'::extensions.halfvec FROM public.bible_pasaze LIMIT 1;
+  EXCEPTION WHEN OTHERS THEN
+    v_odmitnuto := SQLSTATE LIKE '22%' OR SQLSTATE = 'XX000';
+  END;
+  IF NOT v_odmitnuto THEN
+    RAISE EXCEPTION 'TEST SELHAL: vektor jiné velikosti než 1024 se měl odmítnout';
+  END IF;
+END $$;
+SELECT pg_temp.selze(format('INSERT INTO public.bible_vektory (pasaz_id, model_key, embedding) SELECT id, %L, pg_temp.vek(1) FROM public.bible_pasaze LIMIT 1', 'zkouska'),
+  'druhý vektor téhož modelu k téže pasáži se odmítne', '23505');
+SET enable_seqscan = off;
+SELECT pg_temp.ocekavam(pg_temp.plan($q$SELECT pasaz_id FROM public.bible_vektory ORDER BY embedding OPERATOR(extensions.<=>) pg_temp.vek(1) LIMIT 5$q$)
+                        LIKE '%bible_vektory_hnsw_idx%', 'hledání podle významu použije HNSW index');
+RESET enable_seqscan;
+SELECT pg_temp.ocekavam((SELECT (hodnota -> 'text-embedding-3-large' ->> 'vstup')::numeric = 0.13
+                                AND (hodnota -> 'claude-opus-5-5' ->> 'vstup')::numeric = 4
+                           FROM public.bible_nastaveni WHERE klic = 'cenik_usd_za_mtok'),
+  'ceník má cenu embeddingů a ceny modelů Claude zůstaly');
+SELECT pg_temp.selze('SELECT count(*) FROM public.bible_vektory', 'vektory čte jen service role', '42501') FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.selze('SELECT * FROM public.bible_vektory_stav(''zkouska'')', 'stav vektorů smí jen service role', '42501') FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.selze('SELECT * FROM public.bible_hledej_vektor(NULL::extensions.halfvec, ''zkouska'')', 'hledání podle významu smí jen service role', '42501') FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.selze('SELECT * FROM public.bible_vektory_chybi(''zkouska'')', 'seznam pasáží bez vektoru smí jen service role', '42501') FROM (SELECT pg_temp.jako('authenticated')) j;
+SELECT pg_temp.jako(NULL);
 SET enable_seqscan = off;
 SELECT pg_temp.ocekavam(pg_temp.plan($q$SELECT pdf_index FROM public.bible_strany WHERE preklad_hledani @@ 'amyl:*'::tsquery$q$)
                         LIKE '%bible_strany_preklad_hledani_idx%', 'hledání v překladu použije index');
@@ -454,6 +530,7 @@ SELECT pg_temp.ocekavam(public.bible_smaz_dokument(:A, 'spravuje', pg_temp.dok('
 SELECT pg_temp.ocekavam(NOT EXISTS (SELECT 1 FROM public.bible_smazane_soubory), 'po vypršení odkazu se cesta smazaného dokumentu nepamatuje');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_strany) = 0 AND (SELECT count(*) FROM public.bible_pasaze) = 0
   AND (SELECT count(*) FROM public.bible_kapitoly) = 0, 'se smazaným dokumentem zmizí i strany, pasáže a kapitoly');
+SELECT pg_temp.ocekavam((SELECT count(*) FROM public.bible_vektory) = 0, 'se smazaným dokumentem zmizí i vektory jeho pasáží');
 SELECT pg_temp.ocekavam((SELECT count(*) FROM public.ai_naklady) = 1, 'evidence nákladů zůstává i po smazání dokumentu');
 SELECT pg_temp.ocekavam(NOT EXISTS (
   SELECT 1 FROM pg_constraint c

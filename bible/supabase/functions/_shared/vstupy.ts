@@ -22,6 +22,8 @@ export const AKCE = {
   smazat: 'prispiva',
   kapacita: 'spravuje',
   naklady: 'spravuje',
+  // Hledání podle významu (R38): kolik pasáží má vektor a jestli je klíč OpenAI.
+  vektory: 'spravuje',
   // Čtení zpracované knihy (etapa 3a): obsah, listy textu, tabulky a vzorce.
   kniha: 'cte',
   listy: 'cte',

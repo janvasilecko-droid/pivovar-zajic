@@ -9,6 +9,7 @@ import {
 } from '../_shared/chat.ts';
 import { smyckaChatu, type RozpoznejChybu, type Udalost, type VolaniClauda, type VysledekSmycky } from '../_shared/chat-smycka.ts';
 import { ChybaVstupu } from '../_shared/vstupy.ts';
+import { embedderOpenAi } from '../_shared/vektory.ts';
 
 /**
  * 💬 bible-chat — AI sládek v appce (etapa 5, R28).
@@ -34,6 +35,8 @@ import { ChybaVstupu } from '../_shared/vstupy.ts';
 const MAX_TELO = 16 * 1024;
 const ANTHROPIC_URL = 'https://api.anthropic.com';
 const NASAZENI = 'https://github.com/janvasilecko-droid/pivovar-zajic/actions/workflows/deploy.yml';
+/** Hledání podle významu (R38): bez klíče OpenAI (secret OPENAI_API_KEY) se hledá jen podle slov. */
+const EMBEDDER = embedderOpenAi(Deno.env.get('OPENAI_API_KEY'));
 
 type Db = SupabaseClient;
 
@@ -228,7 +231,7 @@ async function odpovez(k: {
     v = await smyckaChatu({
       zpravy: [...historieProApi(k.historie), { role: 'user', content: k.pozadavek.otazka }],
       volej, rozpoznej, posli, model, cenik: k.cenik, strop: k.strop, utraceno: k.utraceno,
-      zavolej: zavolejNastrojChat(db, { uzivatel: k.uzivatel.uid, jmeno: k.uzivatel.jmeno, pristup: k.uzivatel.pristup }),
+      zavolej: zavolejNastrojChat(db, { uzivatel: k.uzivatel.uid, jmeno: k.uzivatel.jmeno, pristup: k.uzivatel.pristup }, EMBEDDER),
       logChyby: (nastroj, druh) => console.error(`bible-chat nástroj ${nastroj}: ${druh}`),
     });
   } finally {

@@ -17,7 +17,7 @@ vi.mock('./bibleKlient', async (puvodni) => ({
 
 import { BIBLE_URL } from './bibleKlient';
 import {
-  NAHRAVANI_ZASEKNUTO, NAHRAVANI_ZASTAVENO, nactiDokumenty, nactiNakladyMesice, nahrajDokument, nahrajDoUloziste,
+  NAHRAVANI_ZASEKNUTO, NAHRAVANI_ZASTAVENO, nactiDokumenty, nactiNakladyMesice, nactiStavVektoru, nahrajDokument, nahrajDoUloziste,
   nactiVydani, nastavVydani, odkazNaSoubor, smazDokument,
 } from './bibleKnihovnaApi';
 
@@ -262,6 +262,28 @@ describe('knihovna — ostatní akce', () => {
     const v = await nactiNakladyMesice(new Date('2026-10-31T23:30:00Z'));
     expect(volani.at(-1)?.telo).toEqual({ akce: 'naklady', od: '2026-10-01T00:00:00.000Z' });
     expect(v).toEqual({ naklady: { usd: 1.75, volani: 1203, podleUcelu: { ocr: 1.25, chat: 0.5 } } });
+  });
+});
+
+describe('stav vektorů (R38)', () => {
+  beforeEach(() => { volani.length = 0; odpovedi = {}; });
+
+  it('pošle akci vektory a přeloží odpověď serveru', async () => {
+    odpovedi.vektory = { pasazi: 40000, s_vektorem: 1200, klic: true, model: 'text-embedding-3-large' };
+    expect(await nactiStavVektoru()).toEqual({ stav: { pasazi: 40000, sVektorem: 1200, klic: true, model: 'text-embedding-3-large' } });
+    expect(volani.at(-1)).toEqual({ funkce: 'bible-api', telo: { akce: 'vektory' } });
+  });
+
+  it('nesmysly v odpovědi jsou nuly, klíč jen při true', async () => {
+    odpovedi.vektory = { pasazi: -5, s_vektorem: 'x', klic: 'ano', model: 7 };
+    expect(await nactiStavVektoru()).toEqual({ stav: { pasazi: 0, sVektorem: 0, klic: false, model: '' } });
+  });
+
+  it('chyba serveru; bez migrace to řekne', async () => {
+    odpovedi.vektory = { chyba: { zprava: 'Bible nejde načíst.', kod: 'chyba_db' } };
+    expect(await nactiStavVektoru()).toEqual({ chyba: 'Bible nejde načíst.', bezMigrace: false });
+    odpovedi.vektory = { chyba: { zprava: 'Chybí migrace.', kod: 'bez_migrace' } };
+    expect(await nactiStavVektoru()).toEqual({ chyba: 'Chybí migrace.', bezMigrace: true });
   });
 });
 

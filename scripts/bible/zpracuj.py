@@ -59,6 +59,7 @@ import pdf as pdf_mod
 import preklad as preklad_mod
 import prehledy as prehledy_mod
 import oblasti as oblasti_mod
+import vektory as vektory_mod
 import kapitoly_preklad as kapitoly_mod
 from jazyk import odhad_jazyka
 from kapitoly import Kapitola, kapitola_listu, okrajove_radky, osnova_pouzitelna, useky, z_nadpisu, z_osnovy
@@ -1104,6 +1105,12 @@ def _beh() -> int:
                     pis_prehledy(supa, prepisovac, nastaveni, konec)
             except Exception as e:  # noqa: BLE001 — jen typ, žádný text knihy
                 log(f'Překlad nebo přehledy spadly ({type(e).__name__}) — zkusí se dalším během.')
+        # Vektory pasáží (R38) nezávisí na Claude: počítají se i bez jeho klíče; chyba nesmí shodit zpracování knih.
+        if time.time() < konec:
+            try:
+                dopln_vektory_beh(supa, ucet, konec, limit_db_bajtu)
+            except Exception as e:  # noqa: BLE001 — jen typ (HTTP stav jde ve zprávě vektorů), žádný text knihy
+                log(f'Vektory spadly ({type(e).__name__}{": " + str(e) if isinstance(e, vektory_mod.ChybaVektoru) else ""}) — zkusí se dalším během.')
         return vysledek
     finally:
         if klient_cc is not None:
@@ -1566,6 +1573,31 @@ def pis_prehledy(supa: Supa, prepisovac: Prepisovac, nastaveni: dict, konec: flo
         zapis_naklady(supa, ucet, None, ucel='prehled')
         log(f'Přehledy: {souhrn["napsano"]} napsáno ({souhrn["ke_kontrole"]} ověřit), {souhrn["beze_zmeny"]} beze změny, '
             f'{souhrn["bez_zdroju"]} bez zdrojů, {souhrn["nepovedlo"]} nepovedlo')
+
+
+def dopln_vektory_beh(supa: Supa, ucet: naklady.Ucet, konec: float, limit_db_bajtu: int | None) -> dict | None:
+    """Vektory pasáží pro hledání podle významu (R38): jen s klíčem OpenAI a po migraci.
+
+    Je to nadstavba bez vlivu na zpracování knih: bez klíče nebo ceníku se přeskočí a hledání zůstane jen podle slov.
+    Klíč přijde jen z prostředí (OPENAI_API_KEY): v Actions ho z app_secrets hlavní appky přečte zvláštní krok
+    „Klíč OpenAI" — klíč service role hlavní appky se do workeru nedostane.
+    """
+    klic = os.environ.get('OPENAI_API_KEY') or None
+    if klic and os.environ.get('GITHUB_ACTIONS') == 'true':
+        print(f'::add-mask::{klic}', flush=True)
+    if not klic:
+        log('Vektory: klíč OpenAI (OPENAI_API_KEY v app_secrets hlavní appky) není — hledání podle významu se nepočítá.')
+        return None
+    try:
+        naklady.cena_usd(vektory_mod.MODEL, {}, ucet.cenik)
+    except naklady.ChybiCenik:
+        log(f'Vektory: model {vektory_mod.MODEL} nemá v bible_nastaveni ceník — pusť migraci 20261124000000_bible_vektory '
+            '(appka → Systém → Databázové migrace → Databáze bible). Přeskočeno.')
+        return None
+    return vektory_mod.dopln_vektory(
+        supa, klic, ucet, lambda: zapis_naklady(supa, ucet, None, ucel='vektory'), konec,
+        velikost_db=lambda: kapacita_db(supa), limit_db_bajtu=limit_db_bajtu, log=log,
+    )
 
 
 def _preruseni(_cislo_signalu, _ramec) -> None:
