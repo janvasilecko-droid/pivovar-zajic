@@ -31,3 +31,17 @@ export const FORMY_ODPOVEDI = `Tvar odpovědi se řídí otázkou:
 - Krátká nebo jednoduchá otázka a navazující doplnění: krátká přímá odpověď bez nadpisů.
 - Čísla a výpočty: nástrojem vypocet.
 Nadpisy používej jen u delší odpovědi a podle obsahu (např. ## Příprava, ## Postup, ## Co sledovat, ## Časté chyby, ## Bezpečnost). U potravinářské a pracovní bezpečnosti buď přesný a opatrný: nejistou hodnotu nevydávej za jistou a řekni, co si má člověk ověřit (výrobce, bezpečnostní list, předpis); u právních a daňových věcí řekni, že aktuální pravidla je třeba ověřit.`;
+
+/** Režim odpovědí (R37): „sladek“ = knihy + obecná odborná praxe (výchozí), „knihy“ = přísně jen z knih a dat. */
+export const REZIMY_ODPOVEDI = ['sladek', 'knihy'] as const;
+export type RezimOdpovedi = (typeof REZIMY_ODPOVEDI)[number];
+
+/**
+ * Přísný režim „jen z knih a dat“ (zadání majitele z RAG šablony: „odpovídat výhradně na základě mých
+ * oborových dat“). Jde do proměnné části promptu (kontext dotazu), ne do cachovaného systémového promptu.
+ */
+export const REZIM_JEN_Z_DAT = 'REŽIM ODPOVĚDÍ: JEN Z KNIH A DAT (přísný). Odpovídej výhradně z toho, co vrátily nástroje — knihy, zkušenosti sládků, várky, profil pivovaru, stav sklepa a výpočty. '
+  + 'Nepřidávej obecnou znalost, vlastní doporučení ani odhady mimo tato data, ani když odpověď znáš; toto pravidlo má přednost před pravidlem o obecné odborné praxi. '
+  + 'Doporučení a postupy uváděj jen tehdy, když je obsahují zdroje (s citací). '
+  + 'Když odpověď v datech není, napiš „V nahraných datech jsem odpověď nenašel“, řekni, co by pomohlo nahrát nebo zapsat, a podej jen to, co data opravdu říkají. '
+  + 'Internet nehledej.';

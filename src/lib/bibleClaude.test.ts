@@ -142,3 +142,44 @@ describe('styl odpovědi v zadání pro Claude — normální chatbot na všechn
     expect(z.endsWith('Otázka: Proč?')).toBe(true);
   });
 });
+
+describe('přísný režim „Jen z knih a dat“ v zadání pro Claude (R37)', () => {
+  it('zadání říká režim, výhradně data konektoru, žádná obecná znalost, žádný internet a co napsat, když v datech nic není', () => {
+    const z = zadaniProClaude('Jak dlouho se sladí rmut?', null, null, null, 'knihy');
+    expect(z).toContain('REŽIM ODPOVĚDÍ: JEN Z KNIH A DAT.');
+    expect(z).toContain('výhradně z toho, co vrátí konektor (knihy, zkušenosti, várky, profil pivovaru, výpočty) a z přiložených provozních údajů');
+    expect(z).toContain('nepřidávej obecnou znalost ani vlastní doporučení a nehledej na internetu');
+    expect(z).toContain('Doporučení uváděj jen, když je obsahují zdroje.');
+    expect(z).toContain('napiš „V nahraných datech jsem odpověď nenašel“ a co by pomohlo nahrát');
+    expect(z).toContain('Nevymýšlej citace ani hodnoty.');
+    expect(z.endsWith('Otázka: Jak dlouho se sladí rmut?')).toBe(true);
+  });
+
+  it('v přísném režimu zadání nevede k internetu ani k ukládání webových zdrojů a nemá styl „normální chatbot“', () => {
+    for (const z of [zadaniProClaude('Proč kvašení stojí?', null, null, null, 'knihy'), zadaniProClaude('Najdi příčiny', { nazev: 'Pomalé kvašení' }, null, null, 'knihy')]) {
+      expect(z).not.toContain('hledej i na internetu');
+      expect(z).not.toContain('uloz_web_zdroj');
+      expect(z).not.toContain('normální chatbot');
+      expect(z).not.toContain('odpověz z obecné odborné znalosti');
+    }
+  });
+
+  it('výchozí režim je beze změny: styl chatbota, obecná znalost a internet; bez režimu i „sladek“ totéž', () => {
+    const vychozi = zadaniProClaude('Proč?');
+    expect(zadaniProClaude('Proč?', null, null, null, 'sladek')).toBe(vychozi);
+    expect(vychozi).toContain('normální chatbot');
+    expect(vychozi).toContain('hledej i na internetu');
+    expect(vychozi).not.toContain('JEN Z KNIH A DAT');
+  });
+
+  it('rozhovor o problému, pokyn uložit odpověď a dotaz_id platí i v přísném režimu; stav sklepa se zkrátí první', () => {
+    const z = zadaniProClaude('A teplota?', { nazev: 'Pomalé kvašení' }, { id: 'dddddddd-0000-4000-8000-000000000001', navazuje: true }, 'Tank 7: 12° Světlá', 'knihy');
+    expect(z).toContain('příčiny řaď od nejpravděpodobnější');
+    expect(z).toContain('dotaz_id: dddddddd-0000-4000-8000-000000000001');
+    expect(z).toContain('uloz_odpoved');
+    expect(z).toContain('Provozní údaje z appky');
+    const dlouha = zadaniProClaude('slovo '.repeat(5000), null, { id: 'dddddddd-0000-4000-8000-000000000001', navazuje: false }, 'Stav '.repeat(3000), 'knihy');
+    expect(dlouha.length).toBeLessThanOrEqual(12_000);
+    expect(dlouha.indexOf('REŽIM ODPOVĚDÍ')).toBeLessThan(dlouha.indexOf('Otázka:'));
+  });
+});

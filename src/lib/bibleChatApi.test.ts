@@ -94,6 +94,22 @@ describe('otázka pro AI sládka', () => {
     for (const t of tela.slice(1)) expect('provoz' in t).toBe(false);
   });
 
+  it('přísný režim jde v těle jen když je zapnutý a internet se v něm nikdy neposílá zapnutý (R37)', async () => {
+    const fetchMock = vi.fn(async () => proud([`{"typ":"hotovo","konverzace_id":"${KID}","text":"A","citace":[]}`]));
+    vi.stubGlobal('fetch', fetchMock);
+    await zeptejSe({ otazka: 'Proč kalné?', rezim: 'knihy', web: true }, () => {});
+    await zeptejSe({ otazka: 'Proč kalné?', rezim: 'knihy' }, () => {});
+    await zeptejSe({ otazka: 'Proč kalné?', rezim: 'sladek', web: true }, () => {});
+    await zeptejSe({ otazka: 'Proč kalné?', web: true }, () => {});
+    const tela = (fetchMock.mock.calls as unknown as [string, RequestInit][]).map(([, init]) => JSON.parse(String(init.body)) as Record<string, unknown>);
+    expect(tela[0]).toMatchObject({ rezim: 'knihy', web: false });
+    expect(tela[1]).toMatchObject({ rezim: 'knihy', web: false });
+    for (const t of tela.slice(2)) {
+      expect('rezim' in t).toBe(false);
+      expect(t.web).toBe(true);
+    }
+  });
+
   it('chyba před odpovědí (strop) přijde jako JSON s českou zprávou', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: false, kod: 'strop', zprava: 'Strop je vyčerpaný.' }), { status: 429, headers: { 'Content-Type': 'application/json' } })));
     expect(await zeptejSe({ otazka: 'x y' }, () => {})).toEqual({ ok: false, chyba: { kod: 'strop', zprava: 'Strop je vyčerpaný.', status: 429 } });

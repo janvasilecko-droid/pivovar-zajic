@@ -15,7 +15,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Bot, Check, Copy, ExternalLink, Globe, History, Loader2, Plus, Search, Send, Share2, Trash2, Warehouse } from 'lucide-react';
 import {
   cekajiciNaClauda, nactiKonverzace, nactiKonverzaci, nactiStavChatu, smazKonverzaci, usdText, zalozDotazClaude, zeptejSe,
-  type Konverzace, type StavChatu, type UdalostChatu, type ZdrojOdpovedi, type ZpravaChatu,
+  type Konverzace, type RezimOdpovedi, type StavChatu, type UdalostChatu, type ZdrojOdpovedi, type ZpravaChatu,
 } from '../../lib/bibleChatApi';
 import { odkazNaClaude, KONEKTOR, noveIdDotazu, zadaniProClaude } from '../../lib/bibleClaude';
 import { nactiProvoz } from '../../lib/bibleProvozApi';
@@ -62,6 +62,13 @@ const NAVRAT_MS = 2_000;
 
 /** Zapamatované zaškrtnutí „Přiložit stav sklepa" (na tomhle zařízení; výchozí zapnuto). */
 export const KLIC_PROVOZ = 'bible_chat_provoz_v1';
+/** Zapamatovaný režim odpovědí (R37; na tomhle zařízení; výchozí „sladek“ = knihy + obecná praxe). */
+export const KLIC_REZIM = 'bible_chat_rezim_v1';
+
+const REZIMY: { id: RezimOdpovedi; nazev: string; popis: string }[] = [
+  { id: 'sladek', nazev: 'Sládek', popis: 'knihy a data, když v nich téma není, i obecná praxe' },
+  { id: 'knihy', nazev: 'Jen z knih a dat', popis: 'přísně, bez obecné znalosti a bez internetu' },
+];
 /** Po návratu do appky se stav sklepa načte znovu, jen když je starší než tohle. */
 export const PROVOZ_OBNOVA_MS = 2 * 60_000;
 
@@ -299,6 +306,9 @@ export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
   const [probiha, setProbiha] = useState<{ kroky: string[]; text: string } | null>(null);
   const [otazka, setOtazka] = useState('');
   const [web, setWeb] = useState(false);
+  // Režim odpovědí (R37): „knihy“ = přísně jen z knih a dat; zapamatované na zařízení.
+  const [rezim, setRezim] = useState<RezimOdpovedi>(() => (nactiJson<unknown>(KLIC_REZIM, 'sladek') === 'knihy' ? 'knihy' : 'sladek'));
+  const prisny = rezim === 'knihy';
   // Stav sklepa z hlavní appky přiložený k otázce (R35); zapamatované na zařízení, výchozí zapnuto.
   const [provozZap, setProvozZap] = useState<boolean>(() => nactiJson<unknown>(KLIC_PROVOZ, true) !== false);
   const provoz = useProvoz(provozZap);
@@ -447,7 +457,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
         setProbiha(null);
       }
     };
-    const r = await zeptejSe({ otazka: q, konverzaceId: aktivni.id, problemId: problem?.id ?? aktivni.problemId, web, provoz: provozText }, naUdalost, ctl.signal);
+    const r = await zeptejSe({ otazka: q, konverzaceId: aktivni.id, problemId: problem?.id ?? aktivni.problemId, web: web && !prisny, provoz: provozText, rezim }, naUdalost, ctl.signal);
     if (zruseni.current === ctl) zruseni.current = null;
     setProbiha(null);
     if (!r.ok && r.chyba.kod !== 'zruseno') {
@@ -531,7 +541,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
     setDlouho(false);
   }
 
-  const zadaniClaude = zadaniProClaude(otazka, problem ?? null, ulozitOdpoved ? { id: dotazId, navazuje: zpravy.length > 0 } : null, provozText);
+  const zadaniClaude = zadaniProClaude(otazka, problem ?? null, ulozitOdpoved ? { id: dotazId, navazuje: zpravy.length > 0 } : null, provozText, rezim);
 
   return (
     <div className="space-y-3">
@@ -659,6 +669,24 @@ export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
             Claude API nemá kredit. Zeptej se zdarma přes svoje předplatné — tlačítkem „Zeptat se v Claude (předplatné)“, otázka je v políčku.
           </div>
         )}
+        <fieldset className="space-y-1">
+          <legend className="text-xs font-black uppercase tracking-wide text-amber-400">Režim odpovědí</legend>
+          <div className="flex flex-wrap gap-2">
+            {REZIMY.map((r) => (
+              <label key={r.id} className={`tap flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${rezim === r.id ? 'border-amber-500 bg-neutral-800 text-amber-100' : 'border-neutral-700 bg-neutral-900 text-neutral-200'}`}>
+                <input type="radio" name="bible-chat-rezim" className="h-4 w-4 accent-amber-500" checked={rezim === r.id}
+                  onChange={() => { setRezim(r.id); ulozJson(KLIC_REZIM, r.id); }} />
+                <span><span className="font-bold">{r.nazev}</span> <span className="text-xs text-neutral-300">— {r.popis}</span></span>
+              </label>
+            ))}
+          </div>
+          {prisny && (
+            <p role="note" className="text-xs text-amber-100">
+              Přísný režim: AI sládek odpovídá jen z knih a dat appky (zkušenosti, várky, profil pivovaru, stav sklepa, výpočty). Obecnou znalost ani vlastní
+              doporučení nepřidá a internet nehledá; když to v datech není, řekne to.
+            </p>
+          )}
+        </fieldset>
         <div className="flex flex-wrap items-center gap-3">
           {otazka.trim().length >= 2 ? (
             <a className="btn-amber" href={odkazNaClaude(zadaniClaude)} target="_blank" rel="noopener noreferrer"
@@ -673,8 +701,8 @@ export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
           <button type="submit" className="btn-tmave" disabled={!!probiha || otazka.trim().length < 2 || vypnuto}>
             <Send size={18} /> Odpovědět tady (Claude API)
           </button>
-          <label className="tap flex items-center gap-2 text-sm text-neutral-200">
-            <input type="checkbox" className="h-5 w-5 accent-amber-500" checked={web} onChange={(e) => setWeb(e.target.checked)} />
+          <label className={`tap flex items-center gap-2 text-sm text-neutral-200 ${prisny ? 'opacity-60' : ''}`}>
+            <input type="checkbox" className="h-5 w-5 accent-amber-500" checked={web && !prisny} disabled={prisny} onChange={(e) => setWeb(e.target.checked)} />
             <Globe size={16} aria-hidden="true" /> Hledat i na internetu
           </label>
           <label className="tap flex items-center gap-2 text-sm text-neutral-200">

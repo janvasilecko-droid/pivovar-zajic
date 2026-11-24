@@ -19,8 +19,8 @@ const CENIK = {
 describe('vstup chatu', () => {
   it('otázka, konverzace, problém a web', () => {
     expect(pozadavekChatu({ otazka: '  Proč pivo málo pění? ', konverzace_id: ID.toUpperCase(), web: true }))
-      .toEqual({ otazka: 'Proč pivo málo pění?', konverzaceId: ID, problemId: null, web: true, provoz: null });
-    expect(pozadavekChatu({ otazka: 'pH rmutu', problem_id: ID, web: 'ano' })).toEqual({ otazka: 'pH rmutu', konverzaceId: null, problemId: ID, web: false, provoz: null });
+      .toEqual({ otazka: 'Proč pivo málo pění?', konverzaceId: ID, problemId: null, web: true, provoz: null, rezim: 'sladek' });
+    expect(pozadavekChatu({ otazka: 'pH rmutu', problem_id: ID, web: 'ano' })).toEqual({ otazka: 'pH rmutu', konverzaceId: null, problemId: ID, web: false, provoz: null, rezim: 'sladek' });
   });
   it('strop provozních údajů na serveru je 6 000 znaků a je nad tím, co appka přikládá (3 500)', () => {
     expect(MAX_PROVOZ).toBe(6000);

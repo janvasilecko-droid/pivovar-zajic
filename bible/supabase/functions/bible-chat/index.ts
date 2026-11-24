@@ -4,7 +4,7 @@ import { chyba, corsHlavicky, nactiJson, overUzivatele, sluzebniKlic, tokenZHlav
 import { NASTROJE } from '../_shared/mcp.ts';
 import { zavolejNastrojChat } from '../_shared/nastroje.ts';
 import {
-  BETA_FALLBACK, CAS_KONEC_MS, dnesPraha, historieProApi, kontextDotazu, MAX_TOKENU, nastrojeChatu, nazevKonverzace,
+  BETA_FALLBACK, CAS_KONEC_MS, dnesPraha, historieProApi, kontextZPozadavku, MAX_TOKENU, nastrojeChatu, nazevKonverzace,
   pozadavekChatu, SYSTEM_PROMPT, VYCHOZI_MODEL, type Cenik, type PozadavekChatu, type UlozenaZprava,
 } from '../_shared/chat.ts';
 import { smyckaChatu, type RozpoznejChybu, type Udalost, type VolaniClauda, type VysledekSmycky } from '../_shared/chat-smycka.ts';
@@ -14,7 +14,7 @@ import { ChybaVstupu } from '../_shared/vstupy.ts';
  * 💬 bible-chat — AI sládek v appce (etapa 5, R28).
  *
  * Majitel 11. 11. 2026: „má to být chatbot, který mi bude vyhledávat problémy".
- * Appka pošle { otazka, konverzace_id?, problem_id?, web? } s tokenem hlavního
+ * Appka pošle { otazka, konverzace_id?, problem_id?, web?, provoz?, rezim? } s tokenem hlavního
  * projektu; brána ho ověří (stejně jako bible-api) a odpověď jde zpátky jako
  * NDJSON — po řádcích: start, krok (co Claude hledá), text (průběžný text),
  * mezikrok (průběžný text byl jen úvod před hledáním), hotovo / chyba.
@@ -184,7 +184,7 @@ async function odpovez(k: {
   const nastroje = nastrojeChatu(NASTROJE, { zapis, web: k.pozadavek.web }) as unknown as Anthropic.Beta.BetaToolUnion[];
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     { type: 'text', text: SYSTEM_PROMPT },
-    { type: 'text', text: kontextDotazu({ dnes: dnesPraha(), jmeno: k.uzivatel.jmeno, zapis, problem: k.problem, web: k.pozadavek.web, provoz: k.pozadavek.provoz }) },
+    { type: 'text', text: kontextZPozadavku(k.pozadavek, { dnes: dnesPraha(), jmeno: k.uzivatel.jmeno, zapis, problem: k.problem }) },
   ];
 
   // Jedno volání Claude (stream): průběžný text do appky, záložní model při odmítnutí.

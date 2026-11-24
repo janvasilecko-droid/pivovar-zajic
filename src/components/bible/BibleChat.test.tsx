@@ -72,7 +72,7 @@ describe('AI sládek (chatbot)', () => {
     expect(await screen.findByText('Hledám v knihách: „pěna“')).toBeTruthy();
     expect(screen.getByText('Pěnu drží')).toBeTruthy();
     expect(screen.getByLabelText('Tvoje otázka').textContent).toBe('Proč mi pivo málo pění?');
-    expect(zeptejSe.mock.calls[0][0]).toEqual({ otazka: 'Proč mi pivo málo pění?', konverzaceId: null, problemId: null, web: false, provoz: null });
+    expect(zeptejSe.mock.calls[0][0]).toEqual({ otazka: 'Proč mi pivo málo pění?', konverzaceId: null, problemId: null, web: false, provoz: null, rezim: 'sladek' });
     await act(async () => { dokonci(); });
     const odpoved = await screen.findByRole('article', { name: 'Odpověď AI sládka' });
     expect(odpoved.querySelector('h4')?.textContent).toBe('Krátká odpověď');
