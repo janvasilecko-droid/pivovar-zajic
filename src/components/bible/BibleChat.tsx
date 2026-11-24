@@ -30,8 +30,11 @@ import { HlavickaUlozeniWebu, RadekUlozeniWebu, useUkladaniWebu, type UkladaniWe
 
 const KARTA = 'rounded-xl border border-neutral-700 bg-neutral-900 p-3';
 const PRIKLADY = [
+  'Napiš podrobný návod na vaření 12° ležáku od vystírky po stočení.',
+  'Jak krok za krokem obsluhovat varnu při vaření?',
+  'Na těsnění víka tanku se objevila plíseň — co s tím?',
+  'Jak správně připravit a vysanitovat tank před stáčením?',
   'Proč mi pivo málo pění a pěna rychle padá?',
-  'Jak upravit rmutování pro plnější tělo ležáku?',
   'Porovnej poslední várky Desítky — proč kolísá varní výtěžek?',
 ];
 
@@ -533,10 +536,11 @@ export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
   return (
     <div className="space-y-3">
       <p className="text-sm text-neutral-300 max-w-2xl">
-        Popiš problém jako sládkovi — pivo nebo várku, co se děje a od kdy. AI sládek (Claude) se doptá na to, co potřebuje vědět, a jde krok za krokem:
-        příčiny podle knih od nejpravděpodobnější, co ověřit nebo změřit a co doporučuje. Hledá v knihách, várkách, profilu pivovaru
-        a ve zkušenostech, čísla počítá výpočetním modulem a u každého tvrzení z knih dá odkaz na stránku. Internet je v odpovědi vždy zvlášť
-        a zdroje z něj jde uložit do bible. Na tvoje předplatné Claude odpovídá v aplikaci Claude přes konektor „{KONEKTOR}“ (hledá i na internetu)
+        Ptej se na cokoli, co se řeší v pivovaru — návod na vaření piva, obsluha varny, hygiena a plísně, vady piva, suroviny, výpočty nebo porucha
+        zařízení. U problému (pivo nebo várka, co se děje a od kdy) se AI sládek (Claude) doptá a jde krok za krokem: příčiny od nejpravděpodobnější,
+        co ověřit nebo změřit a co doporučuje. Hlavní zdroj jsou nahrané knihy a u tvrzení z nich je odkaz na stránku; když v nich téma není, odpoví
+        z obecné odborné praxe a řekne to. Hledá i ve várkách, profilu pivovaru a ve zkušenostech, čísla počítá výpočetním modulem. Internet je
+        v odpovědi vždy zvlášť a zdroje z něj jde uložit do bible. Na tvoje předplatné Claude odpovídá v aplikaci Claude přes konektor „{KONEKTOR}“ (hledá i na internetu)
         {ulozitOdpoved ? ' a odpověď uloží sem' : ''}; přímo tady v appce přes Claude API (platí se kredit, internet jen když je zaškrtnutý).
       </p>
 
@@ -646,7 +650,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
           className="input w-full min-h-[90px] normal-case"
           maxLength={4000}
           value={otazka}
-          placeholder={problem ? 'Např. Najdi možné příčiny a co mám ověřit.' : 'Např. Proč mi pivo málo pění?'}
+          placeholder={problem ? 'Např. Najdi možné příčiny a co mám ověřit.' : 'Na cokoli z pivovaru — např. návod na vaření, obsluha varny, plíseň, proč pivo málo pění…'}
           onChange={(e) => { setOtazka(e.target.value); setPredano(false); }}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void posli(otazka); } }}
         />

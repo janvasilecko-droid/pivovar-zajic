@@ -108,7 +108,7 @@ describe('prompt', () => {
     for (const nadpis of ['## Krátká odpověď', '## Co říká literatura', '## Zkušenosti z praxe', '## Výpočet', '## Doporučení', '## Rozpory a co chybí', '## Na co se ještě ptám']) {
       expect(SYSTEM_PROMPT).toContain(nadpis);
     }
-    expect(SYSTEM_PROMPT).toContain('V knihovně jsem k tomu nic nenašel');
+    expect(SYSTEM_PROMPT).toContain('V nahraných knihách jsem to nenašel, odpovídám z obecné odborné praxe');
     expect(SYSTEM_PROMPT).toMatch(/Nepiš vlastní čísla citací/);
     expect(SYSTEM_PROMPT).not.toMatch(/\d{4}-\d{2}-\d{2}/); // žádné datum — prompt cache
   });

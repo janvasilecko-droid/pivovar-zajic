@@ -59,6 +59,7 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | Kopírovat a Sdílet u odpovědi AI sládka (otázka, odpověď bez Markdownu, zdroje s odkazem do čtečky) a hledání v Historii konverzací | hotovo (15. 11. 2026) — bez migrace |
 | AI sládek jako plnohodnotný chatbot na pivovarské problémy — rozhovor (doptání, příčiny od nejpravděpodobnější, co změřit), „Uložit do bible“ u zdrojů z internetu, přehled knih v chatu „Z čeho AI sládek čerpá“ (R34) | hotovo (24. 11. 2026) — bez migrace |
 | AI sládek zná stav sklepa — tanky, co je v nich a od kdy, sanitace, přečerpání, ztráty; přepínač „Přiložit stav sklepa“ (R35) | hotovo (24. 11. 2026) — bez migrace |
+| AI sládek jako normální chatbot na všechno kolem pivovaru — návody (vaření, varna), hygiena a plísně, vady, výpočty; knihy hlavní zdroj, jinak obecná odborná praxe (označená), nikdy nevydávaná za citaci (R36) | hotovo (24. 11. 2026) — bez migrace |
 
 ## AI sládek — chatbot v appce (etapa 5)
 
@@ -117,6 +118,12 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
     od kdy, poslední sanitace, přečerpání za 14 dní a poslední cykly se ztrátami. Jen čtení, nic
     se nedomýšlí ani neopravuje; přepínač „Přiložit stav sklepa“ a rozbalovací „co přikládám“
     ukážou přesně odeslaný text. Do konverzace ani do databáze bible se neukládá.
+  - *Normální chatbot na všechno kolem pivovaru (R36):* nejen problémy, ale i návod na vaření
+    piva krok za krokem, obsluha varny, hygiena a plísně, vady, suroviny, výpočty, bezpečnost.
+    Návod je podrobný (číslované kroky, teploty, časy, množství, časté chyby, bezpečnost), krátká
+    otázka dostane krátkou odpověď. Knihy jsou hlavní zdroj a jediné, k čemu se cituje; když v nich
+    téma není, AI sládek to řekne jednou větou a odpoví z obecné odborné praxe — neodmítne
+    a nevydá ji za knihu. Stejně se chová chat v appce i Claude přes konektor.
 
 ## Rešerše z internetu (etapa 9) a analýza problémů (etapa 10)
 
