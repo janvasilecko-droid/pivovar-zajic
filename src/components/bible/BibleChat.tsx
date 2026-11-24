@@ -12,16 +12,18 @@
 // s otázkou; otázka se zároveň uloží sem (id dotazu je v zadání) a Claude
 // hotovou odpověď uloží konektorem zpátky — appka ji tu sama načte.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Bot, Check, Copy, ExternalLink, Globe, History, Loader2, Plus, Search, Send, Share2, Trash2 } from 'lucide-react';
+import { Bot, Check, Copy, ExternalLink, Globe, History, Loader2, Plus, Search, Send, Share2, Trash2, Warehouse } from 'lucide-react';
 import {
   cekajiciNaClauda, nactiKonverzace, nactiKonverzaci, nactiStavChatu, smazKonverzaci, usdText, zalozDotazClaude, zeptejSe,
   type Konverzace, type StavChatu, type UdalostChatu, type ZdrojOdpovedi, type ZpravaChatu,
 } from '../../lib/bibleChatApi';
 import { odkazNaClaude, KONEKTOR, noveIdDotazu, zadaniProClaude } from '../../lib/bibleClaude';
+import { nactiProvoz } from '../../lib/bibleProvozApi';
 import { textOdpovedi } from '../../lib/bibleOdpovedText';
 import { smiPrispivat, type BibleRole } from '../../lib/bibleOpravneni';
 import { rozlozText } from '../../lib/bibleText';
 import { chyba as chybaToast, potvrd } from '../../lib/toast';
+import { nactiJson, ulozJson } from '../../lib/uloziste';
 import { TextListuKnihy, VykresleniTextu } from './BibleKniha';
 import { BibleKnihyChatu } from './BibleKnihyChatu';
 import { HlavickaUlozeniWebu, RadekUlozeniWebu, useUkladaniWebu, type UkladaniWebu } from './BibleUlozitWeb';
@@ -54,6 +56,56 @@ const KONTROLA_POZDEJI_MS = 30_000;
 const DLOUHO_MS = 15 * 60_000;
 /** Po návratu do appky se konverzace načte znovu nejvýš jednou za tuto dobu. */
 const NAVRAT_MS = 2_000;
+
+/** Zapamatované zaškrtnutí „Přiložit stav sklepa" (na tomhle zařízení; výchozí zapnuto). */
+export const KLIC_PROVOZ = 'bible_chat_provoz_v1';
+/** Po návratu do appky se stav sklepa načte znovu, jen když je starší než tohle. */
+export const PROVOZ_OBNOVA_MS = 2 * 60_000;
+
+type StavProvozu = { text: string; cas: string } | 'prazdny' | 'chyba' | null;
+
+/**
+ * Stav sklepa z hlavní appky pro AI sládka (R35): načte se při otevření chatu a po návratu do appky,
+ * ať je při klepnutí na „Zeptat se v Claude" k dispozici hned (odkaz se skládá předem). Vypnuto = nic se nenačítá.
+ */
+function useProvoz(zapnuto: boolean): StavProvozu {
+  const [stav, setStav] = useState<StavProvozu>(null);
+  useEffect(() => {
+    if (!zapnuto) { setStav(null); return; }
+    let zruseno = false;
+    let naposled = 0;
+    const nacti = async () => {
+      naposled = Date.now();
+      const r = await nactiProvoz();
+      if (!zruseno) setStav(r.stav === 'ok' ? { text: r.text, cas: r.cas } : r.stav);
+    };
+    void nacti();
+    const naNavrat = () => {
+      if (document.visibilityState !== 'hidden' && Date.now() - naposled > PROVOZ_OBNOVA_MS) void nacti();
+    };
+    document.addEventListener('visibilitychange', naNavrat);
+    window.addEventListener('focus', naNavrat);
+    return () => {
+      zruseno = true;
+      document.removeEventListener('visibilitychange', naNavrat);
+      window.removeEventListener('focus', naNavrat);
+    };
+  }, [zapnuto]);
+  return stav;
+}
+
+/** Co AI sládek dostane o sklepu — a jak se to ukáže pod otázkou. */
+function ProvozPrehled({ stav }: { stav: StavProvozu }) {
+  if (stav === null) return <p className="text-xs text-neutral-400" aria-live="polite">Stav sklepa se načítá…</p>;
+  if (stav === 'chyba') return <p className="text-xs font-bold text-amber-300" aria-live="polite">Stav sklepa se nenačetl — otázka půjde bez něj.</p>;
+  if (stav === 'prazdny') return <p className="text-xs text-neutral-300" aria-live="polite">Sklep nemá žádné tanky — nic se nepřikládá.</p>;
+  return (
+    <details className="text-xs text-neutral-300">
+      <summary className="tap cursor-pointer select-none py-1 font-bold" data-testid="provoz-souhrn">Stav sklepa přiložen (k {stav.cas}) — co přikládám</summary>
+      <pre className="mt-1 whitespace-pre-wrap break-words rounded-lg border border-neutral-700 bg-neutral-950 p-2 font-sans text-neutral-200" data-testid="provoz-text">{stav.text}</pre>
+    </details>
+  );
+}
 
 /** Číslo citace [n] jako odkaz: kniha otevře čtečku, web novou kartu. */
 function Citace({ z, otevri }: { z: ZdrojOdpovedi; otevri: (dokumentId: string, list: number) => void }) {
@@ -244,6 +296,10 @@ export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
   const [probiha, setProbiha] = useState<{ kroky: string[]; text: string } | null>(null);
   const [otazka, setOtazka] = useState('');
   const [web, setWeb] = useState(false);
+  // Stav sklepa z hlavní appky přiložený k otázce (R35); zapamatované na zařízení, výchozí zapnuto.
+  const [provozZap, setProvozZap] = useState<boolean>(() => nactiJson<unknown>(KLIC_PROVOZ, true) !== false);
+  const provoz = useProvoz(provozZap);
+  const provozText = provozZap && provoz !== null && typeof provoz === 'object' ? provoz.text : null;
   const [chyba, setChyba] = useState<string | null>(null);
   // Claude API bez kreditu (zjištěno z odpovědi) — appka doporučí dotaz přes předplatné v Claude.
   const [bezKreditu, setBezKreditu] = useState(false);
@@ -388,7 +444,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
         setProbiha(null);
       }
     };
-    const r = await zeptejSe({ otazka: q, konverzaceId: aktivni.id, problemId: problem?.id ?? aktivni.problemId, web }, naUdalost, ctl.signal);
+    const r = await zeptejSe({ otazka: q, konverzaceId: aktivni.id, problemId: problem?.id ?? aktivni.problemId, web, provoz: provozText }, naUdalost, ctl.signal);
     if (zruseni.current === ctl) zruseni.current = null;
     setProbiha(null);
     if (!r.ok && r.chyba.kod !== 'zruseno') {
@@ -472,7 +528,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
     setDlouho(false);
   }
 
-  const zadaniClaude = zadaniProClaude(otazka, problem ?? null, ulozitOdpoved ? { id: dotazId, navazuje: zpravy.length > 0 } : null);
+  const zadaniClaude = zadaniProClaude(otazka, problem ?? null, ulozitOdpoved ? { id: dotazId, navazuje: zpravy.length > 0 } : null, provozText);
 
   return (
     <div className="space-y-3">
@@ -617,7 +673,13 @@ export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
             <input type="checkbox" className="h-5 w-5 accent-amber-500" checked={web} onChange={(e) => setWeb(e.target.checked)} />
             <Globe size={16} aria-hidden="true" /> Hledat i na internetu
           </label>
+          <label className="tap flex items-center gap-2 text-sm text-neutral-200">
+            <input type="checkbox" className="h-5 w-5 accent-amber-500" checked={provozZap}
+              onChange={(e) => { setProvozZap(e.target.checked); ulozJson(KLIC_PROVOZ, e.target.checked); }} />
+            <Warehouse size={16} aria-hidden="true" /> Přiložit stav sklepa
+          </label>
         </div>
+        {provozZap && <ProvozPrehled stav={provoz} />}
         {predano && (
           <div role="status" className="rounded-lg border border-neutral-700 bg-neutral-900 p-2 text-sm text-neutral-100">
             Otázka je v Claude — odeslat ji musíš tam. Je i ve schránce: v mobilní aplikaci Claude ji stačí vložit. Konektor „{KONEKTOR}“
@@ -632,6 +694,8 @@ export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
           {ulozitOdpoved ? ' a odpověď i s odkazy na stránky knih se uloží sem (i do historie)' : ' — odpověď s odkazy na stránky knih je v aplikaci Claude'}.
           Když knihy nestačí, Claude hledá i na internetu a užitečné zdroje uloží do bible jako neověřené (poprvé se zeptá, jestli smí použít nástroj
           „Uložit webový zdroj“ — Povolit).
+          „Přiložit stav sklepa“ přidá k otázce aktuální stav tanků ze Sklepa (co je v nich a od kdy, poslední sanitace, přečerpání, ztráty) — jen čtení;
+          AI sládek se pak neptá na to, co appka ví, a vidíš, co se přikládá. Vypnout ho jde u každé otázky.
           „Odpovědět tady“: odpověď přímo v appce přes Claude API — obvykle 20–90 sekund, řádově desetníky dolaru z kreditu. Internet je pomalejší
           a dražší, proto jen když je zaškrtnutý; web se v odpovědi uvádí zvlášť jako neověřený zdroj a jde ho uložit do bible.
         </p>

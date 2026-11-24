@@ -10,6 +10,7 @@ vi.mock('../../lib/bibleChatApi', async (puvodni) => ({
   nactiStavChatu: async () => ZAPNUTO,
   nactiKonverzace: async () => ({ stav: 'ok', data: [] }),
 }));
+vi.mock('../../lib/bibleProvozApi', () => ({ nactiProvoz: async () => ({ stav: 'prazdny' }) }));
 vi.mock('../../lib/toast', () => ({ potvrd: async () => true, chyba: () => {} }));
 let nacteno: Nacteno;
 vi.mock('../../lib/bibleKnihovnaApi', async (puvodni) => ({

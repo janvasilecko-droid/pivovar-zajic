@@ -184,7 +184,7 @@ async function odpovez(k: {
   const nastroje = nastrojeChatu(NASTROJE, { zapis, web: k.pozadavek.web }) as unknown as Anthropic.Beta.BetaToolUnion[];
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     { type: 'text', text: SYSTEM_PROMPT },
-    { type: 'text', text: kontextDotazu({ dnes: dnesPraha(), jmeno: k.uzivatel.jmeno, zapis, problem: k.problem, web: k.pozadavek.web }) },
+    { type: 'text', text: kontextDotazu({ dnes: dnesPraha(), jmeno: k.uzivatel.jmeno, zapis, problem: k.problem, web: k.pozadavek.web, provoz: k.pozadavek.provoz }) },
   ];
 
   // Jedno volání Claude (stream): průběžný text do appky, záložní model při odmítnutí.

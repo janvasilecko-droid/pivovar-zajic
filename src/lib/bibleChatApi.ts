@@ -156,7 +156,7 @@ const SIT = 'Spojení se přerušilo. Zkus to znovu, až bude signál.';
  * přihlášení…) se vrátí jako { ok: false } s českou zprávou.
  */
 export async function zeptejSe(
-  p: { otazka: string; konverzaceId?: string | null; problemId?: string | null; web?: boolean },
+  p: { otazka: string; konverzaceId?: string | null; problemId?: string | null; web?: boolean; provoz?: string | null },
   naUdalost: (u: UdalostChatu) => void,
   signal?: AbortSignal,
 ): Promise<{ ok: true } | { ok: false; chyba: ChybaBible }> {
@@ -170,7 +170,11 @@ export async function zeptejSe(
     odpoved = await fetch(`${BIBLE_URL}/functions/v1/bible-chat`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${prihlaseni.token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ otazka: p.otazka, konverzace_id: p.konverzaceId ?? null, problem_id: p.problemId ?? null, web: p.web === true }),
+      // Stav sklepa z appky (jen pro tuhle odpověď); bez něj pole v těle vůbec není.
+      body: JSON.stringify({
+        otazka: p.otazka, konverzace_id: p.konverzaceId ?? null, problem_id: p.problemId ?? null, web: p.web === true,
+        ...(p.provoz?.trim() ? { provoz: p.provoz.trim() } : {}),
+      }),
       signal,
     });
   } catch {
