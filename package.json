@@ -19,6 +19,7 @@
     "zkontroluj-popisky": "node scripts/zkontroluj-popisky.mjs",
     "zkontroluj-edge-funkce": "node scripts/zkontroluj-edge-funkce.mjs",
     "snimky": "node scripts/snimky.mjs",
+    "pozvanka": "vite-node scripts/zapis-pozvanku.ts",
     "e2e": "node scripts/e2e.mjs",
     "vykon": "node scripts/vykon.mjs",
     "typy-db": "node scripts/typy-db.mjs",
