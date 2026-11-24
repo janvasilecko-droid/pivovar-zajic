@@ -57,6 +57,7 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | odpověď z aplikace Claude zpátky do appky — otázka se uloží při předání, Claude uloží odpověď nástrojem `uloz_odpoved` (citace stránek), appka ji sama načte (R33) | hotovo (14. 11. 2026) — migrace `20261114000000_bible_dotazy_claude` |
 | celá konverzace z Claude v appce — navazující otázky z chatu v Claude jako pokračování konverzace, otázka položená rovnou v Claude na požádání jako nová konverzace, appka po návratu načte znovu (R33, doplněk) | hotovo (15. 11. 2026) — bez další migrace |
 | Kopírovat a Sdílet u odpovědi AI sládka (otázka, odpověď bez Markdownu, zdroje s odkazem do čtečky) a hledání v Historii konverzací | hotovo (15. 11. 2026) — bez migrace |
+| AI sládek jako plnohodnotný chatbot na pivovarské problémy — rozhovor (doptání, příčiny od nejpravděpodobnější, co změřit), „Uložit do bible“ u zdrojů z internetu, přehled knih v chatu „Z čeho AI sládek čerpá“ (R34) | hotovo (24. 11. 2026) — bez migrace |
 
 ## AI sládek — chatbot v appce (etapa 5)
 
@@ -100,6 +101,17 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
   i německé a anglické varianty (mladina = Würze = wort); Filtry omezí
   hledání na knihu, autora, rok vydání, jazyk, druh nebo oblast A–T.
 - Rozhodnutí: R28.
+- **Plnohodnotný chatbot (R34, 24. 11. 2026):**
+  - *Rozhovor o problému:* AI sládek se doptá na chybějící údaje (nejvýš 3–4 věci), dá první
+    rozbor, seřadí příčiny podle knih od nejpravděpodobnější, ke každé řekne, jak ji ověřit
+    nebo změřit, a na další zprávu navazuje. Odpověď má u problému nový oddíl „Na co se
+    ještě ptám“. Stejný postup mají instrukce konektoru i zadání pro aplikaci Claude.
+  - *Z čeho čerpá:* nad otázkou je skládací „Z čeho AI sládek čerpá“ — zpracované knihy
+    (Kunze, Košař…) s autorem, rokem a stranami a zvlášť ty, které čekají; „Přidat další
+    knihu“ vede do Knihovny dokumentů.
+  - *Sběr z internetu:* v Claude (předplatné) hledá Claude na webu sám, když knihy nestačí,
+    a zdroje ukládá neověřené; v odpovědi (z appky i z Claude) je u zdroje z internetu
+    „Uložit do bible“ (přispěvatel a správce) → Správa znalostí → Rešerše z internetu.
 
 ## Rešerše z internetu (etapa 9) a analýza problémů (etapa 10)
 

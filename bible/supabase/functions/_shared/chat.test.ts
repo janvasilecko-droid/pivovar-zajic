@@ -88,7 +88,7 @@ describe('nástroje chatbota', () => {
 
 describe('prompt', () => {
   it('pevná struktura odpovědi, citace jen z výsledků, nic nenašel', () => {
-    for (const nadpis of ['## Krátká odpověď', '## Co říká literatura', '## Zkušenosti z praxe', '## Výpočet', '## Doporučení', '## Rozpory a co chybí']) {
+    for (const nadpis of ['## Krátká odpověď', '## Co říká literatura', '## Zkušenosti z praxe', '## Výpočet', '## Doporučení', '## Rozpory a co chybí', '## Na co se ještě ptám']) {
       expect(SYSTEM_PROMPT).toContain(nadpis);
     }
     expect(SYSTEM_PROMPT).toContain('V knihovně jsem k tomu nic nenašel');

@@ -14,7 +14,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { ArrowLeft, BookOpen, Bot, Calculator, Factory, FlaskConical, Lock, Search, Settings, Stethoscope, Users, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import { bibleRole } from '../lib/bibleOpravneni';
+import { bibleRole, smiPrispivat, type BibleRole } from '../lib/bibleOpravneni';
 import { cestaKnihy, rozeberCestuKnihy } from '../lib/bibleCteni';
 import { lazyStranka } from '../lib/lazyStranka';
 import { BibleKnihovna } from '../components/bible/BibleKnihovna';
@@ -137,6 +137,8 @@ export default function BibleScreen({ setPage, pageSubTab }: {
           otevri={(id, list) => otevriKnihu(id, list)}
           dotazHledani={dotazHledani}
           problem={chatProblem}
+          role={role}
+          doKnihovny={() => jdi('knihovna')}
         />
       ) : sekce === 'vypocty' ? (
         <BibleVypocty hledej={(dotaz) => { jdi('chat'); setDotazHledani(dotaz); }} />
@@ -161,10 +163,12 @@ const OTAZKA_PROBLEMU = 'Najdi možné příčiny tohoto problému: projdi pří
   + 'a řekni, co mám ověřit a změřit. Podstatná zjištění zapiš k problému.';
 
 /** AI sládek: chatbot a hledání v knihách na dvou kartách (chat zůstává při přepnutí rozpracovaný). */
-function BibleAiSladek({ otevri, dotazHledani, problem }: {
+function BibleAiSladek({ otevri, dotazHledani, problem, role, doKnihovny }: {
   otevri: (dokumentId: string, list: number) => void;
   dotazHledani: string | null;
   problem: { id: string; nazev: string } | null;
+  role: BibleRole | null;
+  doKnihovny: () => void;
 }) {
   const [karta, setKarta] = useState<'chat' | 'hledani'>(dotazHledani ? 'hledani' : 'chat');
   const [otazka, setOtazka] = useState<{ text: string; klic: number } | null>(problem ? { text: OTAZKA_PROBLEMU, klic: 1 } : null);
@@ -181,7 +185,7 @@ function BibleAiSladek({ otevri, dotazHledani, problem }: {
         {zalozka('hledani', 'Hledání v knihách', Search)}
       </div>
       <div role="tabpanel" id="bible-panel-chat" aria-labelledby="bible-karta-chat" hidden={karta !== 'chat'}>
-        <BibleChat otevri={otevri} problem={problem} otazkaZvenku={otazka} />
+        <BibleChat otevri={otevri} problem={problem} otazkaZvenku={otazka} role={role} doKnihovny={smiPrispivat(role) ? doKnihovny : undefined} />
       </div>
       <div role="tabpanel" id="bible-panel-hledani" aria-labelledby="bible-karta-hledani" hidden={karta !== 'hledani'}>
         <BibleHledani otevri={otevri} pocatecniDotaz={dotazHledani ?? undefined}

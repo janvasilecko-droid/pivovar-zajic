@@ -4,6 +4,7 @@
 // Majitel 3. 11. 2026 zvolil „obě" (přehledy + konektor), R16 v
 // docs/pivovarska-bible/ROZHODNUTI.md. Bez sítě a bez Dena — síť, databáze
 // a nástroje jsou v bible-mcp/index.ts.
+import { POSTUP_PROBLEMU } from './postup-problemu.ts';
 import { HODNOTY_VARKY } from './varky-popisy.ts';
 import { TYPY_ZKUSENOSTI } from './vstupy.ts';
 
@@ -471,7 +472,9 @@ export const INSTRUKCE = 'Knihovna odborné pivovarské literatury Pivovaru Zaj�
   + 's jednotkami; u zkušenosti název a text), a ulož až po potvrzení; nic nedomýšlej ani nepřepočítávej a uloženou hodnotu přepiš jen na výslovnou opravu. '
   + 'Otázka z appky (zadání s dotaz_id): odpověz a celou odpověď ulož nástrojem uloz_odpoved, ať ji uživatel vidí v appce; navazuje-li na předchozí '
   + 'konverzaci, načti si ji nejdřív nástrojem dotaz_z_appky. Každou další otázku v takovém chatu ulož taky (uloz_odpoved s otazka a dotaz_id ze '
-  + 'zadání), ať je v appce celá konverzace. Otázku položenou rovnou tady ulož do appky, jen když o to uživatel požádá (uloz_odpoved s otazka).';
+  + 'zadání), ať je v appce celá konverzace. Otázku položenou rovnou tady ulož do appky, jen když o to uživatel požádá (uloz_odpoved s otazka). '
+  + 'Co v knihovně je (kniha, autor, rok, stav zpracování), zjistíš nástrojem seznam_knih; na otázku „jaké knihy máš" odpověz podle něj a nic nedomýšlej.\n\n'
+  + POSTUP_PROBLEMU;
 
 /** Novější vydání podle id staršího (etapa 3c): z dvojic dokument → předchozí vydání. */
 export function novejsiVydani(radky: readonly { id: string; nazev: string; rok: number | null; predchozi_vydani: string | null }[]): Map<string, { nazev: string; rok: number | null }[]> {
