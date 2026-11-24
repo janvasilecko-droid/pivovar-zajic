@@ -7,7 +7,7 @@
 // Počet se ukládá do tabulky male_sudy (sdílená pro všechny), Objednávky
 // podle něj označí položky nad počet (lib/maleSudy.ts).
 import { useEffect, useState } from 'react';
-import { Minus, Plus } from 'lucide-react';
+import { MessageSquare, Minus, Plus } from 'lucide-react';
 import { supabase, formatPackageLabel } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { canUserEdit, getUserPermissions } from '../lib/permissions';
@@ -16,6 +16,10 @@ import { jeMalySud, type ObalProSudy } from '../lib/maleSudy';
 import { popisOdvezenych } from '../lib/maleSudyPopis';
 import { useHlidaniMalychSudu, useMaleSudy, type VolbyUlozeni } from '../lib/useMaleSudy';
 import { chyba } from '../lib/toast';
+import { nactiJson, ulozJson } from '../lib/uloziste';
+import { businessDateISO } from '../lib/businessDate';
+import { cisloProSms, odkazSms } from '../lib/sms';
+import { prijemceMaleSudy, textSmsMaleSudy, type PrijemceSms, type SudProSms } from '../lib/maleSudyZprava';
 
 /** Číslo, na které se dá klepnout a přepsat; ukládá se po opuštění pole nebo Enteru. */
 function PocetPrazdnych({ hodnota, zobraz, povoleno, popisek, ulozit }: {
@@ -52,10 +56,82 @@ function PocetPrazdnych({ hodnota, zobraz, povoleno, popisek, ulozit }: {
   );
 }
 
-export function MaleSudyPanel({ packages, canEdit, kdo }: {
+/** Pod tímhle klíčem si telefon pamatuje ručně zadané číslo příjemce SMS (jen v tomhle zařízení). */
+export const KLIC_CISLA_SMS = 'male_sudy_sms_cislo_v1';
+
+/**
+ * „Odeslat Radkovi" (24. 11. 2026: „u položky malé sudy udělej tlačítko odeslat Radkovi, přes bránu
+ * telefonu se mu pošle sms s počtem malých sudů … sms se odešle od toho, kdo dá odeslat sms").
+ * Žádná SMS brána v appce není, proto tlačítko otevře v telefonu aplikaci zpráv s číslem a hotovým
+ * textem — odešle ji ten, kdo drží telefon, ze svého čísla. Text je vidět pod tlačítkem.
+ *
+ * Číslo bere z karty odběratele Radek. Pole „Číslo, kam jde SMS" ho dovolí přepsat — třeba na vlastní
+ * číslo při zkoušce („testování udělej na moje číslo"); ručně zadané číslo platí jen v tomhle
+ * telefonu, nikam se neposílá a po smazání se zase použije číslo z karty.
+ */
+export function OdeslatRadkovi({ text, prijemce }: { text: string; prijemce: PrijemceSms | null }) {
+  const jmeno = prijemce?.jmeno || 'Radek';
+  const [rucne, setRucne] = useState<string>(() => nactiJson<string>(KLIC_CISLA_SMS, ''));
+  const zmenCislo = (v: string) => { setRucne(v); ulozJson(KLIC_CISLA_SMS, v); };
+  const zadano = rucne.trim() !== '';
+  const telefon = zadano ? rucne : prijemce?.telefon;
+  const cislo = cisloProSms(telefon);
+
+  let napoveda: string;
+  if (zadano) {
+    napoveda = cislo
+      ? `Ručně zadané číslo (jen v tomhle telefonu) — SMS se otevře pro ${rucne.trim()}. Smaž ho a použije se číslo z karty odběratele ${jmeno}.`
+      : 'Číslo nevypadá správně (potřebuju devět číslic nebo číslo s předvolbou) — SMS se otevře bez příjemce.';
+  } else if (cislo) {
+    napoveda = `Číslo z karty odběratele ${jmeno} (${prijemce?.telefon}) — SMS se otevře pro něj, odešleš ji ty v aplikaci zpráv.`;
+  } else {
+    napoveda = `U odběratele ${jmeno} není telefon — napiš číslo sem, nebo ho doplň v Odběratelích (Odběratelé, piva, obaly → ${jmeno} → Telefon). Bez čísla si příjemce vybereš v aplikaci zpráv.`;
+  }
+
+  return (
+    <div data-testid="odeslat-radkovi" className="card p-3 space-y-2">
+      {text ? (
+        <a href={odkazSms(telefon, text)} className="btn-primary w-full min-h-[52px] flex items-center justify-center gap-2">
+          <MessageSquare size={18} aria-hidden="true" /> Odeslat Radkovi
+        </a>
+      ) : (
+        <button type="button" className="btn-primary w-full min-h-[52px] flex items-center justify-center gap-2" disabled>
+          <MessageSquare size={18} aria-hidden="true" /> Odeslat Radkovi
+        </button>
+      )}
+      {text ? (
+        <p data-testid="sms-text" className="text-sm font-semibold text-neutral-800">SMS: „{text}“</p>
+      ) : (
+        <p className="text-xs font-semibold text-neutral-700">SMS jde odeslat, až se načtou počty a objednávky a je zadaný aspoň jeden malý sud.</p>
+      )}
+      {text && (
+        <div className="space-y-1">
+          <label htmlFor="male-sudy-sms-cislo" className="label">Číslo, kam jde SMS</label>
+          <input
+            id="male-sudy-sms-cislo"
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
+            className="input"
+            value={rucne}
+            onChange={(e) => zmenCislo(e.target.value)}
+            placeholder={prijemce?.telefon ? `${prijemce.telefon} (z karty ${jmeno})` : 'Např. 777 123 456'}
+          />
+          <p data-testid="sms-prijemce" className="text-xs font-semibold text-neutral-700">{napoveda}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function MaleSudyPanel({ packages, canEdit, kdo, prijemce, dnes }: {
   packages: (ObalProSudy & { sort_order?: number | null })[];
   canEdit: boolean;
   kdo?: string | null;
+  /** Komu jde SMS z tlačítka „Odeslat Radkovi" (odběratel Radek); bez něj se číslo vybere v aplikaci zpráv. */
+  prijemce?: PrijemceSms | null;
+  /** Dnešek (YYYY-MM-DD) pro text SMS; bez něj obchodní den z lib/businessDate. */
+  dnes?: string;
 }) {
   const { zasoba, zadanoKdy, zapocitatPlne, umiZapocitatPlne, nacteno, chybiMigrace, chybaNacteni, ulozit, nastavZapocitatPlne } = useMaleSudy();
   const { souhrn, jmenaPiv, nacteno: hlidaniNacteno, chybaNacteni: bezObjednavek } = useHlidaniMalychSudu(zasoba, undefined, zapocitatPlne, zadanoKdy);
@@ -72,6 +148,37 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
     const e = await nastavZapocitatPlne(id, ano);
     if (e) chyba(e);
   }
+
+  // Čísla jednoho obalu — jedno místo pro kartu i pro SMS Radkovi, ať se nikdy nerozejdou.
+  const stavObalu = (pk: { id: string }) => {
+    const naklikano = zasoba[pk.id];
+    const hlida = naklikano != null;
+    const s = souhrn.find((x) => x.package_id === pk.id);
+    // Velké číslo = prázdné TEĎ: naklikané číslo minus sudy objednávek, které
+    // od zadání odjely (1. 11. 2026: „ty se měly odečíst podle objednávek,
+    // měly by tam být jen 2× 10 prázdné"). Hned po zadání je to přesně
+    // naklikané číslo (13. 10. 2026: „proč je tam prázdných 12, mají být
+    // tolik, kolik jsem jich zadal" — dřív ukazovalo zbytek po OTEVŘENÝCH
+    // objednávkách). Otevřené objednávky ubírají až z „K dispozici" pod ním.
+    const mame = hlida ? (s?.mame ?? naklikano) : undefined;
+    // Dokud se nenačtou objednávky, číslo by poskočilo — radši „…".
+    const ceka = hlida && !hlidaniNacteno;
+    // Objednávky se nenačetly vůbec: číslo je jen naklikané (bez odjetých) —
+    // +/− by ho uložilo jako nový stav, proto jen přepsat číslem.
+    const jenNaklikane = hlida && !ceka && bezObjednavek;
+    const objednano = s?.objednano ?? 0;
+    const volne = mame != null ? Math.max(0, mame - objednano) : 0;
+    return { naklikano, hlida, s, mame, ceka, jenNaklikane, objednano, volne };
+  };
+
+  // SMS Radkovi (24. 11. 2026): jen z přesných čísel — dokud se objednávky nenačetly nebo
+  // nenačetly vůbec, velké číslo by neodpovídalo skutečnosti, proto se neposílá.
+  const stavy = male.map((pk) => ({ pk, ...stavObalu(pk) }));
+  // Obal bez zadaného čísla se bere jako 0 (jako ve hlídání objednávek); do SMS ale jde jen tehdy, když
+  // jsou čísla načtená a opravdu „prázdná teď" — viz výše.
+  const sudyProSms: SudProSms[] = stavy.map((x) => ({ objem: Number(x.pk.volume_l), pocet: x.mame ?? 0 }));
+  const smsNepripravena = stavy.every((x) => !x.hlida) || stavy.some((x) => x.hlida && (x.ceka || x.jenNaklikane));
+  const textSms = smsNepripravena ? '' : textSmsMaleSudy(sudyProSms, dnes ?? businessDateISO());
 
   if (chybiMigrace) {
     return (
@@ -97,24 +204,9 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
         objednávky přečerpají, označí červeně.
       </p>
       {male.length === 0 && <div className="card p-4 text-sm text-neutral-600">V obalech není žádný malý sud (KEG pod 30 l).</div>}
+      {male.length > 0 && <OdeslatRadkovi text={textSms} prijemce={prijemce ?? null} />}
       {male.map((pk) => {
-        const naklikano = zasoba[pk.id];
-        const hlida = naklikano != null;
-        const s = souhrn.find((x) => x.package_id === pk.id);
-        // Velké číslo = prázdné TEĎ: naklikané číslo minus sudy objednávek, které
-        // od zadání odjely (1. 11. 2026: „ty se měly odečíst podle objednávek,
-        // měly by tam být jen 2× 10 prázdné"). Hned po zadání je to přesně
-        // naklikané číslo (13. 10. 2026: „proč je tam prázdných 12, mají být
-        // tolik, kolik jsem jich zadal" — dřív ukazovalo zbytek po OTEVŘENÝCH
-        // objednávkách). Otevřené objednávky ubírají až z „K dispozici" pod ním.
-        const mame = hlida ? (s?.mame ?? naklikano) : undefined;
-        // Dokud se nenačtou objednávky, číslo by poskočilo — radši „…".
-        const ceka = hlida && !hlidaniNacteno;
-        // Objednávky se nenačetly vůbec: číslo je jen naklikané (bez odjetých) —
-        // +/− by ho uložilo jako nový stav, proto jen přepsat číslem.
-        const jenNaklikane = hlida && !ceka && bezObjednavek;
-        const objednano = s?.objednano ?? 0;
-        const volne = mame != null ? Math.max(0, mame - objednano) : 0;
+        const { hlida, s, mame, ceka, jenNaklikane, objednano, volne } = stavObalu(pk);
         const odkud = s ? popisOdvezenych(s, zadanoKdy?.[pk.id]?.den) : null;
         // +/− opraví naklikané číslo o kus a čas zadání nechá: odjeté objednávky
         // i plné sudy k zadání se dál počítají od původního zadání (jinak by
@@ -247,10 +339,15 @@ export function MaleSudyPanel({ packages, canEdit, kdo }: {
 export function MaleSudyObrazovka() {
   const { profile, user } = useAuth();
   const [packages, setPackages] = useState<(ObalProSudy & { sort_order?: number | null })[] | null>(null);
+  // Komu jde SMS z „Odeslat Radkovi" (číslo z karty odběratele). Nenačtení nic nerozbije — SMS se pak otevře bez čísla.
+  const [prijemce, setPrijemce] = useState<PrijemceSms | null>(null);
   useEffect(() => {
     let zivy = true;
     supabase.from('packages').select('id, kind, volume_l, label, sort_order').order('sort_order').then(({ data }) => {
       if (zivy) setPackages((data ?? []) as (ObalProSudy & { sort_order?: number | null })[]);
+    });
+    supabase.from('places').select('name, phone').then(({ data }) => {
+      if (zivy) setPrijemce(prijemceMaleSudy((data ?? []) as { name: string | null; phone: string | null }[]));
     });
     return () => { zivy = false; };
   }, []);
@@ -258,5 +355,5 @@ export function MaleSudyObrazovka() {
   // Zápis do male_sudy hlídá databáze podle práva na KEG (migrace
   // 20261231160000_male_sudy.sql) — tlačítka tomu odpovídají.
   const canEdit = canUserEdit(profile?.role, user?.id, 'kegging', getUserPermissions(user?.id ?? '', (profile as any)?.permissions));
-  return <MaleSudyPanel packages={packages} canEdit={canEdit} kdo={profile?.display_name ?? null} />;
+  return <MaleSudyPanel packages={packages} canEdit={canEdit} kdo={profile?.display_name ?? null} prijemce={prijemce} />;
 }
