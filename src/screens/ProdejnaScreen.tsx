@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, Beer, Package, EntryRow, useRealtime, beerBg, beerName, formatPackageLabel } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
 import { EmptyState, Modal, Spinner } from '../components/ui';
 import { DvaSloupcePolozek } from '../components/DvaSloupcePolozek';
 import { rozdelSudyLahve } from '../lib/sudyLahve';
@@ -79,9 +80,11 @@ const radkyFotaZKonceptu = (v: unknown): RadekFoto[] =>
 // 💾 Co se z rozepsaného výdeje ukládá do zařízení (klíč `rozdelany_vydej_<tabulka>`,
 // tvar zůstal stejný jako dřív, ať se koncepty z předchozí verze vrátí).
 type KonceptVydeje = { entryRows: RowInput[]; who: string; note: string; date: string; fotoDny?: RadekFoto[] };
-const jeCoVydej = (d: KonceptVydeje) =>
+// Výchozí jméno (přihlášený uživatel ve Fasování personálu) samo o sobě rozepsaný zápis není —
+// jinak by se po otevření obrazovky ukládal „koncept" jen s jménem a příště by se ukázalo „Obnoveno".
+const jeCoVydej = (d: KonceptVydeje, vychoziKdo = '') =>
   d.entryRows.some((r) => r.pkgId && Number(r.qty) > 0) || (d.fotoDny ?? []).some((r) => r.pkgId && Number(r.qty) > 0)
-  || d.who.trim() !== '' || d.note.trim() !== '';
+  || (d.who.trim() !== '' && d.who.trim() !== vychoziKdo) || d.note.trim() !== '';
 const jePlatnyKonceptVydeje = (d: unknown): d is KonceptVydeje => {
   const o = d as Partial<KonceptVydeje> | null;
   return !!o && Array.isArray(o.entryRows) && typeof (o.who ?? '') === 'string' && typeof (o.note ?? '') === 'string';
@@ -113,7 +116,21 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const [inventoryRows, setInventoryRows] = useState<{ entry_date: string; note: string | null }[]>([]);
 
   const [date, setDate] = useState(businessDateISO());
-  const [who, setWho] = useState('');
+  // 👤 Fasování personálu: „Pro koho" je napřed přihlášený uživatel (24. 11. 2026: „když kliknu fasování
+  // personál, tak primárně nastav, že si fasuje daný uživatel, který je přihlášený, případně to může změnit").
+  // Jen u personálu (u odpisu je stejné pole „Důvod" a u prodejny žádné). Po uložení a po „Vymazat vše"
+  // se vrací. Profil může dorazit i po otevření obrazovky a druh výdeje se tu přepíná bez odmountování,
+  // proto efekt níž: výchozí jméno se doplní nebo odebere jen tam, kde je pole prázdné nebo nese
+  // PŘEDCHOZÍ výchozí jméno — co člověk napsal sám, se nepřepíše.
+  const { profile } = useAuth();
+  const vychoziKdo = druhVydeje(table).poleNavic === 'jmeno' ? (profile?.display_name ?? '').trim() : '';
+  const [who, setWho] = useState(vychoziKdo);
+  const predchoziVychoziKdo = useRef(vychoziKdo);
+  useEffect(() => {
+    const stare = predchoziVychoziKdo.current;
+    predchoziVychoziKdo.current = vychoziKdo;
+    setWho((w) => (w === '' || w === stare ? vychoziKdo : w));
+  }, [vychoziKdo]);
   const [note, setNote] = useState('');
   const [entryRows, setEntryRows] = useState<RowInput[]>(() => emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT));
   // Řádky z fotky z víc dnů (každý na svém dni) — viz RadekFoto výše.
@@ -130,21 +147,23 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
   const { obnoveno: obnovenyKoncept } = useRozepsanyZapis<KonceptVydeje>({
     klic: klicRozdelane,
     data: { entryRows, who, note, date, fotoDny },
-    jeCo: jeCoVydej,
+    jeCo: (d) => jeCoVydej(d, vychoziKdo),
     jePlatny: jePlatnyKonceptVydeje,
     naObnovu: (d) => {
       setEntryRows(radkyZKonceptu(d.entryRows, emptyItem, pocetRadku));
       setFotoDny(radkyFotaZKonceptu(d.fotoDny));
-      setWho(typeof d.who === 'string' ? d.who : '');
+      // Prázdné jméno z konceptu (starší verze, nebo nikdo nic nepsal) = výchozí; jiné jméno si člověk napsal sám.
+      const kdo = typeof d.who === 'string' ? d.who : '';
+      setWho(kdo === '' ? vychoziKdo : kdo);
       setNote(typeof d.note === 'string' ? d.note : '');
       const den = platneDatum(d.date);
       if (den) setDate(den);
     },
   });
   /** „Vymazat vše" a „Zahodit": rozepsané pryč (uložené zápisy se nemění). */
-  function vymazRozepsane() { setEntryRows(emptyRows(pocetRadku)); setFotoDny([]); setWho(''); setNote(''); setErr(null); }
+  function vymazRozepsane() { setEntryRows(emptyRows(pocetRadku)); setFotoDny([]); setWho(vychoziKdo); setNote(''); setErr(null); }
   async function vymazVse() {
-    if (jeCoVydej({ entryRows, who, note, date, fotoDny })
+    if (jeCoVydej({ entryRows, who, note, date, fotoDny }, vychoziKdo)
       && !(await potvrd('Smazat všechny rozepsané řádky? Nic uloženého v databázi se nemění.', { titulek: 'Vymazat rozepsané', potvrdit: 'Vymazat' }))) return;
     vymazRozepsane();
   }
@@ -416,7 +435,7 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
     setSaving(false);
     if (error) { setErr(error.message); return; }
 
-    setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT)); setFotoDny([]); setWho(''); setNote(''); setErr(null);
+    setEntryRows(emptyRows(table === 'fasovani' ? FASOVANI_ROW_COUNT : ROW_COUNT)); setFotoDny([]); setWho(vychoziKdo); setNote(''); setErr(null);
     // Po uložení zpátky na výdej — vrácení je výjimka, ne režim, ve kterém
     // se pracuje. Jinak by další zápis nenápadně odečetl místo přičetl.
     setVraceni(false);
