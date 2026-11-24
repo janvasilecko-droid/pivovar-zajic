@@ -605,3 +605,45 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   (přepnutí z aplikace Claude, návrat do okna) načte otevřenou konverzaci
   i historii znovu; během odpovědi přes API ne, ať ji nepřepíše.
 
+## R34 — AI sládek jako plnohodnotný chatbot na pivovarské problémy (24. 11. 2026)
+
+- Majitel 24. 11. 2026 („a pokračuj v bibli"): „z bible udělat plnohodnotný chatbot,
+  se kterým bude moct řešit pivovarnické problémy, má i databáze knih Kunze, Košař,
+  možná přibudou další, může sbírat věci i z internetu."
+- Co už bylo (R28, R31, R33): chatbot v appce na Claude API, konektor do aplikace
+  Claude na předplatné s odpovědí zpátky do appky, web v odpovědi vždy zvlášť jako
+  neověřený. Chybělo třeba toto: (1) **rozhovor** — odpověď byla jednorázový výpis
+  z knih, ne vedení problému; (2) **sběr z internetu** — web v odpovědi šel jen číst,
+  do bible se z chatu nedostal; (3) **viditelnost knih** — z chatu nebylo poznat, jaké
+  knihy AI zná (a jestli už je zpracovala).
+- **Postup řešení problému** (`_shared/postup-problemu.ts`, jeden text): zjistit, co se
+  přesně děje (pivo/várka, fáze, příznak s jednotkami, od kdy, co se změnilo); chybí-li
+  zásadní údaj, doptat se (nejvýš 3–4 věci) a dát i první rozbor; příčiny podle literatury
+  od nejpravděpodobnější s tím, jak je ověřit nebo změřit; ověřit v datech appky (várky,
+  profil, výpočty) a vyjmenovat, co chybí; doporučit (hned a bezpečně / změřit / měnit až
+  po ověření), hypotézu označit; navázat na předchozí zprávu; internet vždy zvlášť. Čte ho
+  chat v appce (`SYSTEM_PROMPT`, nový oddíl odpovědi „Na co se ještě ptám“ jen u problému),
+  instrukce konektoru (`INSTRUKCE`, plus `seznam_knih` na „jaké knihy máš“) i zadání, které
+  appka předává do aplikace Claude (stručně, ať se na předplatném chová stejně).
+- **Internet na předplatném zdarma:** zadání pro Clauda (tlačítko „Zeptat se v Claude“)
+  vždy povolí hledání na internetu, když knihy téma nepokrývají, a nález ukládá
+  `uloz_web_zdroj` (neověřený, shrnutí vlastními slovy). Zaškrtávátko „Hledat i na
+  internetu“ řídí jen odpověď přímo v appce přes placené API (R28) — tam dál stojí čas
+  a peníze, proto výchozí vypnuto.
+- **„Uložit do bible“ u zdroje z internetu** (`BibleUlozitWeb.tsx`,
+  `lib/bibleWebZOdpovedi.ts`): jedním klepnutím (nebo „Uložit všechny zdroje z internetu“)
+  se zdroj z odpovědi — v appce nebo z aplikace Claude — zapíše stejnou cestou jako ruční
+  přidání (`web_zdroj_ulozit`, R27): vždy neověřený (důvěra 5), jen přispěvatel a správce,
+  stejná adresa podruhé ne („Už v bibli je (stav)“). Shrnutí je věta z odpovědi AI sládka
+  (jeho slova), ne úryvek cizí stránky — kvůli autorským právům. **Ukládá člověk, ne AI
+  sládek:** text cizí stránky by mu mohl podstrčit pokyn, a do bible smí zapisovat jen
+  člověk (R27, R28); chatbot v appce dál jen čte.
+- **Přehled knih v chatu** (`BibleKnihyChatu.tsx`): skládací „Z čeho AI sládek čerpá“
+  nad otázkou — knihy z knihovny s autorem, rokem, jazykem a počtem stran; zpracované
+  (hotovo / ke kontrole) zvlášť od těch, které čekají nebo se zpracovávají („AI z nich
+  ještě neodpovídá“ — zadání, bod 6: netvrdit, že AI knihu zná, dokud není zpracovaná).
+  „Přidat další knihu“ vede do Knihovny dokumentů, jen pro přispěvatele a správce.
+  Když se knihovna nenačte, blok se vynechá a chat funguje dál.
+- **Beze změny:** předplatné jde jen v aplikacích Claude (R14, R31), takže chat přímo
+  v appce dál potřebuje kredit Claude API; pro předplatné je cesta „Zeptat se v Claude“.
+  Bez migrace, bez nových klíčů.

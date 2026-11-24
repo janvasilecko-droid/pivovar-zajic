@@ -19,9 +19,12 @@ import {
 } from '../../lib/bibleChatApi';
 import { odkazNaClaude, KONEKTOR, noveIdDotazu, zadaniProClaude } from '../../lib/bibleClaude';
 import { textOdpovedi } from '../../lib/bibleOdpovedText';
+import { smiPrispivat, type BibleRole } from '../../lib/bibleOpravneni';
 import { rozlozText } from '../../lib/bibleText';
 import { chyba as chybaToast, potvrd } from '../../lib/toast';
 import { TextListuKnihy, VykresleniTextu } from './BibleKniha';
+import { BibleKnihyChatu } from './BibleKnihyChatu';
+import { HlavickaUlozeniWebu, RadekUlozeniWebu, useUkladaniWebu, type UkladaniWebu } from './BibleUlozitWeb';
 
 const KARTA = 'rounded-xl border border-neutral-700 bg-neutral-900 p-3';
 const PRIKLADY = [
@@ -81,11 +84,17 @@ export function vykresliOdpoved(text: string, zdroje: Map<number, ZdrojOdpovedi>
   });
 }
 
-function Zdroje({ zdroje, otevri }: { zdroje: ZdrojOdpovedi[]; otevri: (dokumentId: string, list: number) => void }) {
+function Zdroje({ zdroje, otevri, ukladani }: {
+  zdroje: ZdrojOdpovedi[];
+  otevri: (dokumentId: string, list: number) => void;
+  /** Ukládání zdrojů z internetu do bible — jen pro přispěvatele (jinak undefined). */
+  ukladani?: UkladaniWebu;
+}) {
   if (zdroje.length === 0) return null;
   return (
     <section className="space-y-2 border-t border-neutral-700 pt-3" aria-label="Zdroje odpovědi">
       <h3 className="text-sm font-black text-neutral-50">Zdroje</h3>
+      {ukladani && <HlavickaUlozeniWebu ukladani={ukladani} />}
       <ol className="space-y-1">
         {zdroje.map((z) => (
           <li key={z.n}>
@@ -104,6 +113,9 @@ function Zdroje({ zdroje, otevri }: { zdroje: ZdrojOdpovedi[]; otevri: (dokument
                 <span className="text-neutral-300"> ({z.zdroj === 'preklad' ? 'český překlad' : 'originál'})</span>
                 {z.citat && <span className="block text-xs text-neutral-300">„{z.citat}“</span>}
               </button>
+            )}
+            {ukladani?.zdroje.some((u) => u.n === z.n) && (
+              <RadekUlozeniWebu z={z} stav={ukladani.stavy[z.n]} uloz={() => void ukladani.uloz(z)} />
             )}
           </li>
         ))}
@@ -124,8 +136,15 @@ function Kroky({ kroky }: { kroky: { popis: string; chyba: boolean }[] }) {
   );
 }
 
-function Odpoved({ z, otazka, otevri }: { z: ZpravaChatu; otazka: string | null; otevri: (dokumentId: string, list: number) => void }) {
+function Odpoved({ z, otazka, otevri, smiUkladat }: {
+  z: ZpravaChatu;
+  otazka: string | null;
+  otevri: (dokumentId: string, list: number) => void;
+  /** Smí přihlášený uložit zdroj z internetu do bible (právo přispěvatele)? */
+  smiUkladat: boolean;
+}) {
   const mapa = new Map(z.citace.map((c) => [c.n, c]));
+  const ukladani = useUkladaniWebu(z.citace, z.text);
   const [zkopirovano, setZkopirovano] = useState(false);
   const muzeSdilet = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
   async function kopiruj() {
@@ -152,7 +171,7 @@ function Odpoved({ z, otazka, otevri }: { z: ZpravaChatu; otazka: string | null;
       <VykresleniTextu.Provider value={(t) => vykresliOdpoved(t, mapa, otevri)}>
         <TextListuKnihy bloky={rozlozText(z.text, 'ocr')} />
       </VykresleniTextu.Provider>
-      <Zdroje zdroje={z.citace} otevri={otevri} />
+      <Zdroje zdroje={z.citace} otevri={otevri} ukladani={smiUkladat ? ukladani : undefined} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-xs text-neutral-400">
           {z.neuplna && <span className="mr-2 rounded border border-amber-600 px-1 font-bold text-amber-200">neúplná odpověď</span>}
@@ -204,8 +223,12 @@ function Otazka({ text }: { text: string }) {
 
 const datum = (iso: string | null) => (iso ? new Date(iso).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 
-export function BibleChat({ otevri, problem, otazkaZvenku }: {
+export function BibleChat({ otevri, problem, otazkaZvenku, role, doKnihovny }: {
   otevri: (dokumentId: string, list: number) => void;
+  /** Role v bibli: přispěvatel a správce mohou ukládat zdroje z internetu z odpovědí; čtenář ne. */
+  role?: BibleRole | null;
+  /** Otevře Knihovnu dokumentů (přidání další knihy); bez ní se tlačítko v přehledu knih nezobrazí. */
+  doKnihovny?: () => void;
   /** Analýza problému z Analýzy problémů: Claude si ho načte a zapíše zjištění. */
   problem?: { id: string; nazev: string } | null;
   /** Otázka položená odjinud (hledání → „Zeptat se AI sládka", Analýza problémů) — pošle se hned, každý klíč jednou. */
@@ -454,9 +477,11 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
   return (
     <div className="space-y-3">
       <p className="text-sm text-neutral-300 max-w-2xl">
-        Zeptej se jako sládka — na problém, postup, hodnotu nebo várky. AI sládek (Claude) hledá v knihách, várkách, profilu pivovaru
-        a ve zkušenostech, čísla počítá výpočetním modulem a u každého tvrzení z knih dá odkaz na stránku. Na tvoje předplatné Claude
-        odpovídá v aplikaci Claude přes konektor „{KONEKTOR}“{ulozitOdpoved ? ' a odpověď uloží sem' : ''}; přímo tady v appce přes Claude API (platí se kredit).
+        Popiš problém jako sládkovi — pivo nebo várku, co se děje a od kdy. AI sládek (Claude) se doptá na to, co potřebuje vědět, a jde krok za krokem:
+        příčiny podle knih od nejpravděpodobnější, co ověřit nebo změřit a co doporučuje. Hledá v knihách, várkách, profilu pivovaru
+        a ve zkušenostech, čísla počítá výpočetním modulem a u každého tvrzení z knih dá odkaz na stránku. Internet je v odpovědi vždy zvlášť
+        a zdroje z něj jde uložit do bible. Na tvoje předplatné Claude odpovídá v aplikaci Claude přes konektor „{KONEKTOR}“ (hledá i na internetu)
+        {ulozitOdpoved ? ' a odpověď uloží sem' : ''}; přímo tady v appce přes Claude API (platí se kredit, internet jen když je zaškrtnutý).
       </p>
 
       {chybaStavu && <div role="alert" className="text-sm font-bold text-rose-300">{chybaStavu}</div>}
@@ -474,6 +499,8 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
           </div>
         )
       )}
+
+      <BibleKnihyChatu doKnihovny={doKnihovny} />
 
       {(problem || aktivni.problemId) && (
         <div role="note" className="rounded-lg border border-amber-700 bg-neutral-900 p-2 text-sm text-amber-100">
@@ -535,7 +562,7 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
           </div>
         )}
         {zpravy.map((z, i) => (z.role === 'uzivatel' ? <Otazka key={z.id} text={z.text} />
-          : <Odpoved key={z.id} z={z} otazka={otazkaKOdpovedi(zpravy, i)} otevri={otevri} />))}
+          : <Odpoved key={z.id} z={z} otazka={otazkaKOdpovedi(zpravy, i)} otevri={otevri} smiUkladat={smiPrispivat(role ?? null)} />))}
         {cekajici.size > 0 && <CekaNaClauda kontroluj={() => void zkontrolujTed()} kontroluji={kontroluji || !cekaNaClauda} dlouho={dlouho} />}
         {probiha && (
           <article className={`${KARTA} space-y-2`} aria-label="AI sládek odpovídá" aria-busy="true">
@@ -603,8 +630,10 @@ export function BibleChat({ otevri, problem, otazkaZvenku }: {
         <p className="text-xs text-neutral-400">
           „Zeptat se v Claude“: odpovídá tvoje předplatné Claude přes konektor „{KONEKTOR}“; v Claude otázku jen odešli
           {ulozitOdpoved ? ' a odpověď i s odkazy na stránky knih se uloží sem (i do historie)' : ' — odpověď s odkazy na stránky knih je v aplikaci Claude'}.
+          Když knihy nestačí, Claude hledá i na internetu a užitečné zdroje uloží do bible jako neověřené (poprvé se zeptá, jestli smí použít nástroj
+          „Uložit webový zdroj“ — Povolit).
           „Odpovědět tady“: odpověď přímo v appce přes Claude API — obvykle 20–90 sekund, řádově desetníky dolaru z kreditu. Internet je pomalejší
-          a dražší; web se v odpovědi uvádí zvlášť jako neověřený zdroj.
+          a dražší, proto jen když je zaškrtnutý; web se v odpovědi uvádí zvlášť jako neověřený zdroj a jde ho uložit do bible.
         </p>
       </form>
     </div>

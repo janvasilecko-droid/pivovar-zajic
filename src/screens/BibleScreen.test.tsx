@@ -110,6 +110,32 @@ describe('Pivovarská bible — plocha', () => {
     expect(screen.getByLabelText('Hledat v knihách')).toBeTruthy();
   });
 
+  it('AI sládek ukáže, z jakých knih čerpá; „Přidat další knihu" smí jen přispěvatel a správce', async () => {
+    dokumenty = [{
+      id: ID, nazev: 'Technologie piva', autor: 'Autor', vydani: null, rok: 2001, isbn: null, jazyk: 'cs', druh: 'kniha', oblasti: [],
+      zdroj: null, soubor_nazev: 'kniha.pdf', soubor_velikost: 1000, soubor_mime: 'application/pdf', stav: 'hotovo', stav_zprava: null,
+      postup: { stran: 120 }, stran_celkem: 120, kvalita_ocr: null, licence: null, nahral: 'u1', nahral_jmeno: 'Honza',
+      created_at: '2026-10-31T10:00:00Z', zpracovano_at: '2026-10-31T12:00:00Z',
+    }];
+    // Čtenář knihy vidí, přidat další nemůže.
+    profil = { role: 'user', permissions: { bible: { view: true, edit: false } } };
+    const ctenar = render(<BibleScreen pageSubTab="chat" />);
+    const blok = await screen.findByTestId('knihy-chatu');
+    expect(blok.querySelector('summary')?.textContent).toBe('Z čeho AI sládek čerpá: 1 kniha');
+    expect(screen.getByText('Technologie piva')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Přidat další knihu/ })).toBeNull();
+    ctenar.unmount();
+    // Přispěvatel: tlačítko otevře Knihovnu dokumentů.
+    profil = { role: 'user', permissions: { bible: { view: true, edit: true } } };
+    const setPage = vi.fn();
+    render(<BibleScreen pageSubTab="chat" setPage={setPage} />);
+    const pridat = await screen.findByRole('button', { name: /Přidat další knihu/ });
+    await act(async () => { fireEvent.click(pridat); });
+    expect(setPage).toHaveBeenLastCalledWith('bible', undefined, 'knihovna');
+    expect(screen.getByRole('heading', { name: 'Knihovna dokumentů' })).toBeTruthy();
+    dokumenty = [];
+  });
+
   it('uživatel s povoleným modulem bible plochu vidí', () => {
     profil = { role: 'user', permissions: { bible: { view: true, edit: false } } };
     render(<BibleScreen pageSubTab="sprava" />);

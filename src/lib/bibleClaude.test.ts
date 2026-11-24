@@ -23,6 +23,27 @@ describe('předání otázky do aplikace Claude', () => {
     expect(z.endsWith('…')).toBe(true);
   });
 
+  it('plnohodnotný chatbot (24. 11. 2026): rozhovor o problému a internet se sběrem zdrojů', () => {
+    for (const z of [zadaniProClaude('Proč kvašení stojí?'), zadaniProClaude('Najdi příčiny', { nazev: 'Pomalé kvašení' })]) {
+      // Rozhovor: příčiny od nejpravděpodobnější, jak je ověřit, doptat se na chybějící údaje.
+      expect(z).toContain('příčiny řaď od nejpravděpodobnější');
+      expect(z).toContain('jak ji ověřit nebo změřit');
+      expect(z).toContain('na zásadní chybějící údaje se zeptej (nejvýš 3–4 otázky)');
+      // Internet: jen když knihy nestačí, nález do bible jako neověřený a v odpovědi zvlášť od knih.
+      expect(z).toContain('Když knihy téma nepokrývají, hledej i na internetu');
+      expect(z).toContain('uloz_web_zdroj');
+      expect(z).toContain('ukládají se jako neověřené');
+      expect(z).toContain('uveď zvlášť od knih');
+    }
+  });
+
+  it('otázka zůstává poslední a pokyny jsou před ní; bez dotazu z appky žádné dotaz_id', () => {
+    const z = zadaniProClaude('Proč?');
+    expect(z.indexOf('hledej i na internetu')).toBeLessThan(z.indexOf('Otázka: Proč?'));
+    expect(z.endsWith('Otázka: Proč?')).toBe(true);
+    expect(z).not.toContain('dotaz_id');
+  });
+
   it('odkaz otevře nový chat s předvyplněným (zakódovaným) zadáním', () => {
     const z = zadaniProClaude('Pěna & pH? 50 %');
     const odkaz = odkazNaClaude(z);

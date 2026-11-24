@@ -26,6 +26,21 @@ export const KONEKTOR = 'Pivovarská bible';
 const MAX_ZADANI = 12_000;
 
 /**
+ * Řešení problému jako rozhovor (24. 11. 2026, „plnohodnotný chatbot"): stejný postup jako
+ * v chatu v appce a v instrukcích konektoru (`_shared/postup-problemu.ts`), v zadání jen stručně.
+ */
+const ROZHOVOR = 'U problému se mnou postupuj krok za krokem jako sládek: příčiny řaď od nejpravděpodobnější, ke každé řekni, '
+  + 'jak ji ověřit nebo změřit, a na zásadní chybějící údaje se zeptej (nejvýš 3–4 otázky).';
+
+/**
+ * Internet je na předplatném zdarma, proto se v aplikaci Claude povoluje vždycky, když knihy nestačí
+ * (zaškrtávátko „Hledat i na internetu" řídí jen odpověď přímo v appce přes placené API). Nález se
+ * ukládá jako neověřený zdroj (uloz_web_zdroj, R27) a v odpovědi je zvlášť od knih.
+ */
+const INTERNET = 'Když knihy téma nepokrývají, hledej i na internetu a užitečné zdroje ulož nástrojem uloz_web_zdroj '
+  + '(shrnutí vlastními slovy, ukládají se jako neověřené); v odpovědi je uveď zvlášť od knih.';
+
+/**
  * Zadání pro Clauda: pokyn použít konektor a otázka (u analýzy problému i jeho
  * název). S `dotaz` (R33) i pokyn uložit odpověď zpátky do appky — dotaz_id je
  * před otázkou, ať ho zkrácení dlouhé otázky nikdy neusekne.
@@ -45,7 +60,7 @@ export function zadaniProClaude(otazka: string, problem?: { nazev: string } | nu
       + (dotaz.navazuje ? ' Otázka navazuje na předchozí konverzaci v appce: nejdřív si ji načti nástrojem dotaz_z_appky.' : '')
     : '';
   const text = `${uvod} Odpověz česky jako zkušený sládek: krátká odpověď, co říká literatura, praxe, výpočet, doporučení `
-    + `a co chybí; nic si nedomýšlej.${ulozit}\n\nOtázka: ${q}`;
+    + `a co chybí; nic si nedomýšlej. ${ROZHOVOR} ${INTERNET}${ulozit}\n\nOtázka: ${q}`;
   return text.length > MAX_ZADANI ? `${text.slice(0, MAX_ZADANI - 1)}…` : text;
 }
 
