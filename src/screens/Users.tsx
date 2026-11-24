@@ -245,7 +245,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
             <button className="btn-primary !rounded text-xs font-black shadow-md" onClick={() => selectTab('emails')}><Plus className="ikona-text" /> Přidat e-mail ke schválení</button>
           </div>
           <p className="text-xs text-neutral-500 font-medium -mt-2 mb-1 text-right">
-            Nový přístup: v záložce „Schválené e-maily" přidejte e-mail a pak ho schvalte. Po schválení klepni u e-mailu na „Pozvánka e-mailem“ (odkaz, instalace na plochu, první přihlášení); dočasné heslo pošli zvlášť.
+            Nový přístup: v záložce „Schválené e-maily" přidejte e-mail a pak ho schvalte. Po schválení klepni u e-mailu na „Pozvánka e-mailem“ (krátký e-mail: odkaz, heslo, ikona na plochu a odkaz na celý postup čitelně); celý text jde poslat přes „Sdílet celou pozvánku“, dočasné heslo pošli zvlášť.
           </p>
           {/* Kdo co kdy změnil, je od 22. 9. 2026 jen v dlaždici Systém —
               ať jsou všechny kontroly na jednom místě. Odsud na ni vede odkaz. */}
@@ -459,7 +459,7 @@ export default function Users({ setPage, initialSubTab }: { setPage?: (p: any, s
                           <a
                             href={mailtoPozvanky(e.email)}
                             className="btn-ghost !rounded !py-1 !px-2.5 text-udaj font-black flex items-center gap-1 cursor-pointer"
-                            title="Otevře e-mail s pozvánkou (odkaz, instalace, přihlášení)"
+                            title="Otevře e-mail s krátkou pozvánkou: odkaz, heslo, ikona na plochu a odkaz na celý postup (čitelně)"
                           >
                             <Mail size={12} />
                             <span>Pozvánka e-mailem</span>

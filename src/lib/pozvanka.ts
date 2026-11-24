@@ -2,10 +2,14 @@
 // ---------------------------------------------------------------------------
 // Aplikace sama žádné e-maily neposílá (přihlašuje se e-mailem a heslem, účet
 // zakládá admin schválením e-mailu). Admin proto po schválení otevře pozvánku
-// ve své poště (mailto:) — text je předvyplněný: odkaz, instalace na plochu
-// bez obchodu Google Play a první přihlášení. Dočasné heslo je v e-mailu jen
-// tehdy, když ho správce výslovně pošle z okna s heslem (platí do prvního
-// přihlášení, pak si uživatel založí vlastní).
+// ve své poště (mailto:) — KRÁTKÝ text (textKratce): odkaz, heslo, ikona na
+// plochu a odkaz na čitelný celý postup (public/pozvanka.html). Celý postup krok
+// za krokem (textPozvanky) jde poslat sdílením nebo zkopírovat. Dočasné heslo je
+// v e-mailu jen tehdy, když ho správce výslovně pošle z okna s heslem (platí do
+// prvního přihlášení, pak si uživatel založí vlastní).
+//
+// 24. 11. 2026: dlouhý text v mailto: dorazil v Email.cz jako jeden nečitelný odstavec
+// (ani s konci řádků CRLF se zalomení nedrželo), majitel: „to nečitelný" → „e-mail zkrátit".
 
 import { NAVOD_ODDILY } from '../components/NavodPouziti';
 import { ODKAZ_APLIKACE, odkazAplikace } from './odkazAplikace';
@@ -112,40 +116,36 @@ export function odkazCitelnePozvanky(odkaz: string = odkazAplikace()): string {
   return `${odkaz}${SOUBOR_CITELNE_POZVANKY}`;
 }
 
-/** Nejvíc znaků v odkazu mailto: — telefon a Chrome unesou desítky tisíc, starý Outlook na počítači kolem 2 000 (tam jde celý text zkopírovat / sdílet). */
-const MAX_MAILTO = 16000;
-
 /**
- * Odkaz `mailto:` s předvyplněným předmětem a textem. Dlouhý text (celý přehled
- * aplikace) se do adresy nevejde, takže se zkrátí postupně: přehled bez výčtu
- * funkcí, pak jen odkaz na Info. Celý text jde vždy zkopírovat (textPozvanky).
+ * Odkaz `mailto:` s předvyplněným předmětem a KRÁTKÝM textem (textKratce). Celý postup krok za krokem
+ * je na čitelné stránce, na kterou krátký text odkazuje, a jde ho poslat sdílením nebo zkopírovat.
+ * Dlouhý text v `mailto:` totiž v Email.cz dorazil jako jeden odstavec a krátký zůstane čitelný,
+ * i kdyby pošta zalomení řádků zahodila.
  */
 export function mailtoPozvanky(email: string, odkaz?: string, heslo?: string): string {
-  const pristup = heslo ? { email, heslo } : undefined;
-  const sestav = (telo: string) => {
-    const p = new URLSearchParams({ subject: PREDMET_POZVANKY, body: naCrlf(telo) });
-    // URLSearchParams píše mezeru jako „+“, což pošta v mailto: nečte.
-    return `mailto:${encodeURIComponent(email)}?${p.toString().replace(/\+/g, '%20')}`;
-  };
-  for (const prehled of ['podrobny', 'strucny', 'zadny'] as const) {
-    const m = sestav(textPozvanky(odkaz, pristup, prehled));
-    if (m.length <= MAX_MAILTO) return m;
-  }
-  return sestav(textKratce(odkaz, pristup));
+  const p = new URLSearchParams({ subject: PREDMET_POZVANKY, body: naCrlf(textKratce(odkaz, heslo ? { email, heslo } : undefined)) });
+  // URLSearchParams píše mezeru jako „+“, což pošta v mailto: nečte.
+  return `mailto:${encodeURIComponent(email)}?${p.toString().replace(/\+/g, '%20')}`;
 }
 
-/** Nejkratší pozvánka (vejde se do mailto: i s heslem): odkaz, instalace, přihlášení, kde je návod. */
+/**
+ * Text e-mailu s pozvánkou: tři očíslované kroky (otevřít, heslo, ikona na plochu) a odkaz na čitelný celý
+ * postup. Psaný tak, aby šel číst i slitý do jednoho odstavce: každý krok začíná číslem, odkaz stojí hned
+ * na začátku. Odkaz na čitelnou stránku je jen v pozvánce bez hesla — stránka je veřejná, heslo na ní být nesmí.
+ */
 export function textKratce(odkaz: string = odkazAplikace(), pristup?: Pristup): string {
+  const krok2 = pristup
+    ? `2. Přihlas se: e-mail ${pristup.email}, dočasné heslo ${pristup.heslo}. Klepni na „Vstoupit do pivovaru“; hned se ukáže okno „Založte si své heslo“ — napiš si vlastní heslo (aspoň 6 znaků) a klepni na „Uložit heslo a pokračovat“.`
+    : '2. Nastav si heslo: správce ti poslal druhý e-mail s velkým žlutým tlačítkem „Otevřít aplikaci a nastavit heslo“ (podívej se i do spamu). Klepni na něj a napiš si heslo (aspoň 6 znaků).';
   return [
-    'Ahoj, dostal(a) jsi přístup do aplikace Pivovar Zajíc (objednávky, sklad, stáčení).',
+    'Ahoj, dostal(a) jsi přístup do aplikace Pivovar Zajíc — objednávky, sklad a stáčení piva.',
     '',
-    `Otevři v telefonu: ${odkaz}`,
-    'Na plochu: Android (Chrome) tři tečky → Nainstalovat aplikaci; iPhone (Safari) Sdílet → Přidat na plochu. Nic z obchodu Google Play.',
-    ...(pristup
-      ? [`Přihlášení: ${pristup.email} / dočasné heslo ${pristup.heslo} (po přihlášení si založíš vlastní).`]
-      : ['Přihlášení: přijde ti e-mail s odkazem — klepni na něj a nastav si heslo.']),
+    ...(pristup ? [] : [`Celý postup krok za krokem, čitelně: ${odkazCitelnePozvanky(odkaz)}`, '']),
+    `1. Otevři aplikaci v telefonu: ${odkaz}`,
+    krok2,
+    '3. Dej si ikonu na plochu. Nestahuje se z Google Play ani z App Store, stačí prohlížeč: Android (Chrome) — ⋮ vpravo nahoře → „Nainstalovat aplikaci“; iPhone (Safari) — Sdílet → „Přidat na plochu“.',
     '',
-    'Návod a přehled všeho, co v aplikaci je, najdeš po přihlášení v dlaždici „Info“ (oddíl „Začínáme“).',
+    'Návod a přehled všeho, co v aplikaci je, najdeš po přihlášení v dlaždici „Info“ (oddíl „Začínáme“). Když se něco nedaří, napiš správci.',
   ].join('\n');
 }
 
