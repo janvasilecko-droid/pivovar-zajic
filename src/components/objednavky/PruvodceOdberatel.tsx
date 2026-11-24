@@ -19,6 +19,7 @@
 // měsíc, bez závozu) — pro okno po krocích. Na jedné stránce jsou obě pod sebou.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Check, Search, UserPlus } from 'lucide-react';
+import { PrepinacBezZavozu } from './BezZavozu';
 import type { Place } from '../../lib/supabase';
 import { LISTA_PISMEN_OD, nejcastejsiOdberatele, odberateleAbecedne, rozdelDlePismen } from '../../lib/odberateleDleCetnosti';
 import { proHledani } from '../../lib/hledani';
@@ -285,6 +286,9 @@ export function PruvodceOdberatel({ data, koncept, zmen, cast = 'vse', naVyber }
 
       {cast !== 'odberatel' && <section aria-labelledby="pruvodce-kdy" className="space-y-2">
         <h2 id="pruvodce-kdy" className="font-display font-black text-lg text-neutral-900 dark:text-neutral-100">Kdy se veze?</h2>
+        {/* „Bez závozu" je první a velké (24. 11. 2026: „nevidím tam viditelně to tlačítko s autem
+            bez závozu, přeškrtnutým autem"): buď se nevozí, nebo se vybere den níž. */}
+        <PrepinacBezZavozu zapnuto={koncept.bezZavozu} naZmenu={(v) => zmen((k) => nastavBezZavozu(k, v))} />
         <div className="grid grid-cols-3 gap-2" role="group" aria-labelledby="pruvodce-kdy">
           {dny.map((d) => {
             const vlastni = koncept.datum === d.datum;
@@ -335,15 +339,6 @@ export function PruvodceOdberatel({ data, koncept, zmen, cast = 'vse', naVyber }
           </label>
         )}
 
-        <label className="flex items-start gap-2 p-2.5 rounded-xl bg-neutral-100 border-2 border-neutral-200 text-neutral-800 text-xs font-bold cursor-pointer">
-          <input
-            type="checkbox"
-            checked={koncept.bezZavozu}
-            onChange={(e) => zmen((k) => nastavBezZavozu(k, e.target.checked))}
-            className="w-4 h-4 mt-0.5 rounded accent-neutral-700 shrink-0"
-          />
-          <span>Bez závozu — odběratel si bere pivo sám, nejde do trasy.</span>
-        </label>
       </section>}
     </div>
   );

@@ -451,6 +451,19 @@ try {
   overit((await kroky.getByTestId('pruvodce-kontext').textContent())?.startsWith('Žižkov') === true, 'nad krokem je vidět odběratel („Žižkov · …")');
   // Den, datum a poznámka jsou na jedné stránce.
   const dnyKroku = kroky.getByRole('group', { name: 'Kdy se veze?' }).getByRole('button');
+  // „Bez závozu": velké tlačítko s přeškrtnutým autem hned pod nadpisem, nad dny
+  // (24. 11. 2026: „nevidím tam viditelně to tlačítko s autem bez závozu, přeškrtnutým autem").
+  const prepinacBez = kroky.getByTestId('prepinac-bez-zavozu');
+  const boxPrepinace = await prepinacBez.boundingBox();
+  const boxPrvnihoDne = await dnyKroku.nth(0).boundingBox();
+  overit(boxPrepinace !== null && boxPrepinace.height >= 44 && boxPrepinace.width >= 300, `„Bez závozu" je velké tlačítko (${Math.round(boxPrepinace?.width ?? 0)} × ${Math.round(boxPrepinace?.height ?? 0)} px)`);
+  overit(boxPrepinace !== null && boxPrvnihoDne !== null && boxPrepinace.y + boxPrepinace.height <= boxPrvnihoDne.y + 1, '„Bez závozu" je nad dny, hned pod nadpisem');
+  overit(await prepinacBez.locator('svg mask').count() === 1, '„Bez závozu" má přeškrtnuté auto');
+  await prepinacBez.click();
+  overit(await kroky.getByRole('checkbox', { name: /Bez závozu/ }).isChecked(), 'klepnutí na „Bez závozu" ho zapne');
+  overit((await kroky.getByTestId('pruvodce-kontext').textContent())?.includes('bez závozu') === true, 'nad krokem je „bez závozu"');
+  await prepinacBez.click();
+  overit(!(await kroky.getByRole('checkbox', { name: /Bez závozu/ }).isChecked()), 'druhé klepnutí ho vypne');
   const prvniDen = dnyKroku.nth(0);
   const [zkratkaDne, kratceDne] = (await prvniDen.innerText()).split('\n');
   await prvniDen.click();
