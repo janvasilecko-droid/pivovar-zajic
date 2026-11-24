@@ -450,3 +450,54 @@ describe('AI sládek (chatbot)', () => {
     expect(screen.getByText(/\[9\]/)).toBeTruthy();
   });
 });
+
+describe('AI sládek jako chatbot na všechno kolem pivovaru (R36)', () => {
+  const PRIKLADY = [
+    'Napiš podrobný návod na vaření 12° ležáku od vystírky po stočení.',
+    'Jak krok za krokem obsluhovat varnu při vaření?',
+    'Na těsnění víka tanku se objevila plíseň — co s tím?',
+    'Jak správně připravit a vysanitovat tank před stáčením?',
+    'Proč mi pivo málo pění a pěna rychle padá?',
+    'Porovnej poslední várky Desítky — proč kolísá varní výtěžek?',
+  ];
+  const pole = () => screen.getByLabelText('Otázka pro AI sládka') as HTMLTextAreaElement;
+
+  it('úvod a nápověda v poli: na cokoli z pivovaru, ne jen problémy; knihy jsou hlavní zdroj, jinak obecná praxe', async () => {
+    render(<BibleChat otevri={() => {}} />);
+    await screen.findByText(/Útrata za AI/);
+    const uvod = (screen.getByText(/Ptej se na cokoli, co se řeší v pivovaru/).textContent ?? '').replace(/\s+/g, ' ');
+    for (const tema of ['návod na vaření piva', 'obsluha varny', 'hygiena a plísně', 'vady piva', 'suroviny', 'výpočty', 'porucha zařízení']) {
+      expect(uvod, `v úvodu chybí: ${tema}`).toContain(tema);
+    }
+    expect(uvod).toContain('Hlavní zdroj jsou nahrané knihy a u tvrzení z nich je odkaz na stránku');
+    expect(uvod).toContain('když v nich téma není, odpoví z obecné odborné praxe a řekne to');
+    expect(pole().placeholder).toMatch(/^Na cokoli z pivovaru — např\. návod na vaření, obsluha varny, plíseň/);
+  });
+
+  it('příklady pokrývají návod, varnu, plíseň, sanitaci, vadu i várky; klepnutí vloží otázku do pole', async () => {
+    render(<BibleChat otevri={() => {}} />);
+    await screen.findByText(/Útrata za AI/);
+    const tlacitka = screen.getByText('Například').parentElement!.querySelectorAll('button');
+    expect([...tlacitka].map((b) => b.textContent)).toEqual(PRIKLADY);
+    for (const p of PRIKLADY) expect(screen.getByRole('button', { name: p }), p).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: PRIKLADY[2] }));
+    expect(pole().value).toBe(PRIKLADY[2]);
+  });
+
+  it('příklady se nenabízejí při analýze problému; pole tam radí, jak začít rozbor', async () => {
+    render(<BibleChat otevri={() => {}} problem={{ id: ID, nazev: 'Málo pěny' }} />);
+    await screen.findByText(/Útrata za AI/);
+    expect(screen.queryByText('Například')).toBeNull();
+    expect(pole().placeholder).toBe('Např. Najdi možné příčiny a co mám ověřit.');
+  });
+
+  it('příklady zmizí, jakmile se zeptá', async () => {
+    zeptejSe.mockResolvedValue({ ok: true });
+    render(<BibleChat otevri={() => {}} />);
+    await screen.findByText(/Útrata za AI/);
+    zeptatSe(PRIKLADY[0]);
+    await waitFor(() => expect(zeptejSe).toHaveBeenCalledTimes(1));
+    expect(zeptejSe.mock.calls[0][0]).toMatchObject({ otazka: PRIKLADY[0] });
+    await waitFor(() => expect(screen.queryByText('Například')).toBeNull());
+  });
+});

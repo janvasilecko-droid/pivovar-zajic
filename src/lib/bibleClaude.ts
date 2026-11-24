@@ -26,6 +26,15 @@ export const KONEKTOR = 'Pivovarská bible';
 const MAX_ZADANI = 12_000;
 
 /**
+ * Styl odpovědi (24. 11. 2026, „normální chatbot na všechno kolem pivovaru"): stejný rozsah jako v chatu
+ * v appce a v instrukcích konektoru (`_shared/rozsah-chatu.ts`), v zadání jen stručně.
+ */
+const STYL = 'Odpověz česky jako zkušený sládek a normální chatbot: přímo a prakticky, na cokoli z pivovaru. '
+  + 'U návodu (vaření piva, obsluha varny, sanitace…) podrobně krok za krokem s teplotami, časy, množstvím a bezpečností; '
+  + 'u krátké otázky stručně. Knihy z konektoru jsou hlavní zdroj; když v nich téma není, odpověz z obecné odborné znalosti a řekni to. '
+  + 'Nevymýšlej citace ani hodnoty.';
+
+/**
  * Řešení problému jako rozhovor (24. 11. 2026, „plnohodnotný chatbot"): stejný postup jako
  * v chatu v appce a v instrukcích konektoru (`_shared/postup-problemu.ts`), v zadání jen stručně.
  */
@@ -64,8 +73,7 @@ export function zadaniProClaude(
       + 'další otázku s odpovědí (uloz_odpoved s otazka a tímto dotaz_id).'
       + (dotaz.navazuje ? ' Otázka navazuje na předchozí konverzaci v appce: nejdřív si ji načti nástrojem dotaz_z_appky.' : '')
     : '';
-  const bezProvozu = `${uvod} Odpověz česky jako zkušený sládek: krátká odpověď, co říká literatura, praxe, výpočet, doporučení `
-    + `a co chybí; nic si nedomýšlej. ${ROZHOVOR} ${INTERNET}${ulozit}`;
+  const bezProvozu = `${uvod} ${STYL} ${ROZHOVOR} ${INTERNET}${ulozit}`;
   const otazkaRadek = `\n\nOtázka: ${q}`;
   // Stav sklepa jde před otázku a při nedostatku místa se zkrátí jako první — otázku ani dotaz_id nikdy neusekne.
   const misto = MAX_ZADANI - bezProvozu.length - otazkaRadek.length - PROVOZ_UVOD.length - 3; // 3 = dva konce řádku před úvodem a jeden za ním

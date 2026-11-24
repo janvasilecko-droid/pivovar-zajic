@@ -12,6 +12,11 @@ nahrál a zpracoval. Cituje knihu, kapitolu a stranu, počítá jen
 deterministickým kódem, odliší literaturu, praxi a vlastní doporučení a řekne,
 když neví.
 
+Od 24. 11. 2026 (R36) je to zároveň normální chatbot na všechno kolem pivovaru (návody,
+varna, hygiena a plísně, vady, výpočty): literatura je hlavní zdroj a jediné, k čemu se
+cituje; když v knihách téma není, odpoví z obecné odborné praxe a řekne to. Zásady 1–6
+níže platí beze změny.
+
 Zásady platí pro kód, prompty i UI:
 
 1. **Žádný vymyšlený zdroj ani číslo strany.** Citace smí vzniknout jen

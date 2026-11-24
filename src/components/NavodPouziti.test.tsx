@@ -209,3 +209,12 @@ describe('návod k použití', () => {
     });
   });
 });
+
+describe('návod: AI sládek je chatbot na všechno kolem pivovaru (R36)', () => {
+  it('popisuje návody, varnu a plísně, knihy jako hlavní zdroj a obecnou praxi, když v knihách téma není', () => {
+    expect(CELY_TEXT).toContain(bezDiakritiky('chatbot na všechno, co se řeší v pivovaru (návody, varna, hygiena a plísně, vady, výpočty)'));
+    expect(CELY_TEXT).toContain(bezDiakritiky('Ptej se na cokoli, co se řeší v pivovaru'));
+    expect(CELY_TEXT).toContain(bezDiakritiky('odpoví z obecné odborné praxe — neodmítne a nevydává ji za knihu'));
+    expect(CELY_TEXT).not.toContain(bezDiakritiky('odpovídá jen z nahraných a zpracovaných knih'));
+  });
+});

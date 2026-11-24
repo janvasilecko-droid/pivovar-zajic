@@ -121,3 +121,24 @@ describe('odpověď zpátky do appky (R33)', () => {
     expect(noveIdDotazu()).toBe('ffffffff-ffff-4fff-bfff-ffffffffffff');
   });
 });
+
+describe('styl odpovědi v zadání pro Claude — normální chatbot na všechno kolem pivovaru (R36)', () => {
+  it('běžná otázka i analýza problému: návod podrobně po krocích, knihy hlavní zdroj, jinak obecná znalost, nevymýšlet', () => {
+    for (const z of [zadaniProClaude('Napiš návod na vaření ležáku'), zadaniProClaude('Najdi příčiny', { nazev: 'Pomalé kvašení' })]) {
+      expect(z).toContain('jako zkušený sládek a normální chatbot: přímo a prakticky, na cokoli z pivovaru');
+      expect(z).toContain('U návodu (vaření piva, obsluha varny, sanitace…) podrobně krok za krokem s teplotami, časy, množstvím a bezpečností');
+      expect(z).toContain('u krátké otázky stručně');
+      expect(z).toContain('Knihy z konektoru jsou hlavní zdroj; když v nich téma není, odpověz z obecné odborné znalosti a řekni to');
+      expect(z).toContain('Nevymýšlej citace ani hodnoty.');
+      expect(z).not.toContain('a co chybí; nic si nedomýšlej'); // dřívější úzký pokyn jen pro rozbor problému
+    }
+  });
+
+  it('styl je před rozhovorem o problému a před internetem; otázka zůstává poslední', () => {
+    const z = zadaniProClaude('Proč?');
+    expect(z.indexOf('normální chatbot')).toBeGreaterThan(-1);
+    expect(z.indexOf('normální chatbot')).toBeLessThan(z.indexOf('příčiny řaď od nejpravděpodobnější'));
+    expect(z.indexOf('Nevymýšlej citace ani hodnoty.')).toBeLessThan(z.indexOf('hledej i na internetu'));
+    expect(z.endsWith('Otázka: Proč?')).toBe(true);
+  });
+});

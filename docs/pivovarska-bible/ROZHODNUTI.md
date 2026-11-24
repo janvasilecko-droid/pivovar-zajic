@@ -679,3 +679,43 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   při otevření chatu a po návratu do appky (nejdřív po 2 minutách), ať je u odkazu do
   aplikace Claude hotový předem; otázka na něj nečeká.
 - Bez migrace, bez nových klíčů; čtení běží s právy přihlášeného (RLS hlavní databáze).
+
+## R36 — AI sládek je normální chatbot na všechno kolem pivovaru (24. 11. 2026)
+
+- Majitel 24. 11. 2026: „má to být normální chatbot, který mi pomáhá řešit pivovarské
+  problémy, ne jen v pivovaru — návod na vaření piva, detailní návod na varnu atd., plísně,
+  zkrátka vše, co se může řešit v pivovaru“ a „od začátku to říkám“. AI sládek proto není jen
+  analytik problémů z knihovny, ale pomocník sládka na jakékoli téma z pivovaru.
+- **Rozsah** (`_shared/rozsah-chatu.ts`, jeden text pro chat v appce, instrukce konektoru
+  i zadání pro Claude): návod na vaření piva krok za krokem, obsluha varny a dalších zařízení
+  (vystírka, rmutování, scezování, chmelovar, whirlpool, chlazení), kvašení a ležení,
+  filtrace, stáčení, hygiena, sanitace a CIP, plísně a infekce, vady a odchylky, suroviny,
+  receptury a výpočty, údržba a poruchy, bezpečnost práce, organizace a ekonomika výroby,
+  skladování, doprava a čepování.
+- **Tvar odpovědi podle otázky:** návod je podrobný, v číslovaných krocích, s parametry
+  a jednotkami, časté chyby a bezpečnost, a nezkracuje se; plíseň, infekce a hygiena mají
+  vlastní postup (co hned, jak předejít, kdy je šarže nepoužitelná, bezpečnost chemie);
+  vada nebo porucha jde postupem řešení problému (R34); krátká otázka dostane krátkou
+  odpověď bez nadpisů; čísla jen nástrojem `vypocet`. Pevné nadpisy rozboru (Krátká odpověď …
+  Na co se ještě ptám) zůstávají u problému s rozborem.
+- **Pravidla zdrojů (upřesňuje zásadu „odpovídá z literatury“ z ARCHITEKTURY § 1):** knihy
+  zůstávají hlavním zdrojem a jedinou věcí, ke které se cituje; u odborné otázky a návodu se
+  v nich hledá, krátkou obecnou otázku chat odpoví rovnou. Když knihy téma nemají nebo
+  nestačí, řekne to jednou větou („V nahraných knihách jsem to nenašel, odpovídám z obecné
+  odborné praxe“) a odpoví z obecné znalosti — **neodmítá**. **Beze změny:** žádná vymyšlená
+  kniha, strana ani hodnota; obecná znalost se nevydává za citaci ani za údaj z provozu;
+  odhad se nevydává za změřenou hodnotu; čísla počítá výpočetní modul; chybí-li údaj, který by
+  odpověď zásadně změnil, ptá se, jinak odpoví obecně a řekne, co by ji zpřesnilo; u bezpečnosti
+  a práva je opatrný a řekne, co si ověřit. Bez internetu (přepínač vypnutý) odpovídá
+  z knihovny, dat appky a obecné znalosti; internet nehledá.
+- **Kde:** `chat.ts` (SYSTEM_PROMPT: rozsah, „Tvar odpovědi“, uvolněná pravidla zdrojů),
+  `mcp.ts` (INSTRUKCE konektoru: rozsah a tvar odpovědi na začátku, ať je klient při zkrácení
+  dlouhých instrukcí neztratí; metoda řešení problému na konci), `bibleClaude.ts` (zadání pro
+  Claude, stručný styl), obrazovka chatu (úvod, šest příkladů — návod na vaření, obsluha
+  varny, plíseň, sanitace tanku, vada, várky —, nápověda v poli, dlaždice AI sládek)
+  a Návod k použití.
+- Bez migrace. Claude načítá instrukce konektoru při připojení, proto může být po nasazení
+  potřeba konektor v aplikaci Claude odpojit a znovu připojit.
+- **Známá mezera:** slovník vyhledávání (R29) zatím nezná např. plíseň, varnu, vystírku,
+  desinfekci ani hygienu (česky, německy, anglicky), takže se k těmto slovům kniha najde hůř.
+  Doplnění slovníku je samostatná migrace, kterou pouští majitel; nic se nemění samo.

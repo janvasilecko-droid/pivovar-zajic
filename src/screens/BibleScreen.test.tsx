@@ -38,6 +38,18 @@ describe('Pivovarská bible — plocha', () => {
     ]);
   });
 
+  it('dlaždice i úvod plochy slibují chatbota na všechno kolem pivovaru — návody, varna, plísně — ne jen problémy (R36)', () => {
+    const popis = BIBLE_DLAZDICE.find((d) => d.nazev === 'AI sládek')?.popis ?? '';
+    for (const t of ['všechno kolem pivovaru', 'návody', 'varna', 'hygiena a plísně', 'vady a problémy', 'odkazy na stránky']) {
+      expect(popis, `v popisu dlaždice chybí: ${t}`).toContain(t);
+    }
+    profil = { role: 'admin' };
+    render(<BibleScreen />);
+    const uvod = (screen.getByText(/chatbot na vše, co se řeší v pivovaru/).textContent ?? '').replace(/\s+/g, ' ');
+    expect(uvod).toContain('návody, varna, hygiena a plísně, vady, výpočty');
+    expect(uvod).toContain('Hlavní zdroj jsou nahrané knihy, u tvrzení z nich je odkaz na stránku');
+  });
+
   it('bez povolení ukáže jen vysvětlení, kde přístup získat — žádné dlaždice', () => {
     profil = { role: 'user', permissions: { dashboard: { view: true, edit: true } } };
     render(<BibleScreen />);

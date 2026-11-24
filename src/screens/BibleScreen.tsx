@@ -43,7 +43,7 @@ export type BibleDlazdice = {
 
 export const BIBLE_DLAZDICE: readonly BibleDlazdice[] = [
   // Etapa 5 (11. 11. 2026, majitel: „má to být chatbot, který mi bude vyhledávat problémy"): AI sládek + hledání v knihách.
-  { id: 'chat', nazev: 'AI sládek', popis: 'Chatbot: odpovědi na problémy z knih, várek a výpočtů s odkazy na stránky; hledání v knihách', ikona: Bot },
+  { id: 'chat', nazev: 'AI sládek', popis: 'Chatbot na všechno kolem pivovaru: návody (vaření, varna), hygiena a plísně, vady a problémy; odpovědi z knih s odkazy na stránky, várek a výpočtů; hledání v knihách', ikona: Bot },
   { id: 'knihovna', nazev: 'Knihovna dokumentů', popis: 'Odborná knihovna: knihy, nahrávání, zpracování a čtení', ikona: BookOpen },
   // Etapy 6a a 6b (4. a 11. 11. 2026): výpočty s ověřenými vzorci; stejný kód počítá i Claude přes konektor.
   { id: 'vypocty', nazev: 'Výpočtová laboratoř', popis: 'Extrakt, alkohol, IBU, chlazení, voda, potrubí, CIP, energie, daň a náklady', ikona: Calculator },
@@ -199,7 +199,7 @@ function BiblePlocha({ jdi }: { jdi: (s: BibleSekce) => void }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-neutral-300 max-w-2xl">
-        Odborná knihovna pivovarské literatury a AI sládek (chatbot), který odpovídá z nahraných knih, várek a profilu pivovaru. U každého tvrzení z knih dá odkaz na stránku a čísla počítá samostatný výpočetní modul.
+        Odborná knihovna pivovarské literatury a AI sládek — chatbot na vše, co se řeší v pivovaru (návody, varna, hygiena a plísně, vady, výpočty). Hlavní zdroj jsou nahrané knihy, u tvrzení z nich je odkaz na stránku; čísla počítá samostatný výpočetní modul.
       </p>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {BIBLE_DLAZDICE.map((d) => (
