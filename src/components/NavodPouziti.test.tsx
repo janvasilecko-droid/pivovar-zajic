@@ -226,3 +226,16 @@ describe('návod: režim odpovědí „Jen z knih a dat“ (R37)', () => {
     expect(CELY_TEXT).toContain(bezDiakritiky('a když to v datech není, řekne to; volba se pamatuje na zařízení'));
   });
 });
+
+describe('návod: hledání podle významu (R38)', () => {
+  it('říká, že AI sládek hledá i podle významu, po které migraci a kde je vidět stav', () => {
+    expect(CELY_TEXT).toContain(bezDiakritiky('V knihách hledá podle slov i podle významu — najde pasáž, i když v ní nejsou slova z otázky'));
+    expect(CELY_TEXT).toContain(bezDiakritiky('česká otázka tak najde německý nebo anglický text'));
+    expect(CELY_TEXT).toContain(bezDiakritiky('migrace bible 20261124000000_bible_vektory'));
+    expect(CELY_TEXT).toContain(bezDiakritiky('Správa znalostí → AI a náklady → „Hledání podle významu“'));
+  });
+
+  it('u ručního hledání v knihách říká, že jde jen podle slov', () => {
+    expect(CELY_TEXT).toContain(bezDiakritiky('Tohle ruční hledání jde jen podle slov; podle významu hledá AI sládek a konektor Claude.'));
+  });
+});

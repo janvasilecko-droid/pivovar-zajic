@@ -114,6 +114,8 @@ export const NEZALOHOVAT_BIBLE = [
   'bible_mcp_klienti', 'bible_mcp_kody', 'bible_mcp_tokeny',
   // Fronta úklidu souborů smazaných dokumentů — provozní, za pár minut prázdná.
   'bible_smazane_soubory',
+  // Vektory pasáží pro hledání podle významu (R38): odvozené z pasáží (worker je spočítá znovu), zabírají desítky MB.
+  'bible_vektory',
 ];
 
 /**

@@ -7,6 +7,7 @@
 // správcům knihovny. Tarif z ní poznat nejde — limity Free jsou pro srovnání.
 import { ClaudeKonektorPanel } from './ClaudeKonektorPanel';
 import { BibleWebZdroje } from './BibleWebZdroje';
+import { BibleVektoryStav } from './BibleVektoryStav';
 import { useEffect, useState } from 'react';
 import { ExternalLink, ShieldCheck } from 'lucide-react';
 import { smiSpravovat, type BibleRole } from '../../lib/bibleOpravneni';
@@ -208,6 +209,7 @@ export function BibleSprava({ role, setPage }: {
           se dá ptát v aplikaci Claude přes konektor výš.
         </p>
         {smiSpravovat(role) && <NakladyPanel />}
+        {smiSpravovat(role) && <BibleVektoryStav />}
       </section>
     </div>
   );

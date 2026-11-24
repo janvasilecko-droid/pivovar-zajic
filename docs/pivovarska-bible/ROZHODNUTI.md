@@ -745,3 +745,49 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   jdou jen z výsledků hledání (R14), ale zcela vyloučit vlastní znalost modelu nejde. Kontrola je
   v citacích: tvrzení z knih bez čísla zdroje [n] v přísném režimu je podezřelé.
 - Bez migrace, bez nových klíčů.
+
+## R38 — Vektorové hledání: hledání podle významu (24. 11. 2026)
+
+- Majitel 24. 11. 2026 (zadání RAG chatbota): „vytvoření embeddings a uložení do vektorové databáze“
+  a „má to být plnohodnotný chatbot podle promptu“. **Mění R5** („vektory až po měření na zlaté sadě
+  otázek“): majitel chce vektory hned, takže se zapínají; měření kvality zůstává jako pozdější kontrola
+  (viz níže).
+- **Co to je:** ke každé pasáži knihy (≈ 600 tokenů; krátký kontext od AI a text) se spočítá vektor
+  (OpenAI `text-embedding-3-large` zkrácený na 1024 čísel; v databázi pgvector `halfvec` = 2 kB, HNSW
+  index, kosinová vzdálenost). Hledání pak najde pasáž podle významu, i když v ní není žádné slovo
+  z dotazu — česká otázka najde německý nebo anglický text.
+- **Jak se hledá:** dotaz se převede na vektor stejným modelem (server, nejvýš 4 s) a `bible_hledej_vektor`
+  vrátí nejbližší pasáže (s týmiž filtry jako hledání podle slov: kniha, autor, rok, jazyk, druh, oblast).
+  Výsledky hledání podle slov (varianty cs/de/en, R29) a podle významu se spojí metodou **RRF**
+  (reciprocal rank fusion, k = 60) v edge funkci (`_shared/vektory.ts`, `nastroje.ts`): stránka nalezená
+  oběma způsoby je nahoře. Stejně hledá chat v appce i konektor do Claude (`hledej_v_knihach`); hlavička
+  výsledku řekne, že se hledalo i podle významu. Ruční „Hledání v knihách“ v appce (`bible-api`, akce `hledej`)
+  zůstává beze změny jen podle slov — je to kontrolní nástroj, u kterého člověk chce vidět přesné shody.
+- **Nikdy to hledání nerozbije:** bez klíče, bez migrace, bez vektorů, při chybě OpenAI nebo pomalé odpovědi
+  (4 s) se hledá jen podle slov — beze změny a bez hlášky uživateli.
+- **Kde se vektory počítají:** worker (`scripts/bible/vektory.py`, součást zpracování knih v Actions po překladu
+  a přehledech; funguje i bez klíče Claude). Pasáže po dávkách (64), zápis upsertem, běh jde kdykoli přerušit.
+  Náklady se počítají z tokenů podle ceníku (0,13 USD za 1 M tokenů; přidá ho migrace) a zapisují do
+  `ai_naklady` (účel `vektory`) — dohromady s ostatními pod měsíčním stropem. Hlídá se čas, strop útraty běhu,
+  **místo v databázi bible** (≈ 6 kB na pasáž včetně indexu; Free má 500 MB, pojistka `limit_db_mb`) a zacyklení
+  (kdyby se uložené vektory v databázi neprojevily, běh se zastaví, ať se zbytečně neplatí). Pasáž,
+  kterou OpenAI odmítne (HTTP 400), se přeskočí a ostatní pokračují. Do veřejného logu jdou jen počty
+  a stavy — nikdy text pasáže ani klíč.
+- **Klíč:** `OPENAI_API_KEY` už je v `app_secrets` hlavní appky. Nasazení ho (jako klíč Claude) přepíše do
+  secrets funkcí bible a Actions ho předá workeru ve zvláštním kroku „Klíč OpenAI“ — žádný nový secret
+  a žádný krok pro majitele. Bez klíče se nic nerozbije.
+- **Soukromí a cena:** text pasáží jde do OpenAI jen kvůli výpočtu vektorů (přes API). Odhad: 40 000 pasáží ≈
+  24 M tokenů ≈ 3 USD jednou; vektory dotazů stojí zlomky haléře a neevidují se.
+- **Kde to majitel vidí:** Správa znalostí → AI a náklady → „Hledání podle významu“: kolik pasáží má vektor,
+  jestli je klíč a jestli je migrace (`bible_vektory_stav`, akce `vektory` v `bible-api`, jen správce).
+- **Ruční kroky po nasazení:** (1) pustit migraci `20261124000000_bible_vektory` (appka → Systém →
+  Databázové migrace → Databáze bible); (2) spustit zpracování knih (Actions → „Pivovarská bible —
+  zpracování knih“ → Run workflow) — jinak vektory dopočítá plánovaný běh sám (zhruba každé 3 hodiny, dokud
+  jsou pasáže bez vektoru a v app_secrets je klíč).
+- **Zatím neměřeno:** zda vektory zlepší nalézání proti samotnému hledání podle slov (zlatá sada otázek z R5).
+  Doporučená kontrola po prvním doplnění: pár českých otázek na německé a anglické knihy, porovnat nalezené
+  stránky; výsledek patří sem.
+- **Schéma:** tabulka `bible_vektory` (jen service role, RLS bez politik), funkce `bible_vektory_chybi`,
+  `bible_vektory_stav`, `bible_hledej_vektor`, rozšíření `vector` (schéma extensions). CI bible používá obraz
+  `pgvector/pgvector:pg16`. Jiná velikost vektoru nebo jiný model = nová tabulka v nové migraci (sloupec má
+  pevnou velikost); `model_key` říká, který model vektor spočítal.

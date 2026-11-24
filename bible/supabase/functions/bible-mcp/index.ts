@@ -4,6 +4,7 @@ import {
   metadataZdroje, nahodnyToken, platnyClient, platnyVerifier, registrace, s256, sha256hex, wwwAuthenticate, zpracujZpravu,
 } from '../_shared/mcp.ts';
 import { zavolejNastroj } from '../_shared/nastroje.ts';
+import { embedderOpenAi } from '../_shared/vektory.ts';
 
 /**
  * 🔌 bible-mcp — konektor Pivovarské bible do aplikace Claude (R16).
@@ -28,6 +29,8 @@ import { zavolejNastroj } from '../_shared/nastroje.ts';
  */
 
 const MAX_TELO = 64 * 1024;
+/** Hledání podle významu (R38): bez klíče OpenAI (secret OPENAI_API_KEY) se hledá jen podle slov. */
+const EMBEDDER = embedderOpenAi(Deno.env.get('OPENAI_API_KEY'));
 
 const json = (status: number, telo: unknown, hlavicky: Record<string, string> = {}) => new Response(JSON.stringify(telo), {
   status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...hlavicky },
@@ -136,7 +139,7 @@ Deno.serve(async (req: Request) => {
     const zpravy = Array.isArray(telo) ? telo : [telo];
     const radek = overeni[0] as { uzivatel?: unknown; jmeno?: unknown; pristup?: unknown };
     if (typeof radek.uzivatel !== 'string' || typeof radek.pristup !== 'string') return neprihlasen();
-    const zavolej = zavolejNastroj(db, { uzivatel: radek.uzivatel, jmeno: typeof radek.jmeno === 'string' ? radek.jmeno : null, pristup: radek.pristup });
+    const zavolej = zavolejNastroj(db, { uzivatel: radek.uzivatel, jmeno: typeof radek.jmeno === 'string' ? radek.jmeno : null, pristup: radek.pristup }, EMBEDDER);
     const odpovedi = (await Promise.all(zpravy.map((z) => zpracujZpravu(z as Record<string, unknown>, zavolej)))).filter((o) => o !== null);
     if (odpovedi.length === 0) return new Response(null, { status: 202 });
     return json(200, Array.isArray(telo) ? odpovedi : odpovedi[0]);

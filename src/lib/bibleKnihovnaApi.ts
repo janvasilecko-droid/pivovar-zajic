@@ -311,6 +311,17 @@ export async function nactiKapacitu(): Promise<{ kapacita: Kapacita } | { chyba:
   return { kapacita: r.data };
 }
 
+/** Vektory pasáží pro hledání podle významu (R38): kolik pasáží má vektor a jestli má server klíč OpenAI. */
+export type StavVektoru = { pasazi: number; sVektorem: number; klic: boolean; model: string };
+
+/** Stav hledání podle významu — jen pro správce. */
+export async function nactiStavVektoru(): Promise<{ stav: StavVektoru } | { chyba: string; bezMigrace: boolean }> {
+  const r = await volejBibli<{ pasazi?: unknown; s_vektorem?: unknown; klic?: unknown; model?: unknown }>('bible-api', { akce: 'vektory' });
+  if (!r.ok) return { chyba: r.chyba.zprava, bezMigrace: r.chyba.kod === 'bez_migrace' };
+  const cislo = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0);
+  return { stav: { pasazi: cislo(r.data?.pasazi), sVektorem: cislo(r.data?.s_vektorem), klic: r.data?.klic === true, model: typeof r.data?.model === 'string' ? r.data.model : '' } };
+}
+
 /** Útrata za AI od začátku měsíce (UTC) — jen pro správce. */
 export async function nactiNakladyMesice(ted = new Date()): Promise<{ naklady: NakladyMesice } | { chyba: string; bezMigrace: boolean }> {
   const zacatek = new Date(Date.UTC(ted.getUTCFullYear(), ted.getUTCMonth(), 1)).toISOString();

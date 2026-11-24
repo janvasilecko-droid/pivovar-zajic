@@ -16,6 +16,7 @@ describe('akce a práva', () => {
   it('čtení pro čtenáře, zápis pro přispěvatele, kapacita a útrata jen pro správce', () => {
     expect(AKCE.dokumenty).toBe('cte');
     expect(AKCE.odkaz).toBe('cte');
+    expect(AKCE.vektory).toBe('spravuje');
     expect(AKCE.zalozit_nahrani).toBe('prispiva');
     expect(AKCE.upravit_popis).toBe('prispiva');
     expect(AKCE.kapacita).toBe('spravuje');

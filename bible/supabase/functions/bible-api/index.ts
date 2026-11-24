@@ -18,6 +18,7 @@ import {
   dotazHledani, slovaDotazu, slovaVolne, uryvek, VYSLEDKU_HLEDANI,
 } from '../_shared/cteni.ts';
 import { nahodnyToken, platnaChallenge, platnyClient, POVOLENE_NAVRATY, sha256hex } from '../_shared/mcp.ts';
+import { MODEL_VEKTORU } from '../_shared/vektory.ts';
 
 /**
  * 📚 bible-api — jediný vstup appky do projektu bible (cegrelgvkygcatupqwrx).
@@ -229,6 +230,17 @@ const PROVEDENI: Record<Akce, (k: Kontext) => Promise<Response>> = {
     const { data, error } = await db.rpc('bible_kapacita');
     if (error) return chybaDb(cors, error, 'kapacita');
     return hotovo(cors, data);
+  },
+
+  // Hledání podle významu (R38): kolik pasáží má vektor a jestli má funkce klíč OpenAI pro vektor dotazu.
+  async vektory({ db, cors }) {
+    const { data, error } = await db.rpc('bible_vektory_stav', { p_model: MODEL_VEKTORU });
+    if (error) return chybaDb(cors, error, 'vektory');
+    const r = (Array.isArray(data) ? data[0] : null) as { pasazi?: unknown; s_vektorem?: unknown } | null;
+    return hotovo(cors, {
+      pasazi: Number(r?.pasazi ?? 0), s_vektorem: Number(r?.s_vektorem ?? 0),
+      klic: Boolean(Deno.env.get('OPENAI_API_KEY')), model: MODEL_VEKTORU,
+    });
   },
 
   async naklady({ db, telo, cors }) {

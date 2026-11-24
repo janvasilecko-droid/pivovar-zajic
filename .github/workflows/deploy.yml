@@ -349,6 +349,30 @@ jobs:
             echo "- ⚠️ klíč ANTHROPIC_API_KEY v app_secrets hlavní appky není (nebo nejde přečíst) — AI sládek bude hlásit, že klíč chybí" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # 🧭 Klíč OpenAI pro hledání podle významu (R38) — z app_secrets HLAVNÍ appky (řádek OPENAI_API_KEY),
+      # stejným způsobem jako klíč Claude. Funkce bible-chat a bible-mcp z něj při hledání spočítají vektor
+      # dotazu. Bez klíče se nic nerozbije — hledá se jen podle slov.
+      - name: Klíč OpenAI pro hledání podle významu
+        if: always()
+        env:
+          HLAVNI_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          HLAVNI_KLIC: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -uo pipefail
+          rm -f "$RUNNER_TEMP/openai-klic"
+          klic=""
+          if [ -n "$HLAVNI_URL" ] && [ -n "$HLAVNI_KLIC" ]; then
+            klic=$(curl -sS --max-time 30 "$HLAVNI_URL/rest/v1/app_secrets?select=value&key=eq.OPENAI_API_KEY" \
+              -H "apikey: $HLAVNI_KLIC" -H "Authorization: Bearer $HLAVNI_KLIC" 2>/dev/null | jq -r '.[0].value // empty' 2>/dev/null) || klic=""
+          fi
+          if [ -n "$klic" ]; then
+            echo "::add-mask::$klic"
+            ( umask 077; printf '%s' "$klic" > "$RUNNER_TEMP/openai-klic" )
+            echo "Klíč OpenAI pro hledání podle významu připraven."
+          else
+            echo "- ℹ️ klíč OPENAI_API_KEY v app_secrets hlavní appky není (nebo nejde přečíst) — hledání v knihách zůstane jen podle slov" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Edge funkce projektu bible
         if: always()
         env:
@@ -358,7 +382,7 @@ jobs:
         run: |
           if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
             echo "SUPABASE_BIBLE_ACCESS_TOKEN není nastaven — funkce bible (bible-api, bible-chat, bible-mcp, bible-migrace) se nenasadí." | tee -a "$GITHUB_STEP_SUMMARY"
-            rm -f "$RUNNER_TEMP/claude-klic"
+            rm -f "$RUNNER_TEMP/claude-klic" "$RUNNER_TEMP/openai-klic"
             exit 0
           fi
           echo "### Edge funkce projektu bible" >> "$GITHUB_STEP_SUMMARY"
@@ -386,13 +410,18 @@ jobs:
             ( umask 077; printf 'ANTHROPIC_API_KEY=%s\n' "$(cat "$RUNNER_TEMP/claude-klic")" >> "$RUNNER_TEMP/bible.env" )
           fi
           rm -f "$RUNNER_TEMP/claude-klic"
+          if [ -s "$RUNNER_TEMP/openai-klic" ]; then
+            ( umask 077; printf 'OPENAI_API_KEY=%s\n' "$(cat "$RUNNER_TEMP/openai-klic")" >> "$RUNNER_TEMP/bible.env" )
+          fi
+          rm -f "$RUNNER_TEMP/openai-klic"
           if ! npx --yes supabase@2.121.0 secrets set --project-ref "$BIBLE_REF" --env-file "$RUNNER_TEMP/bible.env"; then
             rm -f "$RUNNER_TEMP/bible.env"
-            echo "- ❌ secrets funkcí bible (HLAVNI_ANON_KEY, ANTHROPIC_API_KEY) se nepodařilo nastavit, funkce bible se nenasadily" >> "$GITHUB_STEP_SUMMARY"
+            echo "- ❌ secrets funkcí bible (HLAVNI_ANON_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY) se nepodařilo nastavit, funkce bible se nenasadily" >> "$GITHUB_STEP_SUMMARY"
             rada_token
             exit 1
           fi
           if grep -q '^ANTHROPIC_API_KEY=' "$RUNNER_TEMP/bible.env"; then echo "- klíč Claude pro AI sládka obnoven" >> "$GITHUB_STEP_SUMMARY"; fi
+          if grep -q '^OPENAI_API_KEY=' "$RUNNER_TEMP/bible.env"; then echo "- klíč OpenAI pro hledání podle významu obnoven" >> "$GITHUB_STEP_SUMMARY"; fi
           rm -f "$RUNNER_TEMP/bible.env"
           FUNKCE=$(node scripts/bible-nasazeni.mjs --jen-jmena)
           if [ -z "$FUNKCE" ]; then

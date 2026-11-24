@@ -201,9 +201,11 @@ RPC `bible_hledej(...)` v Postgresu běží jako SECURITY DEFINER s vlastní kon
   pasáže, bez diakritiky.
 - **Přesný termín a fráze:** `pg_trgm` a `ILIKE` pro vzorce, jednotky a zkratky
   (DMS, EBC, Würze).
-- **Vektory (Etapa 4, po měření):** pgvector HNSW nad `halfvec`. Vektory leží
+- **Vektory (R38, 24. 11. 2026):** pgvector HNSW nad `halfvec(1024)`. Vektory leží
   v samostatné tabulce s `model_key`, takže výměna modelu znamená jen
-  přepočet, ne přestavbu.
+  přepočet, ne přestavbu. Embeddingy: OpenAI `text-embedding-3-large` zkrácený na
+  1024 čísel (klíč z app_secrets); počítá je worker, vektor dotazu edge funkce při
+  hledání. Bez klíče, migrace nebo vektorů se hledá jen podle slov.
 - **Spojení výsledků:** RRF (reciprocal rank fusion). Filtry: kniha, jazyk,
   oblast, druh (text, tabulka, vzorec) a důvěryhodnost.
 - **Vícejazyčnost:** Haiku přeloží dotaz do CZ/DE/EN s odbornými synonymy

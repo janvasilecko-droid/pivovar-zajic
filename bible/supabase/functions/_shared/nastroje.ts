@@ -24,6 +24,7 @@ import {
 } from './vstupy.ts';
 import type { ZdrojKnihy } from './chat.ts';
 import { odkazyNaCitace, stranyVOdpovedi } from './odpoved-claude.ts';
+import { MODEL_VEKTORU, spojHledani, vektorText, type Embedder } from './vektory.ts';
 
 /**
  * Klient databáze bible (supabase-js s service rolí). Strukturní typ, ať se
@@ -62,7 +63,33 @@ type NalezKnihy = {
   kapitola: string | null; zdroj: 'original' | 'preklad'; vydani: string; shoda: number | null; slov: number | null; uryvek: string;
 };
 
-async function hledejData(db: Db, args: Record<string, unknown>): Promise<{ dotaz: string; volne: boolean; slova: string[]; nalezy: NalezKnihy[]; filtr: FiltrHledani | null }> {
+/** Řádek hledání (slovního i podle významu): místo v knize a text pasáže nebo stránky. */
+type RadekHledani = {
+  dokument_id: string; nazev: string; autor: string | null; rok: number | null; zdroj: string;
+  pdf_index: number; tistena_strana: string | null; kapitola: string | null; text: string; shoda?: number; slov?: number;
+};
+
+/**
+ * Hledání podle významu (R38): vektor dotazu (embedder) a nejbližší pasáže z bible_hledej_vektor. Bez embedderu,
+ * bez vektorů v databázi, bez migrace nebo při jakékoli chybě je výsledek prázdný — hledá se jen podle slov.
+ */
+async function vektoroveHledani(db: Db, embed: Embedder | null | undefined, dotaz: string, filtr: FiltrHledani | null): Promise<RadekHledani[]> {
+  if (!embed) return [];
+  try {
+    const v = await embed(dotaz);
+    if (!v) return [];
+    const r = await db.rpc('bible_hledej_vektor', { p_vektor: vektorText(v), p_model: MODEL_VEKTORU, p_filtr: filtr, p_limit: VYSLEDKU });
+    if (r.error || !Array.isArray(r.data)) {
+      if (r.error && r.error.code !== 'PGRST202') console.warn(`hledání podle významu selhalo: ${r.error.code ?? '?'}`);
+      return [];
+    }
+    return r.data as RadekHledani[];
+  } catch {
+    return [];
+  }
+}
+
+async function hledejData(db: Db, args: Record<string, unknown>, embed?: Embedder | null): Promise<{ dotaz: string; volne: boolean; vektory: boolean; slova: string[]; nalezy: NalezKnihy[]; filtr: FiltrHledani | null }> {
   let dotaz: string;
   let filtr: FiltrHledani | null;
   try {
@@ -71,10 +98,9 @@ async function hledejData(db: Db, args: Record<string, unknown>): Promise<{ dota
     if (kniha !== null && !jeUuid(kniha)) throw new ChybaVstupu('kniha_id musí být id knihy ze seznam_knih.');
     filtr = filtrHledani({ autor: args.autor, rok_od: args.rok_od, rok_do: args.rok_do, jazyk: args.jazyk, druh: args.druh, oblast: args.oblast }, kniha);
   } catch (e) { textVstupu(e); }
-  type Radek = {
-    dokument_id: string; nazev: string; autor: string | null; rok: number | null; zdroj: string;
-    pdf_index: number; tistena_strana: string | null; kapitola: string | null; text: string; shoda?: number; slov?: number;
-  };
+  type Radek = RadekHledani;
+  // Vektor dotazu se počítá souběžně s hledáním podle slov (nikdy nehodí výjimku).
+  const vektoroveP = vektoroveHledani(db, embed, dotaz, filtr);
   // Varianty slov a filtry (migrace 20261111040000); bez ní původní hledání (jen filtr knihy).
   let varianty = true;
   let r = await db.rpc('bible_hledej_v', { p_dotaz: dotaz, p_filtr: filtr, p_limit: VYSLEDKU });
@@ -94,6 +120,10 @@ async function hledejData(db: Db, args: Record<string, unknown>): Promise<{ dota
       : await db.rpc('bible_hledej_volne', { p_dotaz: dotaz, p_dokument: filtr?.dokument ?? null, p_limit: VYSLEDKU });
     if (!v.error && Array.isArray(v.data) && v.data.length > 0) { radky = v.data as Radek[]; volne = true; }
   }
+  // Hledání podle významu se spojí s hledáním podle slov (RRF): najde i pasáže bez shody slov (třeba v jiném jazyce).
+  const vektorove = await vektoroveP;
+  const vektory = vektorove.length > 0;
+  if (vektory) radky = spojHledani(radky, vektorove, VYSLEDKU);
   let slova = volne ? slovaVolne(dotaz) : slovaDotazu(dotaz);
   if (varianty && radky.length > 0) {
     const s = await db.rpc('bible_slova_hledani', { p_dotaz: dotaz, p_volne: volne });
@@ -101,7 +131,7 @@ async function hledejData(db: Db, args: Record<string, unknown>): Promise<{ dota
   }
   const novejsi = radky.length > 0 ? await vydaniKnih(db) : new Map();
   return {
-    dotaz, volne, slova, filtr,
+    dotaz, volne, vektory, slova, filtr,
     nalezy: radky.map((x) => ({
       dokumentId: x.dokument_id, nazev: x.nazev, autor: x.autor, rok: x.rok, tistena: x.tistena_strana, list: x.pdf_index,
       kapitola: x.kapitola, zdroj: x.zdroj === 'preklad' ? 'preklad' : 'original', vydani: poznamkaVydani(x.dokument_id, novejsi),
@@ -127,10 +157,10 @@ function popisFiltru(f: FiltrHledani | null): string {
 
 const nicNenalezeno = (dotaz: string, filtr: FiltrHledani | null = null) => `Pro „${dotaz}"${popisFiltru(filtr)} jsem v knihách nic nenašel. Zkus jiné nebo kratší slovo${filtr ? ', nebo bez filtru' : ''}.`;
 
-function hlavaHledani(d: { dotaz: string; volne: boolean; slova: string[]; nalezy: NalezKnihy[]; filtr: FiltrHledani | null }): string {
+function hlavaHledani(d: { dotaz: string; volne: boolean; vektory?: boolean; slova: string[]; nalezy: NalezKnihy[]; filtr: FiltrHledani | null }): string {
   return `${d.volne
     ? `Všechna slova „${d.dotaz}" na jedné stránce nejsou. Stránky s nejvíc slovy otázky (i odborné varianty: ${d.slova.slice(0, 12).join(', ')}) — ověř, že opravdu odpovídají`
-    : `Nalezeno ${d.nalezy.length} míst pro „${d.dotaz}" (i odborné varianty v češtině, němčině a angličtině)`}${popisFiltru(d.filtr)}: (celý text a kontext: precti_stranu s kniha_id a list)`;
+    : `Nalezeno ${d.nalezy.length} míst pro „${d.dotaz}" (i odborné varianty v češtině, němčině a angličtině)`}${popisFiltru(d.filtr)}${d.vektory ? ' — spojeno s hledáním podle významu (najde i pasáže bez shody slov, třeba v jiném jazyce)' : ''}: (celý text a kontext: precti_stranu s kniha_id a list)`;
 }
 
 /** Jeden řádek popisu místa: kniha, autor, strana, kapitola, originál/překlad, vydání, shoda. */
@@ -140,8 +170,8 @@ function popisNalezu(r: NalezKnihy): string {
     + `${r.shoda && r.slov ? ` — shoda ${r.shoda} z ${r.slov} slov` : ''}`;
 }
 
-async function hledej(db: Db, args: Record<string, unknown>): Promise<string> {
-  const d = await hledejData(db, args);
+async function hledej(db: Db, args: Record<string, unknown>, embed?: Embedder | null): Promise<string> {
+  const d = await hledejData(db, args, embed);
   if (d.nalezy.length === 0) return nicNenalezeno(d.dotaz, d.filtr);
   const casti = d.nalezy.map((r, i) => [
     `${i + 1}. ${popisNalezu(r)}`,
@@ -205,8 +235,8 @@ const vysledekKnihy = (source: string, title: string, texty: string[]): BlokVysl
   citations: { enabled: true },
 });
 
-async function hledejBloky(db: Db, args: Record<string, unknown>): Promise<VysledekChatu> {
-  const d = await hledejData(db, args);
+async function hledejBloky(db: Db, args: Record<string, unknown>, embed?: Embedder | null): Promise<VysledekChatu> {
+  const d = await hledejData(db, args, embed);
   if (d.nalezy.length === 0) return { text: nicNenalezeno(d.dotaz, d.filtr) };
   const zdroje: ZdrojKnihy[] = d.nalezy.map((r) => ({
     source: odkazNaList(r.dokumentId, r.list), dokumentId: r.dokumentId, list: r.list, nazev: r.nazev,
@@ -741,16 +771,16 @@ async function seznamKnih(db: Db): Promise<string> {
 }
 
 /** Nástroje pro chatbota: stránky knih jako search_result (citace), ostatní jako text konektoru. */
-export function zavolejNastrojChat(db: Db, kdo: Pripojeny) {
-  const textove = zavolejNastroj(db, kdo);
+export function zavolejNastrojChat(db: Db, kdo: Pripojeny, embed?: Embedder | null) {
+  const textove = zavolejNastroj(db, kdo); // hledej_v_knihach řeší chat sám níž (bloky s citacemi, s embedderem)
   return async (jmeno: string, args: Record<string, unknown>): Promise<VysledekChatu> => {
-    if (jmeno === 'hledej_v_knihach') return hledejBloky(db, args);
+    if (jmeno === 'hledej_v_knihach') return hledejBloky(db, args, embed);
     if (jmeno === 'precti_stranu') return prectiBloky(db, args);
     return { text: await textove(jmeno, args) };
   };
 }
 
-export function zavolejNastroj(db: Db, kdo: Pripojeny) {
+export function zavolejNastroj(db: Db, kdo: Pripojeny, embed?: Embedder | null) {
   return (jmeno: string, args: Record<string, unknown>): Promise<string> => {
     if (jmeno === 'hledej_zkusenosti') return hledejZkusenosti(db, args);
     if (jmeno === 'web_zdroje') return webZdroje(db, args);
@@ -763,7 +793,7 @@ export function zavolejNastroj(db: Db, kdo: Pripojeny) {
     if (jmeno === 'zapis_zkusenost') return zapisZkusenost(db, args, kdo);
     if (jmeno === 'dotaz_z_appky') return dotazZAppky(db, args, kdo);
     if (jmeno === 'uloz_odpoved') return ulozOdpoved(db, args, kdo);
-    if (jmeno === 'hledej_v_knihach') return hledej(db, args);
+    if (jmeno === 'hledej_v_knihach') return hledej(db, args, embed);
     if (jmeno === 'precti_stranu') return prectiStranu(db, args);
     if (jmeno === 'prehled_tematu') return prehledTematu(db, args);
     if (jmeno === 'profil_pivovaru') return profilPivovaru(db, args);
