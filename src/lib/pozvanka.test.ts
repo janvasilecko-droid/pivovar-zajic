@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { mailtoPozvanky, odkazAplikace, ODKAZ_APLIKACE, PREDMET_POZVANKY, prehledAplikace, sablonaEmailuSupabase, textPozvanky } from './pozvanka';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import {
+  htmlCitelnePozvanky, mailtoPozvanky, naCrlf, odkazAplikace, odkazCitelnePozvanky, ODKAZ_APLIKACE, PREDMET_POZVANKY, prehledAplikace,
+  sablonaEmailuSupabase, sdilejPozvanku, SOUBOR_CITELNE_POZVANKY, textPozvanky,
+} from './pozvanka';
 import { NAVOD_ODDILY } from '../components/NavodPouziti';
 
 describe('pozvánka do aplikace', () => {
@@ -83,5 +87,103 @@ describe('pozvánka: co v aplikaci všechno je', () => {
     // Celý text se do telefonního mailto: vejde — žádné zkrácení na pár řádků.
     expect(m).toContain('KROK 5');
     expect(m).toContain('Umí:');
+  });
+});
+
+// 24. 11. 2026 (screenshot e-mailu v Email.cz): „Jo, to nečitelný, ta pozvánka" — text pozvánky dorazil
+// bez zalomení řádků, v jednom odstavci. Dvě pojistky: konce řádků jako CRLF (RFC 6068) a odkaz
+// na čitelnou kopii (public/pozvanka.html) hned v první větě.
+describe('pozvánka: zalomení řádků a čitelná kopie', () => {
+  const holeLf = /(?<!\r)\n/;
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('naCrlf: každé LF je CRLF, hotové CRLF se nezdvojí', () => {
+    expect(naCrlf('a\nb\n\nc')).toBe('a\r\nb\r\n\r\nc');
+    expect(naCrlf('a\r\nb')).toBe('a\r\nb');
+    expect(naCrlf('bez zalomení')).toBe('bez zalomení');
+  });
+
+  it('mailto píše konce řádků jako %0D%0A — žádné samotné %0A (některé pošty ho zahodí)', () => {
+    const m = mailtoPozvanky('a@b.cz', 'https://x.cz/');
+    expect(m).toContain('%0D%0A');
+    expect(m).not.toMatch(/(?<!%0D)%0A/);
+    const body = decodeURIComponent(m.split('body=')[1]);
+    expect(body).toContain('KROK 1');
+    expect(body).not.toMatch(holeLf);
+    expect(body.split('\r\n').length).toBeGreaterThan(50);
+  });
+
+  it('mailto s CRLF se pořád vejde do limitu adresy a nese celý text (KROK 5, „Umí:")', () => {
+    const m = mailtoPozvanky('a@b.cz', 'https://x.cz/');
+    expect(m.length).toBeLessThanOrEqual(16000);
+    expect(decodeURIComponent(m)).toContain('KROK 5');
+  });
+
+  it('i zkrácená pozvánka (heslo, krátký text) má konce řádků CRLF', () => {
+    const m = mailtoPozvanky('a@b.cz', 'https://x.cz/', 'docasne-test');
+    expect(m).not.toMatch(/(?<!%0D)%0A/);
+  });
+
+  it('sdílení pošle text s CRLF; schránka (bez sdílení) dostane původní text s LF', async () => {
+    const share = vi.fn(async () => {});
+    vi.stubGlobal('navigator', { share });
+    expect(await sdilejPozvanku('a@b.cz')).toBe('sdileno');
+    const poslano = (share.mock.calls[0] as unknown as [{ title: string; text: string }])[0];
+    expect(poslano.title).toBe(PREDMET_POZVANKY);
+    expect(poslano.text).toContain('\r\n');
+    expect(poslano.text).not.toMatch(holeLf);
+
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    expect(await sdilejPozvanku('a@b.cz')).toBe('zkopirovano');
+    const zkopirovano = (writeText.mock.calls[0] as unknown as [string])[0];
+    expect(zkopirovano).not.toContain('\r');
+    expect(zkopirovano).toContain('\n');
+  });
+
+  it('odkaz na čitelnou kopii: odkaz aplikace + pozvanka.html', () => {
+    expect(SOUBOR_CITELNE_POZVANKY).toBe('pozvanka.html');
+    expect(odkazCitelnePozvanky('https://x.cz/')).toBe('https://x.cz/pozvanka.html');
+    expect(odkazCitelnePozvanky()).toMatch(/^https?:\/\/.+\/pozvanka\.html$/);
+  });
+
+  it('pozvánka bez hesla odkazuje na čitelnou kopii hned za úvodem; s heslem ne (stránka je veřejná)', () => {
+    const bez = textPozvanky('https://x.cz/').split('\n');
+    const i = bez.findIndex((r) => r.startsWith('Čitelná verze v prohlížeči'));
+    expect(i).toBeGreaterThan(0);
+    expect(bez[i]).toContain('https://x.cz/pozvanka.html');
+    expect(bez[i - 1]).toContain('Tady je celý postup krok za krokem');
+    expect(textPozvanky('https://x.cz/', { email: 'a@b.cz', heslo: 'docasne-test' })).not.toContain('Čitelná verze');
+  });
+
+  it('čitelná stránka: celý text bez hesla, řádky zachované, odkazy klepnutelné, nic z textu nepřeskakuje HTML', () => {
+    const h = htmlCitelnePozvanky('https://x.cz/');
+    expect(h).toContain('<!doctype html>');
+    expect(h).toContain('white-space:pre-wrap');
+    expect(h).toContain('<meta name="viewport"');
+    expect(h).toContain('<a href="https://x.cz/">https://x.cz/</a>');
+    for (const kus of ['KROK 1', 'KROK 2', 'KROK 3', 'KROK 4', 'KROK 5', 'Založte si své heslo', 'Přidat na plochu', 'Umí:']) {
+      expect(h, kus).toContain(kus);
+    }
+    expect(h).toContain('<strong>━━ KROK 1 — OTEVŘI APLIKACI ━━</strong>');
+    expect(h).toContain('Správce ti poslal druhý e-mail');
+    expect(h).not.toMatch(/Dočasné heslo:/);
+    expect(h).not.toContain('Čitelná verze v prohlížeči'); // na stránce odkaz na sebe samu nedává smysl
+    // Řádky jsou opravdu na řádcích (ne slité): nadpis kroku 2 stojí na vlastním řádku.
+    expect(h.split('\n').some((r) => r === '<strong>━━ KROK 2 — NASTAV SI SVOJE HESLO ━━</strong>')).toBe(true);
+  });
+
+  it('čitelná stránka escapuje HTML z textu (např. názvy oddílů s „&")', () => {
+    const h = htmlCitelnePozvanky('https://x.cz/');
+    expect(h).not.toMatch(/<(?!\/?(?:a|strong|pre|main|h1|html|head|body|meta|title|style|!doctype)\b)[a-z]/i);
+    expect(h).toContain('&amp;');
+  });
+
+  it('public/pozvanka.html odpovídá tomu, co se z textu pozvánky vygeneruje (po změně textu: npm run pozvanka)', () => {
+    const naDisku = readFileSync('public/pozvanka.html', 'utf-8');
+    expect(naDisku, 'public/pozvanka.html je zastaralá — spusť `npm run pozvanka`').toBe(htmlCitelnePozvanky());
   });
 });

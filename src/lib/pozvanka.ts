@@ -53,6 +53,10 @@ export function textPozvanky(odkaz: string = odkazAplikace(), pristup?: Pristup,
     'Ahoj,',
     '',
     'dostal(a) jsi přístup do aplikace Pivovar Zajíc — objednávky, sklad a stáčení piva na jednom místě. Tady je celý postup krok za krokem.',
+    // Pošta, která zalomení řádků zahodí (Email.cz 24. 11. 2026: „to nečitelný“), z textu udělá jeden odstavec.
+    // Tahle věta je pak první, co člověk najde: čitelná kopie téhož textu na webu. Stránka nemůže nést
+    // dočasné heslo (je veřejná), proto je jen v pozvánce bez hesla.
+    ...(pristup ? [] : [`${VETA_CITELNE_VERZE} (kdyby se ti text spojil do jednoho odstavce): ${odkazCitelnePozvanky(odkaz)}`]),
     '',
     '━━ KROK 1 — OTEVŘI APLIKACI ━━',
     'Klepni na odkaz (nebo ho zkopíruj do prohlížeče v telefonu):',
@@ -90,6 +94,24 @@ export function textPozvanky(odkaz: string = odkazAplikace(), pristup?: Pristup,
   ].join('\n');
 }
 
+/**
+ * Konce řádků pro poštu a sdílení: CRLF. RFC 6068 chce v těle `mailto:` %0D%0A, a některé pošty
+ * (Email.cz) samotné LF zahodí a řádky slijí do jednoho odstavce — 24. 11. 2026 přišla pozvánka
+ * jako jeden nečitelný kus textu. S CRLF se zalomení drží i tam, kde LF samotné ne.
+ */
+export const naCrlf = (text: string): string => text.replace(/\r?\n/g, '\r\n');
+
+/** Začátek věty v pozvánce, která odkazuje na čitelnou kopii. */
+const VETA_CITELNE_VERZE = 'Čitelná verze v prohlížeči';
+
+/** Soubor s čitelnou kopií pozvánky (public/pozvanka.html) — viz htmlCitelnePozvanky. */
+export const SOUBOR_CITELNE_POZVANKY = 'pozvanka.html';
+
+/** Adresa čitelné kopie pozvánky: odkaz aplikace + pozvanka.html. */
+export function odkazCitelnePozvanky(odkaz: string = odkazAplikace()): string {
+  return `${odkaz}${SOUBOR_CITELNE_POZVANKY}`;
+}
+
 /** Nejvíc znaků v odkazu mailto: — telefon a Chrome unesou desítky tisíc, starý Outlook na počítači kolem 2 000 (tam jde celý text zkopírovat / sdílet). */
 const MAX_MAILTO = 16000;
 
@@ -101,7 +123,7 @@ const MAX_MAILTO = 16000;
 export function mailtoPozvanky(email: string, odkaz?: string, heslo?: string): string {
   const pristup = heslo ? { email, heslo } : undefined;
   const sestav = (telo: string) => {
-    const p = new URLSearchParams({ subject: PREDMET_POZVANKY, body: telo });
+    const p = new URLSearchParams({ subject: PREDMET_POZVANKY, body: naCrlf(telo) });
     // URLSearchParams píše mezeru jako „+“, což pošta v mailto: nečte.
     return `mailto:${encodeURIComponent(email)}?${p.toString().replace(/\+/g, '%20')}`;
   };
@@ -186,7 +208,8 @@ export async function sdilejPozvanku(email: string, heslo?: string): Promise<'sd
   const text = textPozvanky(odkazAplikace(), heslo ? { email, heslo } : undefined);
   try {
     if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      await navigator.share({ title: PREDMET_POZVANKY, text });
+      // Sdílení může skončit v poště; CRLF drží zalomení i tam, kde LF samotné ne (viz naCrlf).
+      await navigator.share({ title: PREDMET_POZVANKY, text: naCrlf(text) });
       return 'sdileno';
     }
   } catch (e) {
@@ -199,4 +222,43 @@ export async function sdilejPozvanku(email: string, heslo?: string): Promise<'sd
   } catch {
     return 'selhalo';
   }
+}
+
+// ── Čitelná kopie pozvánky na webu ──────────────────────────────────────────
+// Veřejná stránka public/pozvanka.html: tentýž text jako pozvánka bez hesla, v prohlížeči se
+// zalomením, které pošta nezahodí. E-mail na ni odkazuje hned v první větě. Stránka se generuje
+// z textPozvanky (jediný zdroj textu) a test hlídá, že soubor odpovídá — po změně textu ho
+// přepíše `npm run pozvanka`.
+
+/** Celá HTML stránka s čitelnou pozvánkou (bez hesla — stránka je veřejná). */
+export function htmlCitelnePozvanky(odkaz: string = ODKAZ_APLIKACE): string {
+  // Odkaz na čitelnou verzi je na stránce zbytečný — člověk na ní už je.
+  const radky = textPozvanky(odkaz, undefined, 'podrobny').split('\n').filter((radek) => !radek.startsWith(VETA_CITELNE_VERZE)).map((radek) => {
+    const telo = esc(radek).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}">${u}</a>`);
+    return radek.startsWith('━━') ? `<strong>${telo}</strong>` : telo;
+  });
+  return `<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>${esc(PREDMET_POZVANKY)}</title>
+<style>
+body{margin:0;background:#f5f5f4;color:#222;font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+main{max-width:42rem;margin:0 auto;padding:16px 16px 40px}
+h1{font-size:22px;color:#7a3b0c;margin:8px 0 12px}
+pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
+strong{display:inline-block;margin-top:6px;color:#7a3b0c}
+a{color:#a64714;word-break:break-all}
+</style>
+</head>
+<body>
+<main>
+<h1>Pivovar Zajíc — pozvánka</h1>
+<pre>${radky.join('\n')}</pre>
+</main>
+</body>
+</html>
+`;
 }
