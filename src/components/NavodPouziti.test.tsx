@@ -239,3 +239,14 @@ describe('návod: hledání podle významu (R38)', () => {
     expect(CELY_TEXT).toContain(bezDiakritiky('Tohle ruční hledání jde jen podle slov; podle významu hledá AI sládek a konektor Claude.'));
   });
 });
+
+describe('návod: AI sládek jako samostatná aplikace (R39)', () => {
+  it('říká adresu, kde najít odkaz, jak ji dát na plochu, že se přihlašuje zvlášť a kdo ji smí', () => {
+    expect(CELY_TEXT).toContain(bezDiakritiky('AI sládek jako samostatná aplikace'));
+    expect(CELY_TEXT).toContain(bezDiakritiky('https://zajic-pivovar.pages.dev/sladek/'));
+    expect(CELY_TEXT).toContain(bezDiakritiky('Nastavení („AI sládek — samostatná aplikace“) i nad chatem v Pivovarské bibli'));
+    expect(CELY_TEXT).toContain(bezDiakritiky('„Přidat na plochu“ / „Nainstalovat aplikaci“'));
+    expect(CELY_TEXT).toContain(bezDiakritiky('Přihlašuje se zvlášť'));
+    expect(CELY_TEXT).toContain(bezDiakritiky('Přístup má jen ten, komu admin povolil Pivovarskou bibli.'));
+  });
+});

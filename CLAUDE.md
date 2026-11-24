@@ -67,4 +67,6 @@
 - Hledání v knihách je dvojí: podle slov a podle významu (vektory, R38: OpenAI embeddingy, klíč
   `OPENAI_API_KEY` v app_secrets hlavního projektu; bez klíče, migrace nebo vektorů se hledá jen podle
   slov). Vektory počítá worker v Actions; stav je ve Správě znalostí → AI a náklady.
+- AI sládek běží i jako samostatná instalovatelná aplikace na `/sladek/` (R39, kořen `src/screens/SladekApp.tsx`,
+  vlastní manifest, ikona a klíč přihlášení jako Zajíc 2) nad stejnými komponentami a daty jako v bibli.
 - Repo je veřejné: obsah knih nesmí do gitu, migrací, logů ani artefaktů Actions.

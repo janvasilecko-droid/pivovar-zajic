@@ -1,0 +1,39 @@
+{
+  "name": "AI sládek — Pivovar Zajíc",
+  "short_name": "AI sládek",
+  "description": "Chatbot na všechno kolem pivovaru: odpovídá z odborných knih s odkazy na stránky, z várek a dat pivovaru.",
+  "lang": "cs",
+  "dir": "ltr",
+  "start_url": "/sladek/",
+  "scope": "/sladek/",
+  "id": "/sladek/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "categories": [
+    "business",
+    "productivity",
+    "education"
+  ],
+  "icons": [
+    {
+      "src": "/icon-sladek-192-v1.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-sladek-512-v1.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-sladek-maskable-512-v1.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

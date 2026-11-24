@@ -150,6 +150,17 @@ describe('Pivovarská bible — plocha', () => {
     dokumenty = [];
   });
 
+  it('nad chatem je odkaz na samostatnou aplikaci AI sládek (R39), v ostatních částech bible ne', async () => {
+    profil = { role: 'admin' };
+    const v = render(<BibleScreen pageSubTab="chat" />);
+    const odkaz = await screen.findByRole('link', { name: 'Otevřít AI sládka' });
+    expect(odkaz.getAttribute('href')).toBe(`${window.location.origin}/sladek/`);
+    expect(screen.getByRole('button', { name: 'Zkopírovat odkaz' })).toBeTruthy();
+    v.unmount();
+    render(<BibleScreen pageSubTab="knihovna" />);
+    expect(screen.queryByRole('link', { name: 'Otevřít AI sládka' })).toBeNull();
+  });
+
   it('uživatel s povoleným modulem bible plochu vidí', () => {
     profil = { role: 'user', permissions: { bible: { view: true, edit: false } } };
     render(<BibleScreen pageSubTab="sprava" />);

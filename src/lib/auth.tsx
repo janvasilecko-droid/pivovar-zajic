@@ -10,6 +10,7 @@ import { spustObnovuZCloudu, stejnyObsah } from './obnovaZCloudu';
 import { getNastaveniRychlychOdpoctu, saveNastaveniRychlychOdpoctu } from './rychleOdpoctyNastaveni';
 import { normalizujNastaveni } from './rychleOdpocty';
 import { jeNahled, profilNovehoUzivatele } from './nahledUzivatele';
+import { JE_SLADEK } from './profilAplikace';
 
 type AuthCtx = {
   session: Session | null;
@@ -41,6 +42,9 @@ const Ctx = createContext<AuthCtx>({} as AuthCtx);
  * (lib/profileSync.ts) řekne, která pole máme rozepsaná — ta se nepřepisují.
  */
 function prevezmiZCloudu(home_layout: unknown): void {
+  // Samostatný AI sládek (R39) sdílí úložiště prohlížeče s hlavní aplikací, ale může být přihlášený jiným
+  // účtem — poznámky, odpočty a lišta z JEHO profilu by přepsaly ty z hlavní aplikace. Chat je nepotřebuje.
+  if (JE_SLADEK) return;
   const hl = (home_layout as any) || {};
   // Beze změny se nic nepřepisuje: profil se stahuje pravidelně (viz
   // lib/obnovaZCloudu.ts) a každý zápis do úložiště rozesílá událost „změnilo
@@ -144,7 +148,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // zařízení nemá rozepsané nebo neodeslané (cloudSmiPrepsat).
   useEffect(() => {
     const uid = session?.user?.id;
-    if (!uid) return;
+    // V samostatném AI sládkovi se nic nestahuje ani neodesílá (ani nedoposlané změny hlavní aplikace).
+    if (!uid || JE_SLADEK) return;
     return spustObnovuZCloudu({
       stahni: async () => {
         // Co minule neodešlo (špatný signál), jde ven dřív, než se cokoli stáhne.
