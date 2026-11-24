@@ -150,13 +150,16 @@ export function udalostZRadku(radek: string): UdalostChatu | null {
 const offline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
 const SIT = 'Spojení se přerušilo. Zkus to znovu, až bude signál.';
 
+/** Režim odpovědí (R37): „sladek“ = knihy + obecná odborná praxe (výchozí), „knihy“ = přísně jen z knih a dat. */
+export type RezimOdpovedi = 'sladek' | 'knihy';
+
 /**
  * Položí otázku AI sládkovi. Události (kroky, průběžný text, hotová odpověď)
  * chodí do `naUdalost`. Chyba před začátkem odpovědi (strop, chybí klíč,
  * přihlášení…) se vrátí jako { ok: false } s českou zprávou.
  */
 export async function zeptejSe(
-  p: { otazka: string; konverzaceId?: string | null; problemId?: string | null; web?: boolean; provoz?: string | null },
+  p: { otazka: string; konverzaceId?: string | null; problemId?: string | null; web?: boolean; provoz?: string | null; rezim?: RezimOdpovedi },
   naUdalost: (u: UdalostChatu) => void,
   signal?: AbortSignal,
 ): Promise<{ ok: true } | { ok: false; chyba: ChybaBible }> {
@@ -172,8 +175,10 @@ export async function zeptejSe(
       headers: { Authorization: `Bearer ${prihlaseni.token}`, 'Content-Type': 'application/json' },
       // Stav sklepa z appky (jen pro tuhle odpověď); bez něj pole v těle vůbec není.
       body: JSON.stringify({
-        otazka: p.otazka, konverzace_id: p.konverzaceId ?? null, problem_id: p.problemId ?? null, web: p.web === true,
+        // Přísný režim (jen z knih a dat) nikdy nehledá na internetu; výchozí režim se neposílá vůbec.
+        otazka: p.otazka, konverzace_id: p.konverzaceId ?? null, problem_id: p.problemId ?? null, web: p.web === true && p.rezim !== 'knihy',
         ...(p.provoz?.trim() ? { provoz: p.provoz.trim() } : {}),
+        ...(p.rezim === 'knihy' ? { rezim: 'knihy' } : {}),
       }),
       signal,
     });

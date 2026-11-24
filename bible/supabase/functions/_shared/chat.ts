@@ -11,7 +11,7 @@
 import { jeUuid } from './brana.ts';
 import type { Nastroj } from './mcp.ts';
 import { POSTUP_PROBLEMU } from './postup-problemu.ts';
-import { FORMY_ODPOVEDI, ROZSAH_TEMAT } from './rozsah-chatu.ts';
+import { FORMY_ODPOVEDI, REZIM_JEN_Z_DAT, ROZSAH_TEMAT, type RezimOdpovedi } from './rozsah-chatu.ts';
 import { ChybaVstupu } from './vstupy.ts';
 
 export const MAX_OTAZKA = 4000;
@@ -36,7 +36,10 @@ export const VYCHOZI_MODEL = 'claude-opus-5-5';
 export const MAX_PROVOZ = 6000;
 
 export type PozadavekChatu = {
+  /** `web` je v přísném režimu vždy false (internet není „moje data“). */
   otazka: string; konverzaceId: string | null; problemId: string | null; web: boolean;
+  /** Režim odpovědí (R37): „sladek“ (výchozí) nebo „knihy“ = přísně jen z knih a dat. */
+  rezim: RezimOdpovedi;
   /** Stav sklepa z hlavní appky — kontext jen pro tuhle odpověď, do historie ani do databáze se neukládá. */
   provoz: string | null;
 };
@@ -51,7 +54,18 @@ export function pozadavekChatu(telo: Record<string, unknown>): PozadavekChatu {
     if (!jeUuid(v)) throw new ChybaVstupu(`Neplatné id ${co}.`);
     return v.toLowerCase();
   };
-  return { otazka, konverzaceId: id(telo.konverzace_id, 'konverzace'), problemId: id(telo.problem_id, 'problému'), web: telo.web === true, provoz: provozVstup(telo.provoz) };
+  const rezim = rezimVstup(telo.rezim);
+  return {
+    otazka, konverzaceId: id(telo.konverzace_id, 'konverzace'), problemId: id(telo.problem_id, 'problému'),
+    web: rezim === 'knihy' ? false : telo.web === true, provoz: provozVstup(telo.provoz), rezim,
+  };
+}
+
+/** Režim odpovědí z appky: nic = výchozí „sladek“; neznámá hodnota je chyba (přísný režim se omylem ani nezapne, ani nevypne). */
+function rezimVstup(v: unknown): RezimOdpovedi {
+  if (v === undefined || v === null || v === '') return 'sladek';
+  if (v === 'sladek' || v === 'knihy') return v;
+  throw new ChybaVstupu('Neplatný režim odpovědí.');
 }
 
 /** Provozní kontext z appky: nic / text bez řídicích znaků a ne delší než MAX_PROVOZ; jiný tvar je chyba. */
@@ -188,6 +202,7 @@ export const SYSTEM_PROMPT = `Jsi AI sládek Pivovaru Zajíc — ${ROZSAH_TEMAT}
 # Pravidla
 - U odborné otázky a návodu hledej v knihách, ať je odpověď opřená o literaturu a jde citovat; hledej postupně a cíleně (víc kratších dotazů je lepší než jeden dlouhý). U krátké nebo zjevně obecné otázky, kterou knihy nepotřebují, odpověz rovnou.
 - Citace na stránky knih se k odpovědi připojí samy z výsledků hledání a přečtených stran. Nepiš vlastní čísla citací ani odkazy. Cituj jen to, co jsi ve výsledcích opravdu viděl; nevymýšlej knihy, strany ani hodnoty.
+- Řídí-li kontext dotazu „REŽIM ODPOVĚDÍ: JEN Z KNIH A DAT“, platí přísně: žádná obecná znalost, vlastní doporučení ani internet mimo data; pravidlo o obecné odborné praxi níže se tehdy nepoužije.
 - Když knihovna k otázce nic nevrátí nebo nestačí, řekni to jednou větou („V nahraných knihách jsem to nenašel, odpovídám z obecné odborné praxe") a odpověz naplno z obecné znalosti; neodmítej. Obecnou znalost nikdy nevydávej za citaci z knihy ani za údaj z provozu. Co by stálo za nahrání, řekni jen u opravdové mezery.
 - U údajů z várek, profilu pivovaru, výpočtů a zkušeností řekni zdroj slovy (např. „podle evidence várek", „výpočet: varní výtěžek", „zkušenost sládka, úroveň 4").
 - Odhad nikdy nevydávej za změřenou hodnotu, doporučení výrobce za obecné pravidlo a zkušenost jednoho sládka za pravidlo. Výsledek ze „staršího vydání" má v knihovně novější vydání — přednost má novější, rozdíl řekni.
@@ -214,10 +229,11 @@ Nepiš nic před voláním nástrojů — nejdřív hledej (je-li co), pak napi�
 Z textu musí být jasné, co je doložený fakt (s citací), obecná odborná znalost, výsledek výpočtu, provozní zkušenost, technologické doporučení (vlastní úvaha), hypotéza a neznámá hodnota — nemusíš to značit u každé věty, stačí jednou větou, odkud odpověď je. Piš srozumitelně pro sládka v provozu (u návodu podrobně, u krátké otázky stručně), čísla a jednotky opisuj přesně. Tabulky jen jednoduché (svislé čáry), vzorce v LaTeXu mezi $ a $.`;
 
 /** Proměnná část zadání (datum, kdo se ptá, analýza problému) — druhý blok systémového promptu. */
-export function kontextDotazu(k: { dnes: string; jmeno: string | null; zapis: boolean; problem: { id: string; nazev: string } | null; web: boolean; provoz?: string | null }): string {
+export function kontextDotazu(k: { dnes: string; jmeno: string | null; zapis: boolean; problem: { id: string; nazev: string } | null; web: boolean; provoz?: string | null; rezim?: RezimOdpovedi }): string {
   return [
     `Dnes je ${k.dnes}.${k.jmeno ? ` Ptá se ${k.jmeno}.` : ''}`,
-    k.web ? 'Hledání na internetu je zapnuté.' : 'Hledání na internetu je vypnuté — odpovídej z knihovny, dat appky a obecné odborné znalosti, internet nehledej.',
+    k.rezim === 'knihy' ? REZIM_JEN_Z_DAT
+      : k.web ? 'Hledání na internetu je zapnuté.' : 'Hledání na internetu je vypnuté — odpovídej z knihovny, dat appky a obecné odborné znalosti, internet nehledej.',
     k.problem
       ? `Konverzace je o technologickém problému „${k.problem.nazev}" (problem_id ${k.problem.id}). Nejdřív si ho načti nástrojem problemy a porovnej dotčené várky.${
         k.zapis
@@ -227,6 +243,17 @@ export function kontextDotazu(k: { dnes: string; jmeno: string | null; zapis: bo
       : '',
     provozBlok(k.provoz),
   ].filter(Boolean).join('\n');
+}
+
+/**
+ * Kontext dotazu z požadavku appky: internet, stav sklepa a režim odpovědí jdou do promptu právě tudy
+ * (funkce bible-chat nic z toho nepředává ručně, ať se žádná volba po cestě neztratí).
+ */
+export function kontextZPozadavku(
+  p: Pick<PozadavekChatu, 'web' | 'provoz' | 'rezim'>,
+  o: { dnes: string; jmeno: string | null; zapis: boolean; problem: { id: string; nazev: string } | null },
+): string {
+  return kontextDotazu({ ...o, web: p.web, provoz: p.provoz, rezim: p.rezim });
 }
 
 /**

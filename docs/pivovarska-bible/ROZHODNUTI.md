@@ -719,3 +719,29 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
 - **Známá mezera:** slovník vyhledávání (R29) zatím nezná např. plíseň, varnu, vystírku,
   desinfekci ani hygienu (česky, německy, anglicky), takže se k těmto slovům kniha najde hůř.
   Doplnění slovníku je samostatná migrace, kterou pouští majitel; nic se nemění samo.
+
+## R37 — Přísný režim „Jen z knih a dat“ (24. 11. 2026)
+
+- Majitel 24. 11. 2026 poslal zadání plnohodnotného RAG chatbota: „bude odpovídat výhradně na základě
+  mých oborových dat“, „striktním systémovým promptem, aby si model nevymýšlel mimo dodaná data“
+  a „má to být plnohodnotný chatbot podle promptu, co jsem ti dal“. R36 ale chtěl „normální chatbot
+  na všechno kolem pivovaru“. Obojí platí vedle sebe jako **dva režimy odpovědí**:
+  - **Sládek** (výchozí, R36): knihy a data jsou hlavní zdroj; když v nich téma není, odpoví
+    z obecné odborné praxe a řekne to.
+  - **Jen z knih a dat** (R37): odpovídá výhradně z toho, co vrátily nástroje — knihy, zkušenosti
+    sládků, várky, profil pivovaru, stav sklepa a výpočty. Nepřidává obecnou znalost, vlastní
+    doporučení ani odhady; doporučení a postupy uvede jen tehdy, když je obsahují zdroje (s citací).
+    Když odpověď v datech není, napíše „V nahraných datech jsem odpověď nenašel“, řekne, co by
+    pomohlo nahrát nebo zapsat, a podá jen to, co data opravdu říkají. **Internet je v něm vždy
+    vypnutý** (nejde zapnout v appce a server ho v přísném režimu vynutí vypnutý i kdyby přišel zapnutý).
+- **Kde:** přepínač „Režim odpovědí“ pod otázkou v chatu (pamatuje se na zařízení, výchozí Sládek);
+  pole `rezim` v `bible-chat` (`sladek` | `knihy`, jiná hodnota je chyba — režim se omylem ani nezapne,
+  ani nevypne); blok v **kontextu dotazu**, ne v cachovaném systémovém promptu (výměna režimu
+  neruší cache); pravidlo v SYSTEM_PROMPT, že přísný režim ruší pravidlo o obecné praxi; věta
+  v instrukcích konektoru; zadání pro aplikaci Claude (předplatné) bez internetu a bez ukládání
+  webových zdrojů. Kontext se z požadavku skládá jedinou funkcí `kontextZPozadavku`, aby se žádná
+  volba cestou neztratila.
+- **Co to není:** pokyn v promptu, ne technická pojistka. Model s nástroji dostane přísný příkaz a citace
+  jdou jen z výsledků hledání (R14), ale zcela vyloučit vlastní znalost modelu nejde. Kontrola je
+  v citacích: tvrzení z knih bez čísla zdroje [n] v přísném režimu je podezřelé.
+- Bez migrace, bez nových klíčů.

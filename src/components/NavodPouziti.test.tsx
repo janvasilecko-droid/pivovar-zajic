@@ -218,3 +218,11 @@ describe('návod: AI sládek je chatbot na všechno kolem pivovaru (R36)', () =>
     expect(CELY_TEXT).not.toContain(bezDiakritiky('odpovídá jen z nahraných a zpracovaných knih'));
   });
 });
+
+describe('návod: režim odpovědí „Jen z knih a dat“ (R37)', () => {
+  it('popisuje přepínač, přísný režim bez obecné znalosti a internetu a že se volba pamatuje', () => {
+    expect(CELY_TEXT).toContain(bezDiakritiky('Přepínač „Režim odpovědí“ pod otázkou: „Sládek“ (výchozí)'));
+    expect(CELY_TEXT).toContain(bezDiakritiky('„Jen z knih a dat“ odpovídá přísně jen z knih, zkušeností, várek, profilu pivovaru, stavu sklepa a výpočtů — bez obecné znalosti a bez internetu'));
+    expect(CELY_TEXT).toContain(bezDiakritiky('a když to v datech není, řekne to; volba se pamatuje na zařízení'));
+  });
+});
