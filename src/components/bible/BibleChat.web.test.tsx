@@ -17,6 +17,7 @@ vi.mock('../../lib/bibleChatApi', async (puvodni) => ({
   nactiKonverzace: async () => ({ stav: 'ok', data: [] }),
   zeptejSe: (p: never, na: never) => zeptejSe(p, na),
 }));
+vi.mock('../../lib/bibleProvozApi', () => ({ nactiProvoz: async () => ({ stav: 'prazdny' }) }));
 vi.mock('../../lib/toast', () => ({ potvrd: async () => true, chyba: () => {} }));
 type VysledekUlozeni = { stav: 'ok'; data: { novy: boolean; stav: string | null } } | { stav: 'chyba'; zprava: string };
 const ulozWebZdroj = vi.fn<(id: string | null, z: WebZdrojVstup) => Promise<VysledekUlozeni>>();

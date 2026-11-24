@@ -8,6 +8,8 @@ vi.mock('../lib/auth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'u@pi
 const ID = '11111111-2222-3333-4444-555555555555';
 let dokumenty: unknown[] = [];
 const hledano: string[] = [];
+// Stav sklepa pro AI sládka se v testech obrazovky nenačítá z databáze.
+vi.mock('../lib/bibleProvozApi', () => ({ nactiProvoz: async () => ({ stav: 'prazdny' }) }));
 vi.mock('../lib/bibleKlient', () => ({
   BIBLE_URL: 'https://cegrelgvkygcatupqwrx.supabase.co',
   odkazDoUloziste: () => null,

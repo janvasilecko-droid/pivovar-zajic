@@ -58,6 +58,7 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
 | celá konverzace z Claude v appce — navazující otázky z chatu v Claude jako pokračování konverzace, otázka položená rovnou v Claude na požádání jako nová konverzace, appka po návratu načte znovu (R33, doplněk) | hotovo (15. 11. 2026) — bez další migrace |
 | Kopírovat a Sdílet u odpovědi AI sládka (otázka, odpověď bez Markdownu, zdroje s odkazem do čtečky) a hledání v Historii konverzací | hotovo (15. 11. 2026) — bez migrace |
 | AI sládek jako plnohodnotný chatbot na pivovarské problémy — rozhovor (doptání, příčiny od nejpravděpodobnější, co změřit), „Uložit do bible“ u zdrojů z internetu, přehled knih v chatu „Z čeho AI sládek čerpá“ (R34) | hotovo (24. 11. 2026) — bez migrace |
+| AI sládek zná stav sklepa — tanky, co je v nich a od kdy, sanitace, přečerpání, ztráty; přepínač „Přiložit stav sklepa“ (R35) | hotovo (24. 11. 2026) — bez migrace |
 
 ## AI sládek — chatbot v appce (etapa 5)
 
@@ -112,6 +113,10 @@ s citací kniha–kapitola–strana a počítá deterministickým výpočetním 
   - *Sběr z internetu:* v Claude (předplatné) hledá Claude na webu sám, když knihy nestačí,
     a zdroje ukládá neověřené; v odpovědi (z appky i z Claude) je u zdroje z internetu
     „Uložit do bible“ (přispěvatel a správce) → Správa znalostí → Rešerše z internetu.
+  - *Zná provoz (R35):* k otázce se přikládá stav sklepa z hlavní appky — tanky a co je v nich,
+    od kdy, poslední sanitace, přečerpání za 14 dní a poslední cykly se ztrátami. Jen čtení, nic
+    se nedomýšlí ani neopravuje; přepínač „Přiložit stav sklepa“ a rozbalovací „co přikládám“
+    ukážou přesně odeslaný text. Do konverzace ani do databáze bible se neukládá.
 
 ## Rešerše z internetu (etapa 9) a analýza problémů (etapa 10)
 

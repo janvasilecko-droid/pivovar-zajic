@@ -22,6 +22,7 @@ vi.mock('../../lib/bibleChatApi', async (puvodni) => ({
   zalozDotazClaude: (p: never) => zalozDotazClaude(p),
 }));
 const chybaToast = vi.fn<(text: string) => void>();
+vi.mock('../../lib/bibleProvozApi', () => ({ nactiProvoz: async () => ({ stav: 'prazdny' }) }));
 vi.mock('../../lib/toast', () => ({ potvrd: async () => true, chyba: (t: string) => chybaToast(t) }));
 
 import { BibleChat, KONTROLA_ODPOVEDI_MS, otazkaKOdpovedi, vykresliOdpoved } from './BibleChat';
@@ -71,7 +72,7 @@ describe('AI sládek (chatbot)', () => {
     expect(await screen.findByText('Hledám v knihách: „pěna“')).toBeTruthy();
     expect(screen.getByText('Pěnu drží')).toBeTruthy();
     expect(screen.getByLabelText('Tvoje otázka').textContent).toBe('Proč mi pivo málo pění?');
-    expect(zeptejSe.mock.calls[0][0]).toEqual({ otazka: 'Proč mi pivo málo pění?', konverzaceId: null, problemId: null, web: false });
+    expect(zeptejSe.mock.calls[0][0]).toEqual({ otazka: 'Proč mi pivo málo pění?', konverzaceId: null, problemId: null, web: false, provoz: null });
     await act(async () => { dokonci(); });
     const odpoved = await screen.findByRole('article', { name: 'Odpověď AI sládka' });
     expect(odpoved.querySelector('h4')?.textContent).toBe('Krátká odpověď');

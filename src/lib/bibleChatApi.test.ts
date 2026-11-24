@@ -82,6 +82,18 @@ describe('otázka pro AI sládka', () => {
     expect(JSON.parse(String(init.body))).toEqual({ otazka: 'Proč málo pění?', konverzace_id: null, problem_id: ID, web: true });
   });
 
+  it('stav sklepa jde v těle jen když je co poslat (bez mezer okolo; prázdný ani prázdné znaky pole nepřidají)', async () => {
+    const fetchMock = vi.fn(async () => proud([`{"typ":"hotovo","konverzace_id":"${KID}","text":"A","citace":[]}`]));
+    vi.stubGlobal('fetch', fetchMock);
+    await zeptejSe({ otazka: 'Proč kalné?', provoz: '  Stav sklepa k 24. 11. 2026\nTank 7: 12° Světlá  ' }, () => {});
+    await zeptejSe({ otazka: 'Proč kalné?', provoz: '   ' }, () => {});
+    await zeptejSe({ otazka: 'Proč kalné?', provoz: null }, () => {});
+    await zeptejSe({ otazka: 'Proč kalné?' }, () => {});
+    const tela = (fetchMock.mock.calls as unknown as [string, RequestInit][]).map(([, init]) => JSON.parse(String(init.body)) as Record<string, unknown>);
+    expect(tela[0].provoz).toBe('Stav sklepa k 24. 11. 2026\nTank 7: 12° Světlá');
+    for (const t of tela.slice(1)) expect('provoz' in t).toBe(false);
+  });
+
   it('chyba před odpovědí (strop) přijde jako JSON s českou zprávou', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ok: false, kod: 'strop', zprava: 'Strop je vyčerpaný.' }), { status: 429, headers: { 'Content-Type': 'application/json' } })));
     expect(await zeptejSe({ otazka: 'x y' }, () => {})).toEqual({ ok: false, chyba: { kod: 'strop', zprava: 'Strop je vyčerpaný.', status: 429 } });

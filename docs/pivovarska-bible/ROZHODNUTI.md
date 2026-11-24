@@ -647,3 +647,35 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
 - **Beze změny:** předplatné jde jen v aplikacích Claude (R14, R31), takže chat přímo
   v appce dál potřebuje kredit Claude API; pro předplatné je cesta „Zeptat se v Claude“.
   Bez migrace, bez nových klíčů.
+
+## R35 — AI sládek zná stav sklepa (24. 11. 2026)
+
+- Majitel 24. 11. 2026: „pokračuj v tom chatbotovi, jak jsi dělal." Další krok k řešení
+  problémů: při otázce o pivu v tanku se AI sládek neměl ptát na to, co appka sama ví
+  (jaké pivo je v tanku, od kdy, kdy byl tank naposled sanitovaný, co se přečerpávalo,
+  jaké byly ztráty). Evidence várek v bibli je zatím prázdná (Sklep várky nezapisuje, R26),
+  takže jediný zdroj skutečných údajů o provozu je Sklep hlavní appky.
+- **Co se přikládá** (`lib/bibleProvozKontext.ts`, čistý text bez sítě): tanky s pivem (pivo,
+  objem z kapacity, stav, od kdy a kolik dní, poslední sanitace tanku, poznámka), tanky
+  bez piva (prázdný / uzavřený / po oplachu / po louhu / vysanitovaný — stejná pravidla jako
+  na Domů), přečerpání za 14 dní a posledních 5 uzavřených cyklů se ztrátami (litry
+  i procenta, délka). Nejvýš 3 500 znaků; přes strop se zahodí nejdřív cykly, pak přečerpání,
+  nakonec se text zkrátí a řekne se to. **Co Sklep neví, se vynechá — nic se nedomýšlí,
+  nic se neopravuje ani nedorovnává** (data se jen čtou).
+- **Odkud:** čtyři tabulky hlavní databáze přes klienta appky (`bibleProvozApi.ts`:
+  `cellar_tanks`, `sanitation_logs`, `cellar_transfers`, `cellar_tank_cycles`); bible je
+  samostatný projekt (R12) a do hlavní databáze nevidí, proto text skládá appka. Tanky jsou
+  podmínka (chyba nebo prázdný Sklep = nic se nepřikládá); selže-li vedlejší část, chybí jen ona.
+- **Jak se předává:** přes API pole `provoz` v `bible-chat` → blok `<provoz>` v kontextu
+  dotazu (ne v cachovaném systémovém promptu), **jen pro tu jednu odpověď — do konverzace ani
+  do databáze bible se neukládá**; navazující otázka dostane stav čerstvý. Přes aplikaci
+  Claude (předplatné) jde jako blok v zadání před otázkou (při nedostatku místa se zkrátí
+  jako první, otázka a `dotaz_id` zůstanou celé). Text je data, ne pokyn: značky uvnitř se
+  vyhazují, ať jimi nejde blok ukončit, prompt i instrukce konektoru říkají, že je to údaj
+  provozu (ne literatura), že se použije dřív, než se na totéž zeptá, a že co tam není, se
+  nedomýšlí.
+- **Pod kontrolou člověka:** přepínač „Přiložit stav sklepa“ (zapamatuje se na zařízení,
+  výchozí zapnuto) a rozbalovací „co přikládám“ ukáže přesně odeslaný text. Stav se načte
+  při otevření chatu a po návratu do appky (nejdřív po 2 minutách), ať je u odkazu do
+  aplikace Claude hotový předem; otázka na něj nečeká.
+- Bez migrace, bez nových klíčů; čtení běží s právy přihlášeného (RLS hlavní databáze).
