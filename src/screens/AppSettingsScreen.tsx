@@ -3,6 +3,8 @@ import type { LucideIcon } from 'lucide-react';
 import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownload, Download, Eraser, Eye, CheckCircle2, Lock, Megaphone, MessageSquare, Monitor, Moon, Palette, Plus, RefreshCw, Settings, Smartphone, Stethoscope, Sun, Timer, Trash2, Users, Vibrate, Volume2, VolumeX, Zap } from 'lucide-react';
 import { NavodPouziti } from '../components/NavodPouziti';
 import { InstalaceKroky } from '../components/InstalaceKroky';
+import { SladekAplikaceKarta } from '../components/SladekAplikaceKarta';
+import { bibleRole } from '../lib/bibleOpravneni';
 import { adresaDruheAplikace, JE_DRUHA_APLIKACE } from '../lib/profilAplikace';
 import { jeNahled, nastavNahled } from '../lib/nahledUzivatele';
 import { PrepinacUctu } from '../components/PrepinacUctu';
@@ -482,6 +484,9 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
               </>
             )}
           </div>
+
+          {/* AI sládek jako samostatná aplikace (R39) — jen pro toho, kdo má přístup do bible */}
+          {bibleRole(profile?.role, (profile as { permissions?: unknown } | null)?.permissions) !== null && <SladekAplikaceKarta />}
 
           {/* Přihlášení přes Google */}
           {GOOGLE_PRIHLASENI_ZAPNUTO && (<div className="card p-6">

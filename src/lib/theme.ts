@@ -1,4 +1,5 @@
 import { uloz } from './uloziste';
+import { JE_SLADEK } from './profilAplikace';
 export type Theme = 'light' | 'dark' | 'system';
 
 const KEY = 'pivovar_theme';
@@ -42,7 +43,8 @@ function applyTheme(theme: Theme) {
 function obarviListuProhlizece(tmavy: boolean) {
   try {
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', tmavy ? '#0f172a' : '#fef9ec');
+    // Samostatný AI sládek (R39) je celý tmavý bez ohledu na zvolený režim — lišta zůstává černá.
+    if (meta) meta.setAttribute('content', JE_SLADEK ? '#0a0a0a' : tmavy ? '#0f172a' : '#fef9ec');
   } catch {}
 }
 

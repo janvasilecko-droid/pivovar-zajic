@@ -206,6 +206,9 @@ RPC `bible_hledej(...)` v Postgresu běží jako SECURITY DEFINER s vlastní kon
   přepočet, ne přestavbu. Embeddingy: OpenAI `text-embedding-3-large` zkrácený na
   1024 čísel (klíč z app_secrets); počítá je worker, vektor dotazu edge funkce při
   hledání. Bez klíče, migrace nebo vektorů se hledá jen podle slov.
+- **Samostatná aplikace (R39):** `/sladek/` je druhý vstup do téhož kódu — kořen `screens/SladekApp.tsx` (přihlášení,
+  záhlaví, čtečka stránky) nad sdílenými komponentami `BibleAiSladek` a `BibleKniha`; vlastní manifest, ikona a klíč
+  přihlášení, data a funkce stejné jako v appce.
 - **Spojení výsledků:** RRF (reciprocal rank fusion). Filtry: kniha, jazyk,
   oblast, druh (text, tabulka, vzorec) a důvěryhodnost.
 - **Vícejazyčnost:** Haiku přeloží dotaz do CZ/DE/EN s odbornými synonymy

@@ -791,3 +791,31 @@ Každé rozhodnutí má datum, důvod a co by ho změnilo.
   `bible_vektory_stav`, `bible_hledej_vektor`, rozšíření `vector` (schéma extensions). CI bible používá obraz
   `pgvector/pgvector:pg16`. Jiná velikost vektoru nebo jiný model = nová tabulka v nové migraci (sloupec má
   pevnou velikost); `model_key` říká, který model vektor spočítal.
+
+## R39 — Samostatná aplikace AI sládek na /sladek/ (24. 11. 2026)
+
+- Majitel 24. 11. 2026 (zadání RAG chatbota): „udělej toho chatbota zvlášť ve vlastní aplikaci a pak ho budeme
+  implementovat do pivovarské aplikace, využij vlastnosti a data z pivovarské bible“. Z návrhu (krok 1) varianta A:
+  samostatná instalovatelná aplikace ve stejném nasazení, stejně jako Zajíc 2 — bez druhého hostingu, bez druhého
+  nasazení a bez kopie dat.
+- **Co to je:** adresa `https://zajic-pivovar.pages.dev/sladek/` — celoobrazovkový chat s vlastní ikonou (zajíc s pivem
+  a žlutou bublinou chatu), vlastním manifestem (id a rozsah `/sladek/`, tmavá lišta prohlížeče) a vlastním přihlášením
+  (klíč úložiště `sb-zajic-sladek-auth-token`, jako má Zajíc 2 svůj). Jde nainstalovat na plochu vedle hlavní aplikace.
+- **Nic se nepíše znovu:** chat a hledání v knihách (`components/bible/BibleAiSladek.tsx`, vyňato z Pivovarské bible),
+  čtečka stránky z citace (`BibleKniha`), data (knihy, várky, profil pivovaru, zkušenosti), funkce `bible-chat`
+  a `bible-api`, přísný režim (R37) i hledání podle významu (R38) — všechno je totéž, co v appce. Stejné je i omezení
+  přístupu (`lib/bibleOpravneni.ts`): bez povolení Pivovarské bible se neukáže nic. Správa knihovny a nahrávání knih
+  zůstávají v hlavní aplikaci (domeček v záhlaví tam vede).
+- **Čtení stránky z citace:** chat zůstane načtený a jen skrytý (rozepsaná otázka se neztratí); tlačítko Zpět
+  v telefonu nebo prohlížeči zavře čtečku (krok v historii), šipka v záhlaví taky.
+- **Oddělení od hlavní aplikace:** úložiště prohlížeče je společné, ale účet v AI sládkovi může být jiný — proto
+  z jeho profilu nepřebírá poznámky, odpočty ani lištu hlavní aplikace, nestahuje profil znovu a nespouští frontu
+  tanků. Návrat z přihlášení odkazem z e-mailu vede zpět na `/sladek/` (`cestaAplikace()`).
+- **Kde je odkaz:** Nastavení → Ostatní → „AI sládek — samostatná aplikace“ (jen s přístupem do bible) a řádek nad
+  chatem v Pivovarské bibli; v prohlížeči pak „Přidat na plochu“ / „Nainstalovat aplikaci“.
+- **Ručně:** nic povinného. Odkaz „zapomenuté heslo“ z e-mailu se vrací na `/sladek/` jen tehdy, když je tahle adresa
+  mezi povolenými adresami přesměrování v Supabase (Authentication → URL Configuration:
+  https://supabase.com/dashboard/project/sasqexjadvlqyticxwja/auth/url-configuration); jinak vede e-mail do hlavní
+  aplikace. Přihlášení heslem funguje vždy.
+- **Později:** integrace do hlavní aplikace je hotová tím, že jde o tytéž komponenty (dlaždice AI sládek v bibli);
+  samostatnou aplikaci lze ponechat vedle ní, nebo odstranit bez vlivu na zbytek.

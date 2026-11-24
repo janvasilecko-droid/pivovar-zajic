@@ -43,14 +43,14 @@ vi.mock('../lib/supabase', () => {
   });
 });
 
-vi.mock('../lib/auth', () => {
-  const stav = {
-    profile: { id: 'u1', role: 'admin', display_name: 'Jan', home_layout: {} },
-    user: { id: 'u1', email: 'jan@example.cz' },
-    reloadProfile: async () => undefined,
-  };
-  return { useAuth: () => stav };
-});
+const SPRAVCE = {
+  profile: { id: 'u1', role: 'admin', display_name: 'Jan', home_layout: {}, permissions: undefined as unknown },
+  user: { id: 'u1', email: 'jan@example.cz' },
+  reloadProfile: async () => undefined,
+};
+// Stav přihlášení se mezi vykresleními nemění (stejný objekt) — jen test může před vykreslením vyměnit uživatele.
+let stavAuth = SPRAVCE;
+vi.mock('../lib/auth', () => ({ useAuth: () => stavAuth }));
 
 /** Vykreslí obrazovku a nechá doběhnout počáteční načítání (stav upozornění, odesílatelé…). */
 async function otevri(setPage = vi.fn()) {
@@ -64,6 +64,7 @@ const zalozka = (nazev: string) => screen.getByRole('tab', { name: new RegExp(na
 
 describe('Aplikace & Nastavení — oddíly', () => {
   beforeEach(() => {
+    stavAuth = SPRAVCE;
     localStorage.clear();
     sessionStorage.clear();
     // jsdom matchMedia nemá (obrazovka zjišťuje, jestli běží jako nainstalovaná aplikace, a režim „podle systému").
@@ -75,6 +76,27 @@ describe('Aplikace & Nastavení — oddíly', () => {
     // Klepnutí odemyká zvuk upozornění (lib/notifications.ts) — jsdom přehrávání nemá.
     vi.spyOn(window.HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
     vi.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+  });
+
+  it('AI sládek jako samostatná aplikace (R39): karta s odkazem je v Ostatních jen pro toho, kdo má přístup do bible', async () => {
+    stavAuth = SPRAVCE;
+    const spravce = await otevri();
+    fireEvent.click(zalozka('Ostatní'));
+    expect(nadpis(/AI sládek — samostatná aplikace/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Otevřít AI sládka' }).getAttribute('href')).toMatch(/\/sladek\/$/);
+    spravce.unmount();
+
+    stavAuth = { ...SPRAVCE, profile: { ...SPRAVCE.profile, id: 'u2', role: 'user', permissions: { dashboard: { view: true, edit: false } } }, user: { id: 'u2', email: 'eva@example.cz' } };
+    const bezPristupu = await otevri();
+    fireEvent.click(zalozka('Ostatní'));
+    expect(nadpis(/Instalace aplikace/)).toBeTruthy();
+    expect(nadpis(/AI sládek — samostatná aplikace/)).toBeNull();
+    bezPristupu.unmount();
+
+    stavAuth = { ...stavAuth, profile: { ...stavAuth.profile, permissions: { bible: { view: true, edit: false } } } };
+    await otevri();
+    fireEvent.click(zalozka('Ostatní'));
+    expect(nadpis(/AI sládek — samostatná aplikace/)).toBeTruthy();
   });
 
   it('otevře se Vzhled: barevný režim, hustota, plynulost, poloha lišty a menu pohromadě', async () => {

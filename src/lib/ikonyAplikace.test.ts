@@ -21,14 +21,17 @@ function rozmery(cesta: string): { w: number; h: number } {
   return { w: d.readUInt32BE(16), h: d.readUInt32BE(20) };
 }
 
-const MANIFEST = JSON.parse(readFileSync('public/manifest.webmanifest', 'utf8')) as {
-  icons: { src: string; sizes: string; purpose?: string }[];
-};
+type Manifest = { icons: { src: string; sizes: string; purpose?: string }[] };
+const MANIFEST = JSON.parse(readFileSync('public/manifest.webmanifest', 'utf8')) as Manifest;
+// Samostatná aplikace AI sládek (/sladek/, R39) má vlastní manifest a vlastní ikony.
+const MANIFEST_SLADEK = JSON.parse(readFileSync('public/manifest-sladek.webmanifest', 'utf8')) as Manifest;
+/** Cesta souboru v public/ z adresy v manifestu („./icon.png“ i „/icon.png“). */
+const souborIkony = (src: string) => src.replace(/^\.?\//, '');
 
 describe('ikony v manifestu mají slíbenou velikost', () => {
-  for (const ikona of MANIFEST.icons) {
+  for (const ikona of [...MANIFEST.icons, ...MANIFEST_SLADEK.icons]) {
     it(`${ikona.src} je ${ikona.sizes}`, () => {
-      const cesta = `public/${ikona.src.replace('./', '')}`;
+      const cesta = `public/${souborIkony(ikona.src)}`;
       const [w, h] = ikona.sizes.split('x').map(Number);
       expect(rozmery(cesta)).toEqual({ w, h });
     });
@@ -55,14 +58,14 @@ describe('ikony v manifestu mají slíbenou velikost', () => {
 // se na stejné adrese změnil obsah souboru. Jediné, co ho donutí ikonu načíst
 // znovu, je JINÁ ADRESA v manifestu. Proto mají soubory pořadové číslo.
 describe('ikony mají adresu, která se při změně mění', () => {
-  for (const ikona of MANIFEST.icons) {
+  for (const ikona of [...MANIFEST.icons, ...MANIFEST_SLADEK.icons]) {
     it(`${ikona.src} nese pořadové číslo`, () => {
       expect(ikona.src, 'bez čísla si telefon nechá starou ikonu napořád').toMatch(/-v\d+\.png$/);
     });
   }
 
-  it('index.html, offline režim i manifest ukazují na tytéž soubory', () => {
-    const vManifestu = new Set(MANIFEST.icons.map((i) => i.src.replace('./', '')));
+  it('index.html, offline režim i manifesty ukazují na tytéž soubory', () => {
+    const vManifestu = new Set([...MANIFEST.icons, ...MANIFEST_SLADEK.icons].map((i) => souborIkony(i.src)));
     for (const cesta of ['index.html', 'public/sw.js']) {
       const zdroj = readFileSync(cesta, 'utf8');
       for (const odkaz of zdroj.match(/icon-[\w-]*\.png/g) ?? []) {

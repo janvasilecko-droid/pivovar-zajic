@@ -20,6 +20,13 @@
             document.getElementById('manifest-link').setAttribute('href', '/manifest-zajic2.webmanifest');
             document.title = 'Zajíc 2';
           }
+          // „AI sládek“ (adresa /sladek/, R39): samostatná aplikace s chatbotem — totéž: vlastní manifest,
+          // název a tmavá lišta prohlížeče (aplikace je celá tmavá).
+          if (/^\/sladek(\/|$)/.test(location.pathname)) {
+            document.getElementById('manifest-link').setAttribute('href', '/manifest-sladek.webmanifest');
+            document.title = 'AI sládek';
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0a0a0a');
+          }
         } catch (e) {}
       })();
     </script>
@@ -29,6 +36,17 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Zajíc" />
+    <script>
+      // AI sládek na ploše iPhonu: vlastní název a ikona (tyhle značky jsou až tady, proto druhý skript).
+      (function () {
+        try {
+          if (/^\/sladek(\/|$)/.test(location.pathname)) {
+            document.querySelector('meta[name="apple-mobile-web-app-title"]').setAttribute('content', 'AI sládek');
+            document.querySelector('link[rel="apple-touch-icon"]').setAttribute('href', '/icon-sladek-192-v1.png');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <!-- Písma jsou vlastní (public/fonts, @font-face v src/index.css) — appka
          nesmí být závislá na Googlu, protože service worker cizí domény
          necachuje a offline by zůstala bez písma. Předsazené načtení jen

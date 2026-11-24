@@ -14,7 +14,11 @@ import { renderFatalError } from './lib/safeDom';
 import { nahlasChybu, zapniHlaseniChyb, zalogujANahlas } from './lib/chybyHlaseni';
 import { zapniFrontuTanku } from './lib/tankFrontaBeh';
 import { zapniPosunNadKlavesnici } from './lib/nadKlavesnici';
+import { lazyStranka } from './lib/lazyStranka';
+import { JE_SLADEK } from './lib/profilAplikace';
 
+// Samostatná aplikace AI sládek (adresa /sladek/, R39) má vlastní kořen — líný kus, hlavní aplikaci nezvětší.
+const SladekApp = lazyStranka(() => import('./screens/SladekApp'));
 
 initDensity();
 // Méně efektů (rozostření a blikání) — nastavuje se dřív, než se cokoli
@@ -30,7 +34,8 @@ zapniHlaseniChyb();
 // Nedokončené odečty objemu z tanků se zkusí znovu při startu a po návratu
 // sítě (viz lib/tankFronta.ts). Opakování je bezpečné díky klíči
 // idempotence — relativní odečet by se jinak mohl provést dvakrát.
-zapniFrontuTanku();
+// Samostatný AI sládek (R39) fronta tanků nepatří: sdílí úložiště s hlavní aplikací a nemusí být přihlášený stejným účtem.
+if (!JE_SLADEK) zapniFrontuTanku();
 
 // Klávesnice na telefonu překryje spodní polovinu displeje a políčko, do
 // kterého se píše, pod ní často zůstane schované (viz lib/nadKlavesnici.ts).
@@ -169,7 +174,13 @@ try {
   koren.render(
     <DebugErrorBoundary>
       <AuthProvider>
-        <App />
+        {JE_SLADEK ? (
+          <React.Suspense fallback={<div style={{ minHeight: '100vh', background: '#0a0a0a' }} />}>
+            <SladekApp />
+          </React.Suspense>
+        ) : (
+          <App />
+        )}
         {/* Oznámení a potvrzovací dialogy — jedno místo pro celou aplikaci
             (lib/toast.ts). Musí být namountované, jinak potvrzení spadne
             na prohlížečový confirm a oznámení se ztratí. */}

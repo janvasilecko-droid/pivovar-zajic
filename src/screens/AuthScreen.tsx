@@ -3,7 +3,7 @@ import { useAuth } from '../lib/auth';
 import { AlertTriangle, ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { chybaZNavratu, GOOGLE_PRIHLASENI_ZAPNUTO, prihlasitPresGoogle } from '../lib/googlePrihlaseni';
 import { NENI_OVERENY, odkazOdeslanNa, poslatOdkazProHeslo } from '../lib/odkazEmailem';
-import { JE_DRUHA_APLIKACE } from '../lib/profilAplikace';
+import { JE_DRUHA_APLIKACE, JE_SLADEK } from '../lib/profilAplikace';
 
 export default function AuthScreen() {
   const { signIn } = useAuth();
@@ -95,6 +95,11 @@ export default function AuthScreen() {
               {JE_DRUHA_APLIKACE && (
                 <div role="note" className="mb-2 px-3 py-1 rounded-full bg-rose-700 text-white text-udaj font-black">
                   Zajíc 2 — druhá aplikace, přihlášení zvlášť
+                </div>
+              )}
+              {JE_SLADEK && (
+                <div role="note" className="mb-2 px-3 py-1 rounded-full bg-amber-700 text-white text-udaj font-black">
+                  AI sládek — samostatná aplikace, přihlášení zvlášť
                 </div>
               )}
               <h1 className="text-2xl sm:text-3xl font-display font-black tracking-tight text-amber-950 flex items-center gap-2">

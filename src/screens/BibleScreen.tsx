@@ -12,17 +12,17 @@
 //
 // Přístup je fail-closed (lib/bibleOpravneni.ts, databáze to vynucuje sama).
 import { Suspense, useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Bot, Calculator, Factory, FlaskConical, Lock, Search, Settings, Stethoscope, Users, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, BookOpen, Bot, Calculator, Factory, FlaskConical, Lock, Settings, Stethoscope, Users, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import { bibleRole, smiPrispivat, type BibleRole } from '../lib/bibleOpravneni';
+import { bibleRole } from '../lib/bibleOpravneni';
 import { cestaKnihy, rozeberCestuKnihy } from '../lib/bibleCteni';
 import { lazyStranka } from '../lib/lazyStranka';
 import { BibleKnihovna } from '../components/bible/BibleKnihovna';
 import { BibleSprava } from '../components/bible/BibleSprava';
 import { BibleZkusenosti } from '../components/bible/BibleZkusenosti';
 import { BiblePripravujeme } from '../components/bible/BiblePripravujeme';
-import { BibleHledani } from '../components/bible/BibleHledani';
-import { BibleChat } from '../components/bible/BibleChat';
+import { BibleAiSladek } from '../components/bible/BibleAiSladek';
+import { SladekAplikaceKarta } from '../components/SladekAplikaceKarta';
 import { BibleVypocty } from '../components/bible/BibleVypocty';
 import { BibleTechnologie } from '../components/bible/BibleTechnologie';
 import { BibleVarky } from '../components/bible/BibleVarky';
@@ -132,14 +132,17 @@ export default function BibleScreen({ setPage, pageSubTab }: {
       ) : sekce === 'knihovna' ? (
         <BibleKnihovna role={role} setPage={setPage} onCist={(id) => otevriKnihu(id)} />
       ) : sekce === 'chat' ? (
-        <BibleAiSladek
-          key={`${dotazHledani ?? ''}|${chatProblem?.id ?? ''}`}
-          otevri={(id, list) => otevriKnihu(id, list)}
-          dotazHledani={dotazHledani}
-          problem={chatProblem}
-          role={role}
-          doKnihovny={() => jdi('knihovna')}
-        />
+        <div className="space-y-4">
+          <SladekAplikaceKarta kompaktni />
+          <BibleAiSladek
+            key={`${dotazHledani ?? ''}|${chatProblem?.id ?? ''}`}
+            otevri={(id, list) => otevriKnihu(id, list)}
+            dotazHledani={dotazHledani}
+            problem={chatProblem}
+            role={role}
+            doKnihovny={() => jdi('knihovna')}
+          />
+        </div>
       ) : sekce === 'vypocty' ? (
         <BibleVypocty hledej={(dotaz) => { jdi('chat'); setDotazHledani(dotaz); }} />
       ) : sekce === 'zkusenosti' ? (
@@ -155,42 +158,6 @@ export default function BibleScreen({ setPage, pageSubTab }: {
       ) : dlazdice ? (
         <BiblePripravujeme dlazdice={dlazdice} jdiDoKnihovny={() => jdi('knihovna')} />
       ) : null}
-    </div>
-  );
-}
-
-const OTAZKA_PROBLEMU = 'Najdi možné příčiny tohoto problému: projdi příznaky a dotčené várky, porovnej je s literaturou a zkušenostmi '
-  + 'a řekni, co mám ověřit a změřit. Podstatná zjištění zapiš k problému.';
-
-/** AI sládek: chatbot a hledání v knihách na dvou kartách (chat zůstává při přepnutí rozpracovaný). */
-function BibleAiSladek({ otevri, dotazHledani, problem, role, doKnihovny }: {
-  otevri: (dokumentId: string, list: number) => void;
-  dotazHledani: string | null;
-  problem: { id: string; nazev: string } | null;
-  role: BibleRole | null;
-  doKnihovny: () => void;
-}) {
-  const [karta, setKarta] = useState<'chat' | 'hledani'>(dotazHledani ? 'hledani' : 'chat');
-  const [otazka, setOtazka] = useState<{ text: string; klic: number } | null>(problem ? { text: OTAZKA_PROBLEMU, klic: 1 } : null);
-  const zalozka = (id: 'chat' | 'hledani', nazev: string, Ikona: LucideIcon) => (
-    <button type="button" role="tab" id={`bible-karta-${id}`} aria-selected={karta === id} aria-controls={`bible-panel-${id}`}
-      className={karta === id ? 'btn-amber' : 'btn-tmave'} onClick={() => setKarta(id)}>
-      <Ikona size={18} /> {nazev}
-    </button>
-  );
-  return (
-    <div className="space-y-4">
-      <div role="tablist" aria-label="AI sládek" className="flex flex-wrap gap-2">
-        {zalozka('chat', 'Zeptat se', Bot)}
-        {zalozka('hledani', 'Hledání v knihách', Search)}
-      </div>
-      <div role="tabpanel" id="bible-panel-chat" aria-labelledby="bible-karta-chat" hidden={karta !== 'chat'}>
-        <BibleChat otevri={otevri} problem={problem} otazkaZvenku={otazka} role={role} doKnihovny={smiPrispivat(role) ? doKnihovny : undefined} />
-      </div>
-      <div role="tabpanel" id="bible-panel-hledani" aria-labelledby="bible-karta-hledani" hidden={karta !== 'hledani'}>
-        <BibleHledani otevri={otevri} pocatecniDotaz={dotazHledani ?? undefined}
-          zeptatSe={(q) => { setOtazka((o) => ({ text: q, klic: (o?.klic ?? 0) + 1 })); setKarta('chat'); }} />
-      </div>
     </div>
   );
 }
