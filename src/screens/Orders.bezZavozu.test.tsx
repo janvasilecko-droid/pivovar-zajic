@@ -168,6 +168,7 @@ const MISTA = [
   // Restaurace nemá výchozí den závozu (migrace 20261231260000).
   { id: 'p-rest', name: 'Restaurace', vychozi_den_zavozu: 'zadny' },
   { id: 'p-lipa', name: 'Hospoda U Lípy' },
+  { id: 'p-prod', name: 'Prodejna' },
 ];
 
 
@@ -246,6 +247,21 @@ describe('formulář objednávky — „Bez závozu" bez vybraného dne', () => 
     await zadejPolozku('Světlá', 'KEG 50 L', 1);
     await uloz();
     expect(ulozena()).toMatchObject({ delivery_day: 'st', delivery_date: '2026-11-18', no_delivery: true, order_date: '2026-11-16' });
+  });
+
+  it('ručně zaškrtnuté „bez závozu" appka dál sama nepřepisuje, ani když se potom vybere jiný odběratel', async () => {
+    render(<Orders mode="entry_only" />);
+    await vyberOdberatele('Hospoda U Lípy');
+    expect(bezZavozu().checked).toBe(false); // U Lípy nejsou mezi jmenovanými
+    fireEvent.click(bezZavozu());
+    expect(bezZavozu().checked).toBe(true);
+    // Jiný odběratel: tlačítko už ukazuje jméno vybraného, ne „Vybrat odběratele".
+    fireEvent.click(screen.getByRole('button', { name: /Hospoda U Lípy/ }));
+    const nadpis = await screen.findByRole('heading', { name: 'Odběratel' });
+    fireEvent.click(within(nadpis.closest('.card') as HTMLElement).getAllByRole('button', { name: 'Prodejna' })[0]);
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Odběratel' })).toBeNull());
+    expect(screen.getByRole('button', { name: /Prodejna/ })).toBeTruthy();
+    expect(bezZavozu().checked).toBe(true); // ručně zapnuté zůstalo — Prodejna by samo vypnula
   });
 
   it('ručně odškrtnuté „bez závozu" u Restaurace den nedoplní (Restaurace výchozí den nemá)', async () => {

@@ -6,6 +6,7 @@
 // Majitel vybral černý štítek na místě dne („udělej tu první, vypadá to
 // dobře") a k němu vlastní skupinu na konci seznamu s filtrem nahoře.
 import { useId } from 'react';
+import { Check } from 'lucide-react';
 
 /** Přeškrtnuté auto — „tahle objednávka nejede". Barvu bere z okolního textu. */
 export function IkonaBezZavozu({ size = 18, className = '' }: { size?: number; className?: string }) {
@@ -46,6 +47,39 @@ export function StitekBezZavozu({ maly = false }: { maly?: boolean }) {
     <span data-testid="stitek-bez-zavozu" className="text-lg font-black leading-none px-2 py-1 rounded shrink-0 flex items-center gap-1 bg-neutral-900 text-white shadow-2xs ring-1 ring-neutral-500/60">
       <IkonaBezZavozu size={18} /> Bez závozu
     </span>
+  );
+}
+
+// Zapnuto = černé jako štítek na kartě; vypnuto = bílé s tmavým okrajem. Barvy v tmavém režimu
+// mají vlastní dvojici (černá na tmavém pozadí by zmizela), proto okraj světlý.
+const PREPINAC_ZAP = 'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-neutral-950';
+const PREPINAC_VYP = 'border-neutral-300 bg-white text-neutral-900 hover:border-neutral-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100';
+
+/**
+ * Přepínač „Bez závozu" při zadávání objednávky (okno Nová objednávka i starý formulář).
+ *
+ * Majitel 24. 11. 2026: „nevidím tam viditelně to tlačítko s autem bez závozu,
+ * přeškrtnutým autem." Dřív to byl malý šedý řádek se zaškrtávátkem a bez ikony. Teď je to
+ * velké tlačítko se stejným přeškrtnutým autem jako štítek na kartě; zapnuté je černé.
+ * Uvnitř zůstává skutečné zaškrtávací pole (jen schované): čtečka obrazovky i klávesnice ho
+ * berou jako zaškrtávátko a stav se čte i zapisuje stejně jako dřív.
+ */
+export function PrepinacBezZavozu({ zapnuto, naZmenu }: { zapnuto: boolean; naZmenu: (zapnuto: boolean) => void }) {
+  return (
+    <label
+      data-testid="prepinac-bez-zavozu"
+      className={`flex items-center gap-3 min-h-[56px] px-3.5 py-2 rounded-2xl border-2 cursor-pointer transition focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2 ${zapnuto ? PREPINAC_ZAP : PREPINAC_VYP}`}
+    >
+      <input type="checkbox" className="sr-only" checked={zapnuto} onChange={(e) => naZmenu(e.target.checked)} />
+      <IkonaBezZavozu size={28} />
+      <span className="flex-1 min-w-0">
+        <span className="block font-display font-black text-lg leading-tight">Bez závozu</span>
+        <span className={`block text-xs font-semibold ${zapnuto ? 'text-neutral-200' : 'text-neutral-700 dark:text-neutral-300'}`}>
+          Odběratel si bere pivo sám, nejde do trasy.
+        </span>
+      </span>
+      {zapnuto && <Check size={22} strokeWidth={3} className="shrink-0" aria-hidden="true" />}
+    </label>
   );
 }
 

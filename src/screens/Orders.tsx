@@ -92,7 +92,7 @@ import { popisRezervaceVycepu, type KonceptObjednavky } from '../lib/objednavkaP
 import type { TapReservation } from './VycepyScreen';
 import { VariantTotalsPanel } from '../components/objednavky/VariantTotalsPanel';
 import { OrderCard } from '../components/objednavky/OrderCard';
-import { IkonaBezZavozu, NadpisBezZavozu, jeBezZavozu, rozdelPodleZavozu } from '../components/objednavky/BezZavozu';
+import { IkonaBezZavozu, NadpisBezZavozu, PrepinacBezZavozu, jeBezZavozu, rozdelPodleZavozu } from '../components/objednavky/BezZavozu';
 import { OrderTabulka } from '../components/objednavky/OrderTabulka';
 import { VraceniPiva } from '../components/objednavky/VraceniPiva';
 import { VratitPivoModal } from '../components/objednavky/VratitPivoModal';
@@ -2555,15 +2555,9 @@ export default function Orders({
               odběratelů se zaškrtne samo (lib/bezZavozu.ts) při psaní
               jména výš; jakmile se pole jednou přepne ručně, appka ho
               dál sama nepřepisuje. */}
-          <label className="mt-2 flex items-start gap-2 p-2.5 rounded-xl bg-neutral-100 border-2 border-neutral-200 text-neutral-800 text-xs font-bold cursor-pointer">
-            <input
-              type="checkbox"
-              checked={noDelivery}
-              onChange={(e) => { setNoDelivery(e.target.checked); setNoDeliveryTouched(true); }}
-              className="w-4 h-4 mt-0.5 rounded text-neutral-700 focus:ring-neutral-500 accent-neutral-700 shrink-0"
-            />
-            <span>Bez závozu — odběratel si bere pivo sám, nejde do trasy.</span>
-          </label>
+          <div className="mt-2">
+            <PrepinacBezZavozu zapnuto={noDelivery} naZmenu={(v) => { setNoDelivery(v); setNoDeliveryTouched(true); }} />
+          </div>
           {/* Bez vybraného dne odchází pivo v den objednávky — 16. 11. 2026 se
               objednávka Restaurace bez dne ze skladu neodečetla (databáze jí
               dala pátek). Ať je vidět, co se stane, dřív než se uloží. */}

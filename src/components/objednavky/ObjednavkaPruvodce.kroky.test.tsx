@@ -188,6 +188,24 @@ describe('druhý krok: kdy (den, datum, poznámka)', () => {
     expect(dal().disabled).toBe(false);
   });
 
+  it('„Bez závozu" je velké tlačítko s přeškrtnutým autem hned pod nadpisem, nad dny (24. 11.: „nevidím tam viditelně to tlačítko")', () => {
+    pripravit();
+    fireEvent.click(dlazdice('Žižkov'));
+    const prepinac = screen.getByTestId('prepinac-bez-zavozu');
+    const dny = screen.getByRole('group', { name: 'Kdy se veze?' });
+    expect(prepinac.compareDocumentPosition(dny) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(prepinac.querySelector('svg mask')).toBeTruthy(); // přeškrtnuté auto
+    expect(prepinac.className).toContain('bg-white');
+    fireEvent.click(screen.getByRole('checkbox', { name: /Bez závozu/ }));
+    expect(screen.getByTestId('prepinac-bez-zavozu').className).toContain('bg-neutral-900');
+    expect(screen.getByTestId('pruvodce-kontext').textContent).toContain('bez závozu');
+    // druhé klepnutí ho zase vypne
+    fireEvent.click(screen.getByRole('checkbox', { name: /Bez závozu/ }));
+    expect((screen.getByRole('checkbox', { name: /Bez závozu/ }) as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByTestId('prepinac-bez-zavozu').className).toContain('bg-white');
+    expect(screen.getByTestId('pruvodce-kontext').textContent).not.toContain('bez závozu');
+  });
+
   it('nad krokem je odběratel a den: „Žižkov · St 18. 11."; po vybrání pátku „Pá 20. 11."', () => {
     pripravit();
     fireEvent.click(dlazdice('Žižkov'));
