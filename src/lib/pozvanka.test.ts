@@ -78,15 +78,17 @@ describe('pozvánka: co v aplikaci všechno je', () => {
     expect(sablonaEmailuSupabase('obnova')).toContain('Nastavit nové heslo');
   });
 
-  it('e-mail s pozvánkou nese postup hesla, instalace (s ikonami), použití i přehled aplikace', () => {
+  it('celý text pozvánky nese postup hesla, instalace (s ikonami), použití i přehled aplikace; e-mail je krátký', () => {
     const t = textPozvanky('https://x.cz/');
     for (const kus of ['KROK 1', 'KROK 2', 'KROK 3', 'KROK 4', 'KROK 5', 'Založte si své heslo', '⋮', '⬆', 'Přidat na plochu', 'Nový uživatel', 'Zelená tečka', 'Uložit']) {
       expect(t, kus).toContain(kus);
     }
+    // Do e-mailu (mailto:) jde jen KRÁTKÝ text (24. 11. 2026: „e-mail zkrátit" — dlouhý dorazil v Email.cz
+    // jako jeden nečitelný odstavec); celý postup je v textPozvanky, na čitelné stránce a ve sdílení.
     const m = decodeURIComponent(mailtoPozvanky('a@b.cz', 'https://x.cz/'));
-    // Celý text se do telefonního mailto: vejde — žádné zkrácení na pár řádků.
-    expect(m).toContain('KROK 5');
-    expect(m).toContain('Umí:');
+    expect(m).not.toContain('KROK 5');
+    expect(m).not.toContain('Umí:');
+    expect(m).toContain('https://x.cz/pozvanka.html');
   });
 });
 
@@ -111,15 +113,45 @@ describe('pozvánka: zalomení řádků a čitelná kopie', () => {
     expect(m).toContain('%0D%0A');
     expect(m).not.toMatch(/(?<!%0D)%0A/);
     const body = decodeURIComponent(m.split('body=')[1]);
-    expect(body).toContain('KROK 1');
+    expect(body).toContain('1. Otevři aplikaci');
     expect(body).not.toMatch(holeLf);
-    expect(body.split('\r\n').length).toBeGreaterThan(50);
+    expect(body.split('\r\n').length).toBeGreaterThan(8);
   });
 
-  it('mailto s CRLF se pořád vejde do limitu adresy a nese celý text (KROK 5, „Umí:")', () => {
+  it('e-mail je krátký: tři očíslované kroky a odkaz na čitelný postup, bez kroků 4–5 a přehledu aplikace', () => {
     const m = mailtoPozvanky('a@b.cz', 'https://x.cz/');
-    expect(m.length).toBeLessThanOrEqual(16000);
-    expect(decodeURIComponent(m)).toContain('KROK 5');
+    const body = decodeURIComponent(m.split('body=')[1]);
+    expect(m.length).toBeLessThanOrEqual(3000);
+    expect(body.length).toBeLessThan(1200);
+    expect(body).toContain('Celý postup krok za krokem, čitelně: https://x.cz/pozvanka.html');
+    expect(body).toContain('1. Otevři aplikaci v telefonu: https://x.cz/');
+    expect(body).toContain('2. Nastav si heslo');
+    expect(body).toContain('3. Dej si ikonu na plochu');
+    expect(body).toContain('Google Play');
+    expect(body).toContain('Info');
+    for (const nechtene of ['KROK', 'Umí:', 'Zelená tečka', '━━']) expect(body, nechtene).not.toContain(nechtene);
+  });
+
+  it('e-mail se čte i slitý do jednoho odstavce: odkaz je na začátku a kroky 1, 2, 3 jdou za sebou', () => {
+    const slite = decodeURIComponent(mailtoPozvanky('a@b.cz', 'https://x.cz/').split('body=')[1]).replace(/\s+/g, ' ');
+    expect(slite.indexOf('https://x.cz/pozvanka.html')).toBeGreaterThan(0);
+    expect(slite.indexOf('https://x.cz/pozvanka.html')).toBeLessThan(200);
+    const i1 = slite.indexOf(' 1. Otevři');
+    const i2 = slite.indexOf(' 2. Nastav');
+    const i3 = slite.indexOf(' 3. Dej si ikonu');
+    expect(i1).toBeGreaterThan(slite.indexOf('https://x.cz/pozvanka.html'));
+    expect(i2).toBeGreaterThan(i1);
+    expect(i3).toBeGreaterThan(i2);
+  });
+
+  it('e-mail s dočasným heslem nese e-mail, heslo i okno „Založte si své heslo"; veřejný odkaz na postup v něm není', () => {
+    const body = decodeURIComponent(mailtoPozvanky('a@b.cz', 'https://x.cz/', 'docasne-test').split('body=')[1]);
+    expect(body).toContain('e-mail a@b.cz, dočasné heslo docasne-test');
+    expect(body).toContain('Založte si své heslo');
+    expect(body).toContain('Vstoupit do pivovaru');
+    expect(body).not.toContain('pozvanka.html');
+    expect(body).not.toContain('Správce ti poslal druhý e-mail');
+    expect(body.length).toBeLessThan(1200);
   });
 
   it('i zkrácená pozvánka (heslo, krátký text) má konce řádků CRLF', () => {

@@ -31,7 +31,7 @@ export function DocasneHesloOkno({ email, heslo, onClose }: { email: string; hes
             <Copy size={16} /> Kopírovat heslo
           </button>
           <a href={mailtoPozvanky(email, undefined, heslo)} className="btn-ghost !rounded w-full text-sm font-black flex items-center justify-center gap-2">
-            <Mail size={16} /> Poslat e-mailem: pozvánka + návod + heslo
+            <Mail size={16} /> Poslat e-mailem: krátká pozvánka + heslo
           </a>
           <button
             type="button"
