@@ -391,7 +391,7 @@ const ODDILY: Oddil[] = [
     ikona: Store,
     kCemu: 'Tři podoby výdeje ze skladu — stejný formulář, jiná tabulka.',
     body: [
-      { co: 'Fasování', jak: 'Pivo pro personál. Zapisuje se kdo si bere. Rozepsaný výdej se pamatuje zvlášť pro Fasování, Prodejnu a Odpis a zůstává, dokud ho neuložíš nebo nezahodíš.' },
+      { co: 'Fasování', jak: 'Pivo pro personál. Zapisuje se kdo si bere: v poli „Pro koho“ je napřed jméno přihlášeného (přepiš ho, když fasuješ někomu jinému). Rozepsaný výdej se pamatuje zvlášť pro Fasování, Prodejnu a Odpis a zůstává, dokud ho neuložíš nebo nezahodíš.' },
       { co: 'Prodejna', jak: 'Prodej na podnikové prodejně. V Přehledu je dnešek, týden i měsíc a co jde nejvíc.' },
       { co: 'Odpis', jak: 'Zkažené, rozbité, prošlé. Dá se připojit fotka jako doklad k reklamaci.' },
       {
