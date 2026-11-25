@@ -31,6 +31,15 @@ export function InstalaceKroky({ pripravenaInstalace, naInstalaci }: {
           <Download size={16} /> Nainstalovat aplikaci na plochu
         </button>
       )}
+      <div className="rounded border border-amber-300 bg-amber-50 p-3 space-y-1">
+        <div className="font-black text-neutral-900">Ikona se nespustí nebo to nejde?</div>
+        <p>
+          Otevři{' '}
+          <a href="/instalace.html" className="underline font-black text-amber-700">Instalaci aplikace</a>
+          {' '}— pozná tvůj telefon a ukáže postup, který na něm funguje. Na Androidu 7 a novějším je to stažení aplikace s vlastní
+          ikonou, která na prohlížeči nezávisí; na iPhonu a v počítači ikona z prohlížeče.
+        </p>
+      </div>
       <div className="rounded border border-neutral-200 bg-neutral-50 p-3 space-y-1">
         <div className="font-black text-neutral-900">Android (Chrome)</div>
         <p>Klepni na <strong>tři tečky</strong> vpravo nahoře → <strong>Nainstalovat aplikaci</strong> (nebo <strong>Přidat na plochu</strong>).</p>

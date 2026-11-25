@@ -67,6 +67,14 @@ v telefonu a už neřešit:
 
 <https://github.com/janvasilecko-droid/pivovar-zajic/releases/latest/download/pivovar-zajic.apk>
 
+Totéž v krátkém tvaru, který jde nadiktovat do telefonu: **<https://zajic-pivovar.pages.dev/apk>**
+(přesměrování z `public/_redirects` na odkaz výš; hlídá ho `src/lib/instalace.test.ts`).
+Člověku se ale neposílá holý odkaz, ale stránka **<https://zajic-pivovar.pages.dev/instalace>**
+(`public/instalace.html`): pozná telefon (Android 7+, starší Android, iPhone, počítač, odkaz otevřený uvnitř jiné
+aplikace, už nainstalováno) a ukáže jediný postup, který na něm funguje — na Androidu 7 a novějším stažení APK,
+na starším Androidu a v počítači ikonu z Chromu, na iPhonu ikonu ze Safari. Odkazuje na ni pozvánka, Nastavení
+(„Ikona se nespustí nebo to nejde?“) i návod.
+
 Přehled všech verzí je na [stránce Releases](https://github.com/janvasilecko-droid/pivovar-zajic/releases).
 
 Dvě věci, které při instalaci překvapí:
@@ -90,8 +98,13 @@ vzhledem stejně jako na novém od **90**. Když nejde, otevři v telefonu
 chybí (starý WebView, špatné datum, nejde spojení), a nabídne zprávu pro správce
 ke zkopírování. Stejnou stránku ukáže APK místo bílé obrazovky, když je WebView
 příliš starý. Na Androidu 6 a starším se APK nenainstaluje; tam stačí otevřít
-web v Chrome a zvolit „Přidat na plochu“. Co se změřilo a opravilo:
-[docs/starsi-telefony.md](docs/starsi-telefony.md).
+web v Chrome a zvolit „Přidat na plochu“ (nebo si ho uložit do záložek).
+Ikona z prohlížeče se na starších telefonech někdy nespustí — proto stránka Instalace
+nabízí na Androidu 7+ APK jako první. Bez signálu a bez uložené kopie ukáže service worker místo holého
+„Offline“ českou stránku „Bez připojení“, která se po připojení sama načte (`public/sw.js`, hlídá
+`src/lib/swOffline.test.ts`). V Auditu → Verze aplikace je u každého uživatele vidět, jak aplikaci otevírá
+(„Aplikace (APK)“, „Ikona na ploše“, „Prohlížeč“) a na čem (Android, Chrome/WebView, model); zápis dělá
+`src/lib/zarizeni.ts`. Co se změřilo a opravilo: [docs/starsi-telefony.md](docs/starsi-telefony.md).
 
 ## Kontroly před commitem
 

@@ -5,14 +5,21 @@ stopu v databázi chyb (`app_errors`) — rozbije se dřív, než se rozběhne k
 nedala přečíst z provozu. Tenhle dokument je zápis toho, co se **změřilo**, co se **opravilo** a co **zůstává**.
 
 Souvislosti v kódu: `src/lib/podlahaProhlizece.ts` (čísla), `index.html` (záplaty + záchranná obrazovka),
-`public/diagnostika.html` (diagnostika telefonu), `scripts/postcss-starsi-prohlizece.mjs`,
-`scripts/zkontroluj-css-podlaha.mjs`, `capacitor.config.json`.
+`public/diagnostika.html` (diagnostika telefonu), `public/instalace.html` (instalace aplikace), `public/_redirects`
+(krátký odkaz `/apk`), `public/sw.js` (stránka „Bez připojení“), `src/lib/zarizeni.ts` (jak se aplikace používá),
+`scripts/postcss-starsi-prohlizece.mjs`, `scripts/zkontroluj-css-podlaha.mjs`, `capacitor.config.json`.
 
 ## Odkaz pro majitele
 
 Šéf otevře v telefonu **<https://zajic-pivovar.pages.dev/diagnostika.html>**. Stránka zjistí, co telefonu chybí,
 řekne česky co s tím a nabídne tlačítko „Zkopírovat zprávu“ (nebo rovnou „Poslat přes WhatsApp“). Nic se neodesílá
 samo; zpráva obsahuje jen údaje o telefonu a prohlížeči.
+
+Když telefonu **nejde ikona** (z e-mailu se aplikace v prohlížeči otevře, ale po „Přidat na plochu“ se z ikony nespustí),
+pošli mu **<https://zajic-pivovar.pages.dev/instalace>**. Stránka pozná telefon a ukáže jediný postup, který na něm funguje:
+na Androidu 7 a novějším **stažení aplikace** (APK, vlastní ikona, na prohlížeči nezávisí), na starším Androidu ikonu nebo
+záložku z Chromu, na iPhonu Safari, v počítači Chrome / Edge, a když je odkaz otevřený uvnitř jiné aplikace (e-mail,
+Messenger), řekne, ať ho nejdřív otevře v prohlížeči. Krátký odkaz na samotné APK je **<https://zajic-pivovar.pages.dev/apk>**.
 
 ## Co se změřilo
 
@@ -33,6 +40,19 @@ Z hotového sestavení (`dist/`), nástroji es-check, doiuse a údaji MDN o podp
 
 **Podlaha: Chrome / WebView 66** (březen 2018). **Doporučeno: 90** — od něj vypadá aplikace stejně jako na novém.
 
+### Ikona z prohlížeče se nespustí (25. 11. 2026) — co se ví a co ne
+
+- **Neměřeno, jen známo z dokumentace Chromu:** ikona z „Přidat na plochu“ je na novějších telefonech „WebAPK“, balíček, který
+  vyrobí Google a který potřebuje Chrome a služby Google Play. Na starších telefonech to někdy nejde (chybí služby, plné
+  úložiště, starý Chrome), některé plochy ikonu odmítnou nebo ji otevřou v jiném prohlížeči a Chrome při nedostatku místa
+  smaže uloženou kopii aplikace. Skutečné APK s vlastní ikonou na ničem z toho nezávisí (jede na systémovém WebView).
+- **Příčina u šéfa není známá.** Čeká se na to, co přesně se po klepnutí na ikonu stane, na model telefonu a verzi Androidu
+  a na výsledek Diagnostiky. Nehádat; stránka Instalace je cesta, která to obchází, ne důkaz příčiny.
+- **Změřeno v kódu:** dosavadní zápis `Android (Capacitor)` v Auditu → Verze aplikace nic neříkal. `window.Capacitor`
+  existuje v KAŽDÉM prohlížeči (vytvoří ho už import `@capacitor/core` v `App.tsx`), takže tak vypadal i telefon, který aplikaci
+  jen otevřel v Chromu. O APK se teď rozhoduje podle `Capacitor.isNativePlatform()`. Starší záznamy se nepřepisují —
+  ukážou se nově, jak se lidé aplikací znovu otevřou.
+
 ## Co se opravilo
 
 1. **Záplaty** (`index.html`, klasický skript v hlavičce, ES5): `crypto.randomUUID`, `replaceChildren`,
@@ -52,7 +72,22 @@ Z hotového sestavení (`dist/`), nástroji es-check, doiuse a údaji MDN o podp
 6. **Upozornění v aplikaci**: na prohlížeči pod 90 se jednou za 14 dní ukáže hláška s odkazem na diagnostiku
    (`lib/upozorneniStarehoTelefonu.ts`). Odkaz je i v Nastavení → Instalace aplikace a v návodu.
 7. **Hlídače**: `src/lib/starsiProhlizece.test.ts` (nový kód nesmí sáhnout na funkci novější než podlaha bez záplaty),
-   `npm run zkontroluj-css-podlaha` v CI (čte hotové CSS a index.html), `src/lib/capacitorKonfigurace.test.ts`.
+   `npm run zkontroluj-css-podlaha` v CI (čte hotové CSS a index.html, a od 25. 11. i `_redirects`, `instalace.html`
+   a `sw.js`), `src/lib/capacitorKonfigurace.test.ts`.
+8. **Instalace aplikace** (`public/instalace.html`, adresa `/instalace`): samostatná stránka v ES5 bez knihoven. Pozná telefon
+   (Android 7+, starší Android, iPhone, počítač, odkaz uvnitř jiné aplikace, už nainstalováno) a ukáže jeden postup;
+   ostatní jsou v rozbalovacím „Postup pro jiný telefon“. Na Androidu 7+ je první stažení APK (`/apk`), na Androidu pod 7
+   ikona nebo záložka z Chromu (APK se tam nenabízí), pod Chromem 66 se navíc ukáže červené varování, že prohlížeč je příliš
+   starý. Bez JavaScriptu zůstanou všechny postupy za sebou. Odkazuje na ni pozvánka (e-mail, celý text, šablona Supabase),
+   Nastavení → Instalace aplikace a návod. Testy: `src/lib/instalace.test.ts`.
+9. **Krátký odkaz `/apk`** (`public/_redirects`): 302 na `releases/latest/download/pivovar-zajic.apk`, tedy vždy na nejnovější
+   APK. Musí stát před pravidlem `/*` (platí první shoda); hlídá to test i `zkontroluj-css-podlaha`.
+10. **Stránka „Bez připojení“** (`public/sw.js`): když se aplikace spouští bez signálu A bez uložené kopie, vrátí service worker
+    místo holého „Offline“ českou stránku s postupem; sama se zkusí znovu (událost „online“ a ověření serveru každých 15 s).
+    Je napsaná přímo ve skriptu service workeru, protože soubor v cache by se smazal spolu se zbytkem. Test: `src/lib/swOffline.test.ts`.
+11. **Jak se aplikace používá** (`src/lib/zarizeni.ts`, zápis `appVersionTracker.ts`): Audit → Verze aplikace ukáže u každého
+    uživatele „Aplikace (APK) / Ikona na ploše / Prohlížeč / Vložený prohlížeč“, systém (u Chromu 110+ skutečnou verzi doplní
+    `userAgentData`), prohlížeč nebo WebView a model telefonu. Žádná nová databázová tabulka ani migrace (text v `device_info`).
 
 ## Co zůstává (vědomě neřešeno)
 
@@ -63,7 +98,9 @@ Z hotového sestavení (`dist/`), nástroji es-check, doiuse a údaji MDN o podp
   `:is()` se seznamem tříd; jeho rozbalení by dalo stovky selektorů. Na starém prohlížeči mají tlačítka světlejší písmo.
 - **Čtečka PDF a import Excelu** (`pdf.js`, `xlsx`) potřebují novější prohlížeč; na starém se nenačtou, zbytek aplikace jede.
 - **APK**: Android 6 a starší ho nenainstaluje (`minSdkVersion = 24`; snížit bez zkoušky na zařízení nejde). Tam se aplikace
-  přidá na plochu z Chrome. Podpis ladicím klíčem se nemění (viz README).
+  přidá na plochu z Chrome nebo uloží do záložek (stránka Instalace to řekne). **Podpis ladicím klíčem se nemění**: každé APK
+  z CI má jiný klíč, takže novou verzi nejde nainstalovat přes starší (nejdřív odinstalovat; stránka Instalace to připomíná).
+  Stálý podpisový klíč by to odstranil, ale chce, aby majitel přidal tajný klíč do GitHubu — zatím se nedělá.
 - Telefony **bez Obchodu Play** nemají co aktualizovat; pomůže Firefox (aktualizuje se sám), bez záruky.
 
 ## Jak zvednout podlahu nebo přidat novou funkci prohlížeče
@@ -80,6 +117,9 @@ Z hotového sestavení (`dist/`), nástroji es-check, doiuse a údaji MDN o podp
 ## Kdo co dělá, když šéf hlásí „nejde mi to“
 
 1. Pošli mu odkaz <https://zajic-pivovar.pages.dev/diagnostika.html> a ať pošle výsledek (tlačítko „Zkopírovat zprávu“).
+   Jde-li o **ikonu na ploše** (z prohlížeče to jde, z ikony ne), pošli mu k tomu <https://zajic-pivovar.pages.dev/instalace>
+   (stažení aplikace) a zeptej se, co přesně se po klepnutí na ikonu stane (bílá obrazovka, chybová hláška, otevře se jiný
+   prohlížeč, nic) a jaký je to telefon a Android.
 2. Čti **Výsledek** a **Problémy / Upozornění**: červeně = prohlížeč je pod podlahou (aktualizovat WebView a Chrome),
    žlutě = poběží, ale starý; „hodiny proti serveru“ mimo ±5 min = špatné datum v telefonu; „databáze NEJDE“ = síť
    nebo certifikát (špatné datum, starý Android).

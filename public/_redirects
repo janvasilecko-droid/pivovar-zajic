@@ -5,4 +5,11 @@
 /assets/*
   ! 404.html
 
+# Krátký odkaz na nejnovější APK (Android 7 a novější): https://zajic-pivovar.pages.dev/apk
+# Míří na soubor pivovar-zajic.apk v nejnovějším GitHub Release (vystavuje ho build-apk v deploy.yml),
+# takže se odkaz nikdy nemění, i když se APK sestaví znovu. Dočasné přesměrování (302), ať si ho
+# prohlížeče nepamatují. Musí být PŘED obecným pravidlem níž (platí první shoda).
+# Hlídá to src/lib/instalace.test.ts.
+/apk  https://github.com/janvasilecko-droid/pivovar-zajic/releases/latest/download/pivovar-zajic.apk  302
+
 /*  /index.html  200

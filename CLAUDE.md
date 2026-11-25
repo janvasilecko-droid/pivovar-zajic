@@ -65,7 +65,11 @@
   modul — knihovny se vyhodnotí dřív).
 - Když šéf hlásí „nejde mi to“, pošli mu **https://zajic-pivovar.pages.dev/diagnostika.html** (ukáže, co telefonu chybí,
   a dá zprávu ke zkopírování). Nikdy nehádej příčinu z řetězce prohlížeče; počkej na výsledek diagnostiky.
-- CI po sestavení pouští `npm run zkontroluj-css-podlaha` (čte `dist/`).
+- Když šéf hlásí „z ikony na ploše se aplikace nespustí“ (z prohlížeče jde), pošli mu **https://zajic-pivovar.pages.dev/instalace**
+  (pozná telefon; na Androidu 7+ nabídne stažení aplikace, krátký odkaz na APK je https://zajic-pivovar.pages.dev/apk)
+  a zeptej se, co se po klepnutí na ikonu stane. Příčinu u něj zatím neznáme — nehádat. Audit → Verze aplikace ukazuje, jak kdo
+  aplikaci otevírá (`src/lib/zarizeni.ts`); dosavadní zápis „Android (Capacitor)“ byl nespolehlivý, `window.Capacitor` existuje i v prohlížeči.
+- CI po sestavení pouští `npm run zkontroluj-css-podlaha` (čte `dist/`, od 25. 11. i `_redirects` s `/apk`, `instalace.html` a `sw.js`).
 
 ## Pivovarská bible (odborná knihovna + AI sládek)
 - AI je **Claude (Anthropic API), ne Gemini** — rozhodnutí majitele 30. 10. 2026

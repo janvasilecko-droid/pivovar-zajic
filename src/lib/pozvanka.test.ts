@@ -1,8 +1,8 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  htmlCitelnePozvanky, mailtoPozvanky, naCrlf, odkazAplikace, odkazCitelnePozvanky, ODKAZ_APLIKACE, PREDMET_POZVANKY, prehledAplikace,
-  sablonaEmailuSupabase, sdilejPozvanku, SOUBOR_CITELNE_POZVANKY, textPozvanky,
+  htmlCitelnePozvanky, mailtoPozvanky, naCrlf, odkazAplikace, odkazCitelnePozvanky, odkazInstalace, ODKAZ_APLIKACE, PREDMET_POZVANKY, prehledAplikace,
+  sablonaEmailuSupabase, sdilejPozvanku, SOUBOR_CITELNE_POZVANKY, textKratce, textPozvanky,
 } from './pozvanka';
 import { NAVOD_ODDILY } from '../components/NavodPouziti';
 
@@ -13,6 +13,49 @@ describe('pozvánka do aplikace', () => {
     expect(t).toContain('Google Play');
     expect(t).toContain('Přidat na plochu');
     expect(t).toContain('Info');
+  });
+
+  // 25. 11. 2026: šéfovi na starším Androidu šla aplikace z odkazu v e-mailu v prohlížeči, ale po „Přidat na plochu“
+  // se z ikony nespustila. Pozvánka u kroku s ikonou proto odkazuje na stránku Instalace, která pozná telefon
+  // a na Androidu 7+ nabídne skutečnou aplikaci (APK).
+  describe('krok „ikona na plochu“ odkazuje na stránku Instalace', () => {
+    it('odkaz je adresa aplikace + instalace (bez přípony, jak ji servíruje Cloudflare)', () => {
+      expect(odkazInstalace('https://x.cz/')).toBe('https://x.cz/instalace');
+      expect(odkazInstalace()).toMatch(/^https?:\/\/.+\/instalace$/);
+      expect(odkazInstalace()).toBe(`${odkazAplikace()}instalace`);
+    });
+
+    it('celý text, s heslem i bez, nese odkaz za popisem ikony (před krokem 4)', () => {
+      for (const t of [textPozvanky('https://x.cz/'), textPozvanky('https://x.cz/', { email: 'a@b.cz', heslo: 'docasne-test' })]) {
+        const radky = t.split('\n');
+        const i = radky.indexOf('https://x.cz/instalace');
+        expect(i).toBeGreaterThan(-1);
+        expect(radky[i - 1]).toContain('Ikona se nespustí nebo to nejde (starší telefon)?');
+        expect(radky[i - 1]).toContain('Android');
+        expect(i).toBeGreaterThan(t.split('\n').findIndex((r) => r.startsWith('━━ KROK 3')));
+        expect(i).toBeLessThan(t.split('\n').findIndex((r) => r.startsWith('━━ KROK 4')));
+      }
+    });
+
+    it('krátký e-mail ho má v kroku 3 na jednom řádku (čte se i slitý do jednoho odstavce)', () => {
+      for (const t of [textKratce('https://x.cz/'), textKratce('https://x.cz/', { email: 'a@b.cz', heslo: 'docasne-test' })]) {
+        const krok3 = t.split('\n').find((r) => r.startsWith('3. '))!;
+        expect(krok3).toContain('Nejde to nebo se ikona nespustí (starší telefon)? Postup pro tvůj telefon: https://x.cz/instalace');
+        // Původní rychlý postup pro moderní telefon zůstal.
+        expect(krok3).toContain('„Nainstalovat aplikaci“');
+        expect(krok3).toContain('„Přidat na plochu“');
+      }
+    });
+
+    it('šablona e-mailu pro Supabase (pozvánka i obnova hesla) odkazuje na stránku Instalace', () => {
+      for (const druh of ['pozvanka', 'obnova'] as const) {
+        expect(sablonaEmailuSupabase(druh, 'https://x.cz/')).toContain('<a href="https://x.cz/instalace">https://x.cz/instalace</a>');
+      }
+    });
+
+    it('čitelná stránka (public/pozvanka.html) má odkaz klepnutelný', () => {
+      expect(htmlCitelnePozvanky('https://x.cz/')).toContain('<a href="https://x.cz/instalace">https://x.cz/instalace</a>');
+    });
   });
 
   it('s přístupem nese e-mail a dočasné heslo, bez něj ne', () => {
@@ -127,6 +170,7 @@ describe('pozvánka: zalomení řádků a čitelná kopie', () => {
     expect(body).toContain('1. Otevři aplikaci v telefonu: https://x.cz/');
     expect(body).toContain('2. Nastav si heslo');
     expect(body).toContain('3. Dej si ikonu na plochu');
+    expect(body).toContain('Postup pro tvůj telefon: https://x.cz/instalace');
     expect(body).toContain('Google Play');
     expect(body).toContain('Info');
     for (const nechtene of ['KROK', 'Umí:', 'Zelená tečka', '━━']) expect(body, nechtene).not.toContain(nechtene);

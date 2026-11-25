@@ -21,6 +21,16 @@ describe('InstalaceKroky', () => {
     expect(screen.getByText(/APK potřebuje Android 7/)).toBeTruthy();
   });
 
+  it('při problému s ikonou odkazuje na stránku Instalace aplikace (pozná telefon, na Androidu 7+ nabídne APK)', () => {
+    render(<InstalaceKroky pripravenaInstalace={false} naInstalaci={() => {}} />);
+    expect(screen.getByText('Ikona se nespustí nebo to nejde?')).toBeTruthy();
+    expect(screen.getByText('Instalaci aplikace').closest('a')!.getAttribute('href')).toBe('/instalace.html');
+    expect(screen.getByText(/Na Androidu 7 a novějším je to stažení aplikace/)).toBeTruthy();
+    // Karta s problémem je první — člověk, kterému ikona nejde, ji nemá hledat pod postupy, které nezabraly.
+    const karty = [...document.querySelectorAll('.font-black.text-neutral-900')].map((e) => e.textContent);
+    expect(karty[0]).toBe('Ikona se nespustí nebo to nejde?');
+  });
+
   it('tlačítko instalace je jen když ji prohlížeč nabízí a zavolá instalaci', () => {
     const naInstalaci = vi.fn();
     render(<InstalaceKroky pripravenaInstalace naInstalaci={naInstalaci} />);

@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#f5f5f4">
+<title>Instalace aplikace — Pivovar Zajíc</title>
+<!--
+  Instalace aplikace: pozná telefon nebo počítač a ukáže JEDEN postup, který na něm funguje.
+
+  Vznik (25. 11. 2026): šéfovi na starším Androidu šla aplikace z odkazu v e-mailu v prohlížeči, ale po „Přidat
+  na plochu“ se z ikony nespustila. Ikona z prohlížeče je na starých telefonech křehká (Chrome ji staví jako
+  zvláštní balíček od Googlu, některé plochy ji odmítnou nebo ji otevřou v jiném prohlížeči). Skutečná
+  aplikace (APK) s vlastní ikonou na tom nezávisí, proto je na Androidu 7 a novějším první volbou. Pozvánka,
+  Nastavení i návod proto vedou sem.
+
+  Jeden soubor bez knihoven ve starém JavaScriptu (ES5), jako public/diagnostika.html — musí jít otevřít i na
+  telefonu, kde appka sama ne. Bez JavaScriptu zůstanou vidět všechny postupy za sebou, APK první.
+
+  Krátký odkaz /apk (přesměrování na nejnovější APK v GitHub Releases) je v public/_redirects.
+  Hlídá to src/lib/instalace.test.ts.
+-->
+<style>
+body{margin:0;background:#f5f5f4;color:#222;font:17px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+main{max-width:42rem;margin:0 auto;padding:16px 16px 40px}
+h1{font-size:22px;color:#7a3b0c;margin:8px 0 8px}
+h2{font-size:19px;color:#7a3b0c;margin:0 0 8px}
+p{margin:0 0 10px}
+a{color:#a64714}
+ol{margin:8px 0 12px;padding-left:22px}
+li{margin-bottom:8px}
+section.cesta{background:#fff;border:1px solid #d6d3d1;border-radius:10px;padding:14px 16px;margin:14px 0}
+section.cesta.hlavni{border:2px solid #d97706;background:#fffbeb}
+section.cesta.hotovo{border:2px solid #16a34a;background:#f0fdf4}
+[hidden]{display:none!important}
+.upozorneni{background:#fef2f2;border:2px solid #dc2626;border-radius:10px;padding:12px 14px;margin:12px 0;color:#7f1d1d}
+details{margin:18px 0}
+summary{cursor:pointer;font-weight:700;color:#7a3b0c;padding:6px 0}
+.tl{display:inline-block;font:inherit;font-weight:700;padding:12px 16px;margin:8px 8px 0 0;border-radius:8px;border:2px solid #7a3b0c;background:#fff;color:#7a3b0c;cursor:pointer;text-decoration:none}
+.tl.hlavni{background:#f59e0b;border-color:#92400e;color:#1c1917}
+.tl.velke{display:block;text-align:center;font-size:19px;padding:16px}
+.drobne{font-size:14px;color:#57534e}
+</style>
+</head>
+<body>
+<main>
+<h1>Instalace aplikace Pivovar Zajíc</h1>
+<p>Tahle stránka pozná tvůj telefon nebo počítač a ukáže postup, který na něm funguje. Aplikace je zdarma a nestahuje se z Google Play ani z App Store.</p>
+<p class="drobne" id="poznano" role="status"></p>
+<p class="upozorneni" id="stary" role="alert" hidden><strong>Prohlížeč v telefonu je příliš starý</strong> (Chrome <span id="stary-v"></span>). Aplikace v něm nepoběží, ať ji nainstaluješ jakkoli. Nejdřív v Obchodě Play aktualizuj <strong>Android System WebView</strong> a <strong>Chrome</strong>, pak se sem vrať. Nejde to? Otevři <a href="/diagnostika.html">Diagnostiku telefonu</a>.</p>
+
+<div id="cesty">
+
+<section class="cesta" id="c-hotovo" hidden>
+<h2>Aplikace je nainstalovaná</h2>
+<p id="hotovo-text">Otevíráš ji z ikony na ploše. Nic dalšího dělat nemusíš.</p>
+</section>
+
+<section class="cesta" id="c-apk">
+<h2>Nainstaluj aplikaci (Android 7 a novější)</h2>
+<p>Má vlastní ikonu na ploše a otevře se na celou obrazovku. Nezávisí na tom, jak starý je tvůj prohlížeč, ani na „Přidat na plochu“, které se na starších telefonech často nepovede.</p>
+<p><a class="tl hlavni velke" id="stahnout" href="/apk">Stáhnout aplikaci (asi 8 MB)</a></p>
+<ol>
+<li>Klepni na <strong>Stáhnout aplikaci</strong>. Telefon se může zeptat, jestli soubor opravdu chceš stáhnout — potvrď.</li>
+<li>Až se stáhne, klepni na oznámení o dokončeném stažení (nebo otevři soubor <strong>pivovar-zajic.apk</strong> ve složce Stažené soubory).</li>
+<li>Telefon řekne, že instalace z tohoto zdroje není povolená. Klepni na <strong>Nastavení</strong>, zapni <strong>Povolit z tohoto zdroje</strong> a vrať se šipkou zpět. <span class="drobne">(Android 7: Nastavení → Zabezpečení → zapni „Neznámé zdroje“.)</span></li>
+<li>Klepni na <strong>Instalovat</strong>. Objeví-li se varování Play Protect, že aplikace není ověřená, klepni na <strong>Více podrobností → Přesto instalovat</strong>.</li>
+<li>Klepni na <strong>Otevřít</strong>. Příště aplikaci otevřeš z ikony „Pivovar Zajíc“ na ploše.</li>
+</ol>
+<p class="drobne"><strong>Nejde nainstalovat nebo aktualizovat?</strong> V telefonu je starší verze aplikace s jiným podpisem: podrž její ikonu, zvol Odinstalovat a postup zopakuj. Data v aplikaci zůstanou, jsou na serveru. Co čekalo na odeslání bez signálu, by se odinstalací ztratilo — nejdřív aplikaci otevři se signálem a nech ji vše odeslat.</p>
+</section>
+
+<section class="cesta" id="c-chrome">
+<h2>Ikona z prohlížeče Chrome</h2>
+<p id="android-stary" hidden><strong>Tvůj Android je starší než 7.</strong> Aplikaci ke stažení (APK) na něm nejde nainstalovat, proto tu není. Použij ikonu nebo záložku z Chromu.</p>
+<p>Bez stahování souboru. Na starších telefonech se ikona někdy nespustí — v tom případě použij záložku (níž).</p>
+<ol>
+<li>Otevři adresu <strong>https://zajic-pivovar.pages.dev/</strong> v prohlížeči <strong>Chrome</strong> (ne přes odkaz uvnitř e-mailu nebo jiné aplikace).</li>
+<li>Vpravo nahoře klepni na <strong>⋮</strong> (tři tečky).</li>
+<li>Klepni na <strong>Nainstalovat aplikaci</strong> (nebo <strong>Přidat na plochu</strong>) a potvrď.</li>
+<li>Ikona „Zajíc“ se objeví na ploše. Otevírej aplikaci z ní.</li>
+</ol>
+<p><strong>Ikona se nespustí?</strong> Neinstaluj ji, ulož si aplikaci jako záložku: v Chromu otevři <strong>https://zajic-pivovar.pages.dev/</strong>, klepni na <strong>⋮</strong> a na hvězdičku <strong>☆</strong> (Přidat do záložek). Příště ji najdeš v nabídce ⋮ → Záložky. Aplikace v prohlížeči jede stejně, jen s adresním řádkem nahoře.</p>
+<p class="drobne">Chybí nabídka „Nainstalovat aplikaci“? Aktualizuj v Obchodě Play „Chrome“ a „Android System WebView“ (odkazy najdeš v <a href="/diagnostika.html">Diagnostice telefonu</a>).</p>
+</section>
+
+<section class="cesta" id="c-vlozeny">
+<h2>Otevři tuhle stránku přímo v prohlížeči</h2>
+<p>Odkaz sis otevřel(a) uvnitř jiné aplikace (e-mail, Messenger, WhatsApp…). Tam se ikona na plochu přidat nedá, stahování souboru často ne a přihlášení se neuloží.</p>
+<ol>
+<li>Klepni na <strong>Zkopírovat odkaz</strong> níže.</li>
+<li>Otevři <strong>Chrome</strong> (na iPhonu <strong>Safari</strong>).</li>
+<li>Vlož odkaz do adresního řádku a otevři ho. Stránka ti pak ukáže postup pro tvůj telefon.</li>
+</ol>
+<p class="drobne">Nebo v nabídce ⋮ (případně ⋯ nebo „Sdílet“) zvol „Otevřít v prohlížeči“.</p>
+</section>
+
+<section class="cesta" id="c-ios">
+<h2>iPhone nebo iPad (Safari)</h2>
+<ol>
+<li>Otevři <strong>https://zajic-pivovar.pages.dev/</strong> v prohlížeči <strong>Safari</strong>.</li>
+<li>Dole klepni na <strong>Sdílet</strong> (čtvereček se šipkou nahoru).</li>
+<li>Sjeď níž, klepni na <strong>Přidat na plochu</strong> a vpravo nahoře na <strong>Přidat</strong>.</li>
+</ol>
+<p class="drobne">Aplikace ke stažení pro iPhone není; ikona ze Safari je jediná cesta a funguje stejně.</p>
+</section>
+
+<section class="cesta" id="c-pocitac">
+<h2>Počítač (Windows, Mac, Linux)</h2>
+<ol>
+<li>Otevři <strong>https://zajic-pivovar.pages.dev/</strong> v prohlížeči <strong>Chrome</strong> nebo <strong>Edge</strong>.</li>
+<li>Vpravo v adresním řádku klepni na ikonku <strong>Nainstalovat</strong> (monitor se šipkou). Nevidíš ji? V nabídce ⋮ zvol <strong>Uložit a sdílet → Nainstalovat stránku jako aplikaci</strong> (Edge: ⋯ → Aplikace → Nainstalovat tento web jako aplikaci).</li>
+<li>Potvrď. Ikona se objeví na ploše a v nabídce Start.</li>
+</ol>
+<p class="drobne">Instalovat nemusíš — aplikace jede stejně v obyčejné záložce prohlížeče. <strong>Windows 7 a 8:</strong> poslední Chrome pro ně je verze 109 a aplikace na něm jede (stačí verze 66).</p>
+</section>
+
+</div>
+
+<details id="jine" hidden>
+<summary>Postup pro jiný telefon nebo počítač</summary>
+<div id="jine-obsah"></div>
+</details>
+
+<div>
+<button type="button" class="tl" id="kopirovat">Zkopírovat odkaz na tuhle stránku</button>
+<a class="tl" href="/">Otevřít aplikaci</a>
+</div>
+<p class="drobne" id="stav-kopie" role="status"></p>
+
+<p><strong>Nejde to?</strong> Otevři <a href="/diagnostika.html">Diagnostiku telefonu</a> — ukáže, co přesně telefonu chybí — a pošli výsledek správci aplikace.</p>
+</main>
+<script>
+(function () {
+  'use strict';
+  // Adresa aplikace (veřejná). Hlídá test src/lib/instalace.test.ts.
+  var APP = 'https://zajic-pivovar.pages.dev';
+  // Nejstarší Chrome / WebView, na kterém aplikace běží (src/lib/podlahaProhlizece.ts; hlídá test).
+  var PODLAHA_CHROME = 66;
+  var ua = navigator.userAgent || '';
+
+  function $(id) { return document.getElementById(id); }
+  function hodnota(re, i) { var m = re.exec(ua); return m ? m[i === undefined ? 1 : i] : null; }
+
+  // ---- zjišťování ------------------------------------------------------------------------------------
+  /** Co víme o telefonu hned (synchronně). */
+  function zjisti() {
+    var android = hodnota(/Android (\d+(?:\.\d+)*)/);
+    var chrome = hodnota(/Chrom(?:e|ium)\/(\d+)/);
+    chrome = chrome === null ? null : parseInt(chrome, 10);
+    var jeIos = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+    var jeAndroid = android !== null;
+    // Vložený prohlížeč: WebView (značka „; wv)“) a známé aplikace s vlastním prohlížečem. Na iPhonu v nich chybí „Safari/“.
+    var vlozeny = /; wv\)/.test(ua) || /FBAN|FBAV|FB_IAB|Instagram|Messenger|Line\/|MicroMessenger|Snapchat|Twitter|LinkedInApp|GSA\//.test(ua) ||
+      (jeIos && !/Safari\//.test(ua));
+    var cap = window.Capacitor, apk = false;
+    try {
+      apk = !!(cap && ((typeof cap.isNativePlatform === 'function' && cap.isNativePlatform()) ||
+        (typeof cap.getPlatform === 'function' && cap.getPlatform() === 'android')));
+    } catch (e) { apk = false; }
+    var naploche = false;
+    try {
+      naploche = !!((window.matchMedia && (window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: minimal-ui)').matches)) || navigator.standalone);
+    } catch (e2) {}
+    return {
+      android: android,
+      // Chrome od verze 110 píše vždy „Android 10; K“ (zamlžená verze) — skutečnou doplní userAgentData.
+      androidSkryty: !!(chrome !== null && chrome >= 110 && /Android 10; K/.test(ua)),
+      androidReal: null,
+      chrome: chrome,
+      jeAndroid: jeAndroid,
+      jeIos: jeIos,
+      jeDesktop: !jeAndroid && !jeIos && /Windows|Macintosh|X11|Linux|CrOS/.test(ua),
+      jeWindows: /Windows/.test(ua),
+      vlozeny: vlozeny,
+      apk: apk,
+      naploche: naploche
+    };
+  }
+
+  /** Verze Androidu číslem (např. 8.1), nebo null, když ji telefon neříká. */
+  function androidVerze(i) {
+    var v = i.androidReal !== null && i.androidReal !== undefined ? i.androidReal : (i.androidSkryty ? null : i.android);
+    var n = v === null || v === undefined ? NaN : parseFloat(v);
+    return isNaN(n) ? null : n;
+  }
+
+  // ---- výběr postupu ---------------------------------------------------------------------------------
+  /**
+   * Jaký postup je pro telefon ten první: 'hotovo' | 'apk' | 'chrome' | 'vlozeny' | 'ios' | 'pocitac' | 'vse'.
+   * Čistá funkce (nesahá na stránku), proto jde testovat.
+   *  • už nainstalováno → hotovo;
+   *  • vložený prohlížeč (e-mail, Messenger…) → nejdřív otevřít v prohlížeči;
+   *  • Android 7 a novější (i když verzi telefon neříká) → APK, ikona z Chromu je druhá;
+   *  • Android starší než 7 → APK se nenainstaluje, zbývá ikona z Chromu.
+   */
+  function zvolCestu(i) {
+    if (i.apk) return { hlavni: 'hotovo', jak: 'apk' };
+    if (i.naploche) return { hlavni: 'hotovo', jak: 'ikona' };
+    if (i.vlozeny && (i.jeAndroid || i.jeIos)) return { hlavni: 'vlozeny' };
+    if (i.jeIos) return { hlavni: 'ios' };
+    if (i.jeAndroid) {
+      var v = androidVerze(i);
+      return v !== null && v < 7 ? { hlavni: 'chrome' } : { hlavni: 'apk' };
+    }
+    if (i.jeDesktop) return { hlavni: 'pocitac' };
+    return { hlavni: 'vse' };
+  }
+
+  /** Jedna věta, co jsme poznali (pro člověka, který chce vidět, že se stránka nemýlí). */
+  function popisTelefonu(i) {
+    var cast = [];
+    if (i.jeAndroid) {
+      var v = androidVerze(i);
+      cast.push(v !== null ? 'Android ' + (i.androidReal || i.android) : 'Android (verzi telefon neříká)');
+    } else if (i.jeIos) cast.push('iPhone nebo iPad');
+    else if (i.jeWindows) cast.push('Windows');
+    else if (i.jeDesktop) cast.push('počítač');
+    if (i.chrome !== null) cast.push('Chrome ' + i.chrome);
+    if (i.apk) cast.push('spuštěno jako aplikace (APK)');
+    else if (i.naploche) cast.push('spuštěno z ikony na ploše');
+    else if (i.vlozeny) cast.push('otevřeno uvnitř jiné aplikace');
+    return cast.length ? 'Poznal jsem: ' + cast.join(' · ') + '.' : 'Telefon jsem nepoznal, proto ukazuju všechny postupy.';
+  }
+
+  // ---- vykreslení ------------------------------------------------------------------------------------
+  var SEKCE = ['hotovo', 'apk', 'chrome', 'vlozeny', 'ios', 'pocitac'];
+
+  function vykresli(i) {
+    var volba = zvolCestu(i);
+    var hlavni = volba.hlavni;
+    document.documentElement.setAttribute('data-cesta', hlavni);
+    $('poznano').textContent = popisTelefonu(i);
+    // Pod podlahou aplikace nepoběží ani po instalaci — to je potřeba říct dřív než jakýkoli postup.
+    var prilisStary = i.chrome !== null && i.chrome < PODLAHA_CHROME;
+    $('stary').hidden = !prilisStary;
+    $('stary-v').textContent = prilisStary ? String(i.chrome) : '';
+    // Android pod 7: APK se nenainstaluje (minSdkVersion 24), takže ho nenabízíme ani mezi ostatními postupy.
+    var verze = androidVerze(i);
+    var android6 = i.jeAndroid && verze !== null && verze < 7;
+    $('android-stary').hidden = !android6;
+
+    var cesty = $('cesty'), jine = $('jine'), obsahJine = $('jine-obsah');
+    // Vše zpátky do základního pořadí (volá se i podruhé, až dorazí skutečná verze Androidu).
+    for (var k = 0; k < SEKCE.length; k++) {
+      var s = $('c-' + SEKCE[k]);
+      s.className = 'cesta';
+      s.hidden = SEKCE[k] === 'hotovo'; // „aplikace je nainstalovaná“ se ukáže jen, když to platí
+      cesty.appendChild(s);
+    }
+
+    if (hlavni === 'vse') {
+      jine.hidden = true;
+      return;
+    }
+    var hlavniSekce = $('c-' + hlavni);
+    if (hlavni === 'hotovo') {
+      hlavniSekce.hidden = false;
+      $('hotovo-text').textContent = volba.jak === 'apk'
+        ? 'Otevíráš ji jako aplikaci (APK) z ikony „Pivovar Zajíc“. Nic dalšího dělat nemusíš.'
+        : 'Otevíráš ji z ikony na ploše. Nic dalšího dělat nemusíš.';
+    }
+    hlavniSekce.className = 'cesta ' + (hlavni === 'hotovo' ? 'hotovo' : 'hlavni');
+    cesty.insertBefore(hlavniSekce, cesty.firstChild);
+
+    // Ostatní postupy schovat do rozbalovacího seznamu — hlavní zůstane jediné, co člověk vidí.
+    while (obsahJine.firstChild) obsahJine.removeChild(obsahJine.firstChild);
+    for (var j = 0; j < SEKCE.length; j++) {
+      if (SEKCE[j] === hlavni || SEKCE[j] === 'hotovo') continue;
+      // iPhonu a počítači APK nic neříká a na Androidu pod 7 nejde nainstalovat — karta se SCHOVÁ (ne jen nepřidá
+      // do seznamu jiných: zůstala by jinak viditelná v hlavním seznamu pod hlavním postupem).
+      if (SEKCE[j] === 'apk' && (i.jeIos || i.jeDesktop || android6)) { $('c-apk').hidden = true; continue; }
+      obsahJine.appendChild($('c-' + SEKCE[j]));
+    }
+    jine.hidden = false;
+  }
+
+  // ---- kopírování odkazu -----------------------------------------------------------------------------
+  function zkopiruj() {
+    var text = APP + '/instalace';
+    var hlaska = $('stav-kopie');
+    function hotovo() { hlaska.textContent = 'Odkaz je zkopírovaný — vlož ho do adresního řádku prohlížeče (dlouhé podržení → Vložit).'; }
+    function rucne() { hlaska.textContent = 'Zkopírování se nepovedlo. Opiš do prohlížeče: ' + text; }
+    function nouze() {
+      var t = document.createElement('textarea');
+      t.value = text;
+      t.setAttribute('readonly', '');
+      t.style.position = 'fixed';
+      t.style.top = '0';
+      t.style.left = '0';
+      document.body.appendChild(t);
+      try {
+        t.select();
+        t.setSelectionRange(0, text.length);
+        if (document.execCommand && document.execCommand('copy')) hotovo(); else rucne();
+      } catch (e) { rucne(); }
+      document.body.removeChild(t);
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(hotovo, nouze);
+      else nouze();
+    } catch (e2) { nouze(); }
+  }
+
+  function start() {
+    var info = zjisti();
+    vykresli(info);
+    $('kopirovat').onclick = zkopiruj;
+    // Prohlížeče od Chromu 110 skrývají verzi Androidu — na požádání ji ale prozradí a postup se případně změní.
+    try {
+      var d = navigator.userAgentData;
+      if (d && typeof d.getHighEntropyValues === 'function' && info.androidSkryty) {
+        d.getHighEntropyValues(['platformVersion']).then(function (h) {
+          if (h && h.platformVersion) { info.androidReal = String(h.platformVersion); vykresli(info); }
+          document.documentElement.setAttribute('data-hotovo', '1');
+        }, function () { document.documentElement.setAttribute('data-hotovo', '1'); });
+        return;
+      }
+    } catch (e) {}
+    document.documentElement.setAttribute('data-hotovo', '1');
+  }
+
+  // Pro testy (src/lib/instalace.test.ts).
+  window.__instalace = { zvolCestu: zvolCestu, zjisti: zjisti, popisTelefonu: popisTelefonu, androidVerze: androidVerze };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+</script>
+</body>
+</html>

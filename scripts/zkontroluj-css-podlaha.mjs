@@ -14,7 +14,13 @@
  *  • CSS neobsahuje `inset:` (Chrome 87+) — `fixed inset-0` okna a podklady by ztratily rozměr;
  *  • každé `dvh`/`svh`/`lvh` (Chrome 108+) má v témže pravidle před sebou stejnou vlastnost s obyčejným `vh`;
  *  • index.html obsahuje záplaty a záchrannou obrazovku jako klasické skripty a nomodule skript;
- *  • public/diagnostika.html se dostala do dist.
+ *  • public/diagnostika.html a public/instalace.html se dostaly do dist;
+ *  • dist/_redirects má krátký odkaz /apk (302 na APK v nejnovějším vydání) PŘED obecným „všechno na index.html“;
+ *  • dist/sw.js má stránku „Bez připojení“ místo holého „Offline“ (spuštění z ikony bez signálu a bez kopie).
+ *
+ * Proč i tohle: pozvánka, Nastavení i návod posílají lidi na /instalace a /apk (25. 11. 2026, šéfovi se z ikony na
+ * starším Androidu aplikace nespustila). Kdyby soubor nebo pravidlo z dist vypadlo, adresa by tiše ukázala přihlašovací
+ * obrazovku aplikace (obecné pravidlo `/*` → index.html) a nikdo by si nevšiml, dokud by to nezkusil člověk.
  *
  * Použití:  node scripts/zkontroluj-css-podlaha.mjs   (po `npm run build`)
  */
@@ -90,6 +96,60 @@ export function zkontrolujIndexHtml(html) {
   return problemy;
 }
 
+/**
+ * Zkontroluje _redirects: /apk musí dočasně (302) přesměrovat na pivovar-zajic.apk v nejnovějším vydání na GitHubu
+ * a stát PŘED obecným pravidlem `/*` — platí první shoda, jinak by /apk ukázal přihlašovací obrazovku.
+ * @param {string} txt
+ * @returns {string[]}
+ */
+export function zkontrolujRedirects(txt) {
+  const pravidla = txt.split(/\r?\n/).map((r) => r.trim()).filter((r) => r && !r.startsWith('#'))
+    .map((r) => r.split(/\s+/)).filter((t) => t.length >= 2 && t.length <= 3 && t[0].startsWith('/'));
+  const apk = pravidla.findIndex((t) => t[0] === '/apk');
+  if (apk < 0) {
+    return ['_redirects nemá pravidlo pro /apk — krátký odkaz na stažení aplikace (pozvánka, stránka Instalace) by ukázal přihlašovací obrazovku.'];
+  }
+  const problemy = [];
+  const [, cil, stav] = pravidla[apk];
+  if (!/^https:\/\/github\.com\/[^/]+\/[^/]+\/releases\/latest\/download\/pivovar-zajic\.apk$/.test(cil)) {
+    problemy.push(`/apk míří na „${cil}“ — má na https://github.com/<vlastník>/<repozitář>/releases/latest/download/pivovar-zajic.apk (soubor, který vystavuje deploy.yml).`);
+  }
+  if (stav !== '302') {
+    problemy.push(`/apk má stav ${stav || '(žádný = 301)'} — má být 302 (dočasné), jinak si odkaz prohlížeče a telefony zapamatují natrvalo.`);
+  }
+  const zaloha = pravidla.findIndex((t) => t[0] === '/*');
+  if (zaloha >= 0 && zaloha < apk) problemy.push('/apk stojí až za pravidlem `/*` — platí první shoda, takže se nikdy nepoužije.');
+  return problemy;
+}
+
+/**
+ * Zkontroluje sw.js: bez připojení a bez uložené kopie se místo holého „Offline“ vrací stránka (odpovedOffline).
+ * @param {string} js
+ * @returns {string[]}
+ */
+export function zkontrolujSw(js) {
+  const problemy = [];
+  if (!js.includes('const STRANKA_OFFLINE = `')) {
+    problemy.push('sw.js nemá stránku „Bez připojení“ (STRANKA_OFFLINE) — spuštění z ikony bez signálu a bez uložené kopie by ukázalo holé „Offline“.');
+  }
+  if (!/matchInInstalledCache\('\.\/index\.html'\)[\s\S]{0,400}return fallback \|\| odpovedOffline\(\);/.test(js)) {
+    problemy.push('Navigace v sw.js po neúspěchu sítě i uložené kopie nevrací odpovedOffline() — místo stránky by se ukázalo holé „Offline“.');
+  }
+  return problemy;
+}
+
+/**
+ * Zkontroluje stránku Instalace v dist: odkaz ke stažení míří na /apk a skript je na místě.
+ * @param {string} html
+ * @returns {string[]}
+ */
+export function zkontrolujInstalaci(html) {
+  const problemy = [];
+  if (!/<a [^>]*id="stahnout"[^>]*href="\/apk"/.test(html)) problemy.push('instalace.html nemá odkaz ke stažení aplikace na /apk (id="stahnout").');
+  if (!html.includes('window.__instalace')) problemy.push('instalace.html nemá skript, který pozná telefon — ukázala by všechny postupy najednou.');
+  return problemy;
+}
+
 function hlavni() {
   const koren = join(dirname(fileURLToPath(import.meta.url)), '..');
   const dist = join(koren, 'dist');
@@ -105,6 +165,22 @@ function hlavni() {
   }
   for (const p of zkontrolujIndexHtml(readFileSync(join(dist, 'index.html'), 'utf8'))) problemy.push(p);
   if (!existsSync(join(dist, 'diagnostika.html'))) problemy.push('Do dist se nedostala diagnostika.html (public/diagnostika.html) — APK i záchranná obrazovka na ni odkazují.');
+
+  if (!existsSync(join(dist, 'instalace.html'))) {
+    problemy.push('Do dist se nedostala instalace.html (public/instalace.html) — pozvánka, Nastavení i návod na ni odkazují.');
+  } else {
+    for (const p of zkontrolujInstalaci(readFileSync(join(dist, 'instalace.html'), 'utf8'))) problemy.push(p);
+  }
+  if (!existsSync(join(dist, '_redirects'))) {
+    problemy.push('Do dist se nedostal _redirects (public/_redirects) — nefunguje /apk ani přesměrování ostatních adres na aplikaci.');
+  } else {
+    for (const p of zkontrolujRedirects(readFileSync(join(dist, '_redirects'), 'utf8'))) problemy.push(p);
+  }
+  if (!existsSync(join(dist, 'sw.js'))) {
+    problemy.push('Do dist se nedostal sw.js.');
+  } else {
+    for (const p of zkontrolujSw(readFileSync(join(dist, 'sw.js'), 'utf8'))) problemy.push(p);
+  }
 
   if (problemy.length > 0) {
     console.error('✗ Sestavení není v pořádku pro starší Android:\n');

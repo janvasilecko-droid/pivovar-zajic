@@ -80,6 +80,8 @@ export function textPozvanky(odkaz: string = odkazAplikace(), pristup?: Pristup,
     '   2. Sjeď níž a klepni na ➕ „Přidat na plochu“, vpravo nahoře potvrď „Přidat“.',
     'POČÍTAČ (Chrome / Edge): vpravo v adresním řádku klepni na ikonku „Nainstalovat“ (monitor se šipkou).',
     'Na ploše se objeví ikona se zajícem — od teď aplikaci otevíráš z ní, na celou obrazovku.',
+    'Ikona se nespustí nebo to nejde (starší telefon)? Otevři stránku Instalace — pozná tvůj telefon a ukáže postup, který na něm funguje (na Androidu 7 a novějším i stažení aplikace s vlastní ikonou):',
+    odkazInstalace(odkaz),
     '',
     '━━ KROK 4 — JAK SE APLIKACE POUŽÍVÁ ━━',
     '• Po přihlášení vidíš PLOCHU s barevnými dlaždicemi. Klepnutím na dlaždici ji otevřeš.',
@@ -117,6 +119,15 @@ export function odkazCitelnePozvanky(odkaz: string = odkazAplikace()): string {
 }
 
 /**
+ * Stránka Instalace (public/instalace.html, adresa bez přípony): pozná telefon a ukáže jediný postup, který na něm
+ * funguje. Pozvánka na ni odkazuje u kroku „ikona na plochu“ — šéfovi na starším Androidu se ikona z prohlížeče
+ * nespustila (25. 11. 2026) a stránka mu nabídne skutečnou aplikaci (APK), která na prohlížeči nezávisí.
+ */
+export function odkazInstalace(odkaz: string = odkazAplikace()): string {
+  return `${odkaz}instalace`;
+}
+
+/**
  * Odkaz `mailto:` s předvyplněným předmětem a KRÁTKÝM textem (textKratce). Celý postup krok za krokem
  * je na čitelné stránce, na kterou krátký text odkazuje, a jde ho poslat sdílením nebo zkopírovat.
  * Dlouhý text v `mailto:` totiž v Email.cz dorazil jako jeden odstavec a krátký zůstane čitelný,
@@ -143,7 +154,7 @@ export function textKratce(odkaz: string = odkazAplikace(), pristup?: Pristup): 
     ...(pristup ? [] : [`Celý postup krok za krokem, čitelně: ${odkazCitelnePozvanky(odkaz)}`, '']),
     `1. Otevři aplikaci v telefonu: ${odkaz}`,
     krok2,
-    '3. Dej si ikonu na plochu. Nestahuje se z Google Play ani z App Store, stačí prohlížeč: Android (Chrome) — ⋮ vpravo nahoře → „Nainstalovat aplikaci“; iPhone (Safari) — Sdílet → „Přidat na plochu“.',
+    `3. Dej si ikonu na plochu. Nestahuje se z Google Play ani z App Store, stačí prohlížeč: Android (Chrome) — ⋮ vpravo nahoře → „Nainstalovat aplikaci“; iPhone (Safari) — Sdílet → „Přidat na plochu“. Nejde to nebo se ikona nespustí (starší telefon)? Postup pro tvůj telefon: ${odkazInstalace(odkaz)}`,
     '',
     'Návod a přehled všeho, co v aplikaci je, najdeš po přihlášení v dlaždici „Info“ (oddíl „Začínáme“). Když se něco nedaří, napiš správci.',
   ].join('\n');
@@ -189,6 +200,7 @@ export function sablonaEmailuSupabase(druh: DruhSablony, odkaz: string = odkazAp
 <li><strong>iPhone (Safari):</strong> Sdílet (čtvereček se šipkou) → „Přidat na plochu“.</li>
 <li><strong>Počítač (Chrome / Edge):</strong> ikonka instalace v adresním řádku vpravo.</li>
 </ul>
+<p>Nejde to, nebo se ikona nespustí (starší telefon)? Otevři <a href="${odkazInstalace(odkaz)}">${odkazInstalace(odkaz)}</a> — pozná tvůj telefon a ukáže postup, který na něm funguje; na Androidu 7 a novějším i stažení aplikace s vlastní ikonou.</p>
 <h3>Jak se to používá</h3>
 <p>V aplikaci klepni na dlaždici <strong>Info</strong> (nebo „?“ vedle lupy). Oddíl „Začínáme“ je napsaný od nuly: co která ikona znamená, kde se co zapisuje, jak fungují odpočty a odečty ze skladu. Příště se přihlásíš e-mailem a svým heslem; zapomeneš-li ho, na přihlašovací obrazovce klepni na „Zapomněl(a) jsem heslo“.</p>
 <h3>Co v aplikaci všechno je</h3>
