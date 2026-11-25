@@ -81,6 +81,18 @@ Artefakt `pivovar-zajic-apk` u každého běhu v Actions zůstává taky, ale je
 zip, chce přihlášení a po 90 dnech ho GitHub smaže. Na instalaci do telefonu
 slouží odkaz výš.
 
+### Starší telefon
+
+APK potřebuje **Android 7 a novější** (`minSdkVersion = 24`) a v telefonu
+aktuální „Android System WebView“ a Chrome — aplikace jede od verze **66**,
+vzhledem stejně jako na novém od **90**. Když nejde, otevři v telefonu
+<https://zajic-pivovar.pages.dev/diagnostika.html>: řekne česky, co telefonu
+chybí (starý WebView, špatné datum, nejde spojení), a nabídne zprávu pro správce
+ke zkopírování. Stejnou stránku ukáže APK místo bílé obrazovky, když je WebView
+příliš starý. Na Androidu 6 a starším se APK nenainstaluje; tam stačí otevřít
+web v Chrome a zvolit „Přidat na plochu“. Co se změřilo a opravilo:
+[docs/starsi-telefony.md](docs/starsi-telefony.md).
+
 ## Kontroly před commitem
 
 `zkontroluj-tridy` a `zkontroluj-kontrast` jsou v CI **podmínkou nasazení** —
@@ -95,6 +107,11 @@ git config core.hooksPath .githooks   # jednou na každém klonu
 ```
 
 Když potřebuješ commitnout rozpracované, `git commit --no-verify`.
+
+Po sestavení běží v CI ještě `zkontroluj-velikost` (strop na to, co se stahuje při
+startu) a `zkontroluj-css-podlaha` (hotové CSS a `index.html` musí rozebrat i
+starší Android: bez `:is(.dark *)` a `inset:`, `dvh` se zálohou, záplaty jako
+klasické skripty). Obě čtou `dist/`, takže se pouští po `npm run build`.
 
 Hook pouští i `zkontroluj-workflow`. Ten hlídá chybu, která je ještě tišší než
 spadlý test: GitHub kontroluje výrazy `${{ }}` už při čtení workflow souboru, a

@@ -138,7 +138,7 @@ export function BeerTilePanel({ beer, onClose, children, headerRight, footer, on
   return (
     <div className="fixed inset-0 z-50 bg-black/60 p-2 sm:p-4 flex items-center justify-center overflow-hidden" onClick={onClose}>
       <div className="w-full max-w-xl m-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="rounded overflow-hidden shadow-2xl flex flex-col max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] bg-white dark:bg-neutral-800">
+        <div className="rounded overflow-hidden shadow-2xl flex flex-col max-h-ekran sm:max-h-[90vh] bg-white dark:bg-neutral-800">
           <div className="px-3 py-2.5 flex items-center justify-between gap-2 shrink-0" style={{ backgroundColor: beerBg(beer) }}>
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <span className={`font-black text-base leading-tight truncate drop-shadow ${beerText(beer)}`}>{beerName(beer)}</span>

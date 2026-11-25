@@ -56,6 +56,17 @@
 - Přístup Claude do databáze: proměnné prostředí `VITE_SUPABASE_URL`
   a `SUPABASE_SERVICE_ROLE_KEY` v nastavení prostředí (projeví se v nové relaci).
 
+## Starší telefony (podlaha prohlížeče)
+- Majitel 25. 11. 2026: šéfovi nejde aplikace na starším Androidu — „zkus to udělat dostupnější“. Podlaha je
+  **Chrome / WebView 66**, doporučeno 90 (`src/lib/podlahaProhlizece.ts`); APK potřebuje Android 7. Změřené příčiny
+  a co se opravilo: `docs/starsi-telefony.md`.
+- **Nová funkce prohlížeče v kódu** (např. `.at()`, `replaceAll`, `structuredClone`, `findLast`, `dvh`) přes podlahu
+  nesmí bez záplaty; hlídá to `src/lib/starsiProhlizece.test.ts`. Záplaty žijí v `index.html` (klasický skript ES5, ne
+  modul — knihovny se vyhodnotí dřív).
+- Když šéf hlásí „nejde mi to“, pošli mu **https://zajic-pivovar.pages.dev/diagnostika.html** (ukáže, co telefonu chybí,
+  a dá zprávu ke zkopírování). Nikdy nehádej příčinu z řetězce prohlížeče; počkej na výsledek diagnostiky.
+- CI po sestavení pouští `npm run zkontroluj-css-podlaha` (čte `dist/`).
+
 ## Pivovarská bible (odborná knihovna + AI sládek)
 - AI je **Claude (Anthropic API), ne Gemini** — rozhodnutí majitele 30. 10. 2026
   („chci aby to bylo napojené na Claude", „ne gemini"). Klíč ANTHROPIC_API_KEY

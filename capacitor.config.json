@@ -4,6 +4,10 @@
   "webDir": "dist",
   "server": {
     "androidScheme": "https",
-    "url": "https://zajic-pivovar.pages.dev"
+    "url": "https://zajic-pivovar.pages.dev",
+    "errorPath": "diagnostika.html"
+  },
+  "android": {
+    "minWebViewVersion": 66
   }
 }

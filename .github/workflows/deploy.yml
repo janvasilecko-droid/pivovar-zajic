@@ -170,6 +170,12 @@ jobs:
       - name: Kontrola velikosti startu
         run: npm run zkontroluj-velikost
 
+      # Hotové CSS a index.html musí rozebrat i starší Android (WebView pod Chrome 90): bez `:is(.dark *)`,
+      # bez `inset:`, výška ve dvh se zálohou, záplaty a záchranná obrazovka jako klasické skripty. Žádná
+      # z těch oprav po zrušení nespadne — rozbije se až telefon šéfa (scripts/zkontroluj-css-podlaha.mjs).
+      - name: Kontrola sestavení pro starší Android
+        run: npm run zkontroluj-css-podlaha
+
       # Commitnout zvýšenou verzi zpět do repozitáře PŘED deployem — i když
       # Cloudflare deploy selže, GitHub má vždy nejnovější verzi (a APK job
       # checkoutuje post-bump commit, takže APK nese stejné číslo jako web).

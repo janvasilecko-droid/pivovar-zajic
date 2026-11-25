@@ -404,6 +404,13 @@ html, body { overscroll-behavior-y: contain; }
 }
 
 @layer utilities {
+  /* Nejvyšší výška okna na telefonu: displej bez 1 rem okrajů. `dvh` (Chrome 108+) počítá s lištou prohlížeče,
+     starší WebView ho nezná — a bez zálohy by `max-height` vypadlo úplně, vysoké okno přetékalo za displej
+     a tlačítko Uložit by nešlo dosáhnout (zjištěno měřením pro starší Android, 25. 11. 2026). Prohlížeč, který
+     druhý řádek nerozumí, ho zahodí a zůstane první. Proto třída místo `max-h-[calc(100dvh-1rem)]`; hlídá to
+     src/lib/starsiProhlizece.test.ts. V utilities, aby ji `sm:max-h-…` na velkém displeji přebilo. */
+  .max-h-ekran { max-height: calc(100vh - 1rem); max-height: calc(100dvh - 1rem); }
+
   .scrollbar-thin { scrollbar-width: thin; }
   .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
   .scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-neutral-300 rounded-full hover:bg-neutral-400; }

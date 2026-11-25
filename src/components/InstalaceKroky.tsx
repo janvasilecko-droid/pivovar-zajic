@@ -43,6 +43,15 @@ export function InstalaceKroky({ pripravenaInstalace, naInstalaci }: {
         <div className="font-black text-neutral-900">Počítač (Chrome / Edge)</div>
         <p>V adresním řádku vpravo klepni na ikonku instalace (monitor se šipkou) → <strong>Nainstalovat</strong>.</p>
       </div>
+      <div className="rounded border border-neutral-200 bg-neutral-50 p-3 space-y-1">
+        <div className="font-black text-neutral-900">Starší telefon — nejde to nebo to vypadá divně</div>
+        <p>
+          Aplikace stojí na „Android System WebView“ a Chrome, které se aktualizují v Obchodě Play (zdarma). Funguje od verze 66,
+          nejlíp od 90. Co přesně tvému telefonu chybí, ukáže{' '}
+          <a href="/diagnostika.html" className="underline font-black text-amber-700">Diagnostika telefonu</a>
+          {' '}— výsledek pak pošli správci. APK potřebuje Android 7 a novější; na starším se aplikace dá přidat na plochu z Chrome.
+        </p>
+      </div>
       <p className="text-xs text-neutral-500">
         Nejde o aplikaci z obchodu Google Play — nic se nestahuje z obchodu, ikona se jen přidá na plochu a otevírá se na celou obrazovku.
       </p>
