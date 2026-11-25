@@ -127,6 +127,11 @@ export default defineConfig({
   server: { port: 5173, host: true, hmr: { overlay: false }, allowedHosts: true },
   build: {
     target: 'es2015',
+    // CSS se sníží na nejstarší Chrome, na kterém aplikace jede (lib/podlahaProhlizece.ts). Samotné `target`
+    // je jen 'es2015' (není to prohlížeč), takže se ve CSS nesnižovalo nic. Hlavně `inset: 0` (Chrome 87+)
+    // se přepíše na top/right/bottom/left — bez toho by na starším WebView ztratila rozměr všechna okna
+    // a podkladové vrstvy `fixed inset-0` (zjištěno měřením pro starší Android, 25. 11. 2026).
+    cssTarget: 'chrome64',
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {

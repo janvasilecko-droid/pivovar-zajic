@@ -162,6 +162,10 @@ const ODDILY: Oddil[] = [
         jak: 'V Nastavení → „Instalace aplikace“ (nebo přes nabídku prohlížeče „Přidat na plochu“) — ikona se přidá rovnou z prohlížeče, ne z obchodu Google Play. Pak se otevírá jako běžná aplikace, na celou obrazovku a bez adresního řádku. Postup krok za krokem je v oddílu „Začínáme“.',
       },
       {
+        co: 'Starší telefon: aplikace nejde nebo vypadá divně',
+        jak: 'Aplikace stojí na „Android System WebView“ a Chrome. Když jsou starší než verze 66, nespustí se (místo bílé obrazovky se ukáže, co dělat); do verze 90 se spustí, ale může vypadat jinak. Oprava: v Obchodě Play aktualizuj „Android System WebView“ a „Chrome“ (zdarma). Co přesně telefonu chybí, ukáže stránka Diagnostika telefonu (Nastavení → Instalace aplikace) — výsledek pošli správci. APK potřebuje Android 7 a novější; na starším telefonu otevři aplikaci v Chrome a dej „Přidat na plochu“.',
+      },
+      {
         co: 'Když něco nesedí',
         jak: 'Napiš to do Zpětné vazby (Nástroje → Zpětná vazba). Vidí to všichni kolegové a nezapadne to. U chyby pomůže napsat, na které obrazovce byla a co jsi zrovna dělal.',
       },

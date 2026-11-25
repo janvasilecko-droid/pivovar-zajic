@@ -12,6 +12,15 @@ describe('InstalaceKroky', () => {
     expect(screen.queryByText('Nainstalovat aplikaci na plochu')).toBeNull();
   });
 
+  it('pro starší telefon odkazuje na Diagnostiku telefonu a řekne, co aktualizovat', () => {
+    render(<InstalaceKroky pripravenaInstalace={false} naInstalaci={() => {}} />);
+    expect(screen.getByText('Starší telefon — nejde to nebo to vypadá divně')).toBeTruthy();
+    const odkaz = screen.getByText('Diagnostika telefonu').closest('a')!;
+    expect(odkaz.getAttribute('href')).toBe('/diagnostika.html');
+    expect(screen.getByText(/Android System WebView/)).toBeTruthy();
+    expect(screen.getByText(/APK potřebuje Android 7/)).toBeTruthy();
+  });
+
   it('tlačítko instalace je jen když ji prohlížeč nabízí a zavolá instalaci', () => {
     const naInstalaci = vi.fn();
     render(<InstalaceKroky pripravenaInstalace naInstalaci={naInstalaci} />);

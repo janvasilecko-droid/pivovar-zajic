@@ -3,6 +3,261 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+    <!-- 🩹 STARŠÍ ANDROID 1/2 — záplaty funkcí, které starší WebView nemá.
+         Zjištěno měřením 25. 11. 2026 (šéfovi nejde appka na starším telefonu): kód volá
+         crypto.randomUUID() (Chrome 92+) na 23 místech, mimo jiné ve frontě offline zápisů
+         a při vkládání řádků bez id. Na starším WebView appka naběhne, ale uložení tiše
+         selže. Podobně replaceChildren (86), Object.fromEntries a String.matchAll (73),
+         Array.flat a flatMap (69), globalThis a queueMicrotask (71), Object.hasOwn (93,
+         grafy ve Statistice).
+         Proč tady a ne jako modul v aplikaci: balíky knihoven (vendor-*) se vyhodnotí
+         DŘÍV než vstupní modul, záplata v modulu by přišla pozdě. Klasický skript v hlavičce
+         poběží před jakýmkoli modulem. Musí být v ES5 (starý prohlížeč by novější syntax
+         nerozebral) a nesmí nic změnit tam, kde funkce existuje — vždy se ptá na typeof.
+         Testy: src/lib/startovniPojistka.test.ts. -->
+    <script>
+      (function () {
+        'use strict';
+        var g = window;
+        function pridej(cil, jmeno, fn) {
+          try {
+            if (cil && typeof cil[jmeno] !== 'function') {
+              Object.defineProperty(cil, jmeno, { value: fn, writable: true, configurable: true });
+            }
+          } catch (e) {}
+        }
+        try {
+          if (typeof globalThis === 'undefined') {
+            Object.defineProperty(g, 'globalThis', { value: g, writable: true, configurable: true });
+          }
+        } catch (e) {}
+        var c = g.crypto;
+        pridej(c, 'randomUUID', function () {
+          var b = new Uint8Array(16), h = '', i;
+          if (typeof c.getRandomValues === 'function') c.getRandomValues(b);
+          else for (i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+          b[6] = (b[6] & 15) | 64;
+          b[8] = (b[8] & 63) | 128;
+          for (i = 0; i < 16; i++) {
+            h += (b[i] + 256).toString(16).slice(1);
+            if (i === 3 || i === 5 || i === 7 || i === 9) h += '-';
+          }
+          return h;
+        });
+        pridej(Object, 'hasOwn', function (o, k) {
+          if (o == null) throw new TypeError('Cannot convert undefined or null to object');
+          return Object.prototype.hasOwnProperty.call(o, k);
+        });
+        pridej(Object, 'fromEntries', function (it) {
+          if (it == null || typeof it[Symbol.iterator] !== 'function') throw new TypeError(String(it) + ' is not iterable');
+          var o = {}, a = Array.from(it), i, e;
+          for (i = 0; i < a.length; i++) {
+            e = a[i];
+            if (e === null || (typeof e !== 'object' && typeof e !== 'function')) {
+              throw new TypeError('Iterator value ' + e + ' is not an entry object');
+            }
+            Object.defineProperty(o, e[0], { value: e[1], writable: true, enumerable: true, configurable: true });
+          }
+          return o;
+        });
+        pridej(Array.prototype, 'flat', function (hloubka) {
+          var d = hloubka === undefined ? 1 : Math.floor(Number(hloubka)), v = [];
+          (function jdi(p, u) {
+            for (var i = 0, n = p.length >>> 0; i < n; i++) {
+              if (!(i in p)) continue;
+              if (u > 0 && Array.isArray(p[i])) jdi(p[i], u - 1); else v.push(p[i]);
+            }
+          })(Object(this), d);
+          return v;
+        });
+        pridej(Array.prototype, 'flatMap', function (fn, ctx) {
+          if (typeof fn !== 'function') throw new TypeError('flatMap mapper function is not callable');
+          var o = Object(this), n = o.length >>> 0, v = [], i, j, r;
+          for (i = 0; i < n; i++) {
+            if (!(i in o)) continue;
+            r = fn.call(ctx, o[i], i, o);
+            if (Array.isArray(r)) { for (j = 0; j < r.length; j++) if (j in r) v.push(r[j]); } else v.push(r);
+          }
+          return v;
+        });
+        pridej(String.prototype, 'matchAll', function (re) {
+          if (this == null) throw new TypeError('String.prototype.matchAll called on null or undefined');
+          var s = String(this), rx, konec = false, it;
+          if (re instanceof RegExp) {
+            if (re.flags.indexOf('g') < 0) throw new TypeError('String.prototype.matchAll called with a non-global RegExp argument');
+            rx = new RegExp(re.source, re.flags);
+            rx.lastIndex = re.lastIndex;
+          } else {
+            rx = new RegExp(re, 'g');
+          }
+          it = {
+            next: function () {
+              if (konec) return { value: undefined, done: true };
+              var m = rx.exec(s), i, a, b;
+              if (m === null) { konec = true; return { value: undefined, done: true }; }
+              if (m[0] === '') {
+                i = rx.lastIndex; a = s.charCodeAt(i); b = s.charCodeAt(i + 1);
+                rx.lastIndex = i + (rx.unicode && a >= 0xd800 && a <= 0xdbff && b >= 0xdc00 && b <= 0xdfff ? 2 : 1);
+              }
+              return { value: m, done: false };
+            }
+          };
+          if (typeof Symbol === 'function' && Symbol.iterator) it[Symbol.iterator] = function () { return this; };
+          return it;
+        });
+        pridej(g, 'queueMicrotask', function (f) {
+          Promise.resolve().then(f).catch(function (e) { setTimeout(function () { throw e; }, 0); });
+        });
+        function nahrad() {
+          var n;
+          while ((n = this.firstChild)) this.removeChild(n);
+          for (var i = 0; i < arguments.length; i++) {
+            n = arguments[i];
+            this.appendChild(n && typeof n === 'object' && n.nodeType ? n : document.createTextNode(String(n)));
+          }
+        }
+        pridej(g.Element && Element.prototype, 'replaceChildren', nahrad);
+        pridej(g.Document && Document.prototype, 'replaceChildren', nahrad);
+        pridej(g.DocumentFragment && DocumentFragment.prototype, 'replaceChildren', nahrad);
+      })();
+    </script>
+    <!-- 🩹 STARŠÍ ANDROID 2/2 — záchranná obrazovka místo bílé stránky.
+         Když se appka nerozběhne (starý WebView bez podpory modulů, chyba při startu, stažení
+         souborů se nepovedlo, nebo se nenačte do 20 s), nezůstane prázdná bílá plocha, ale
+         česky řečeno proč a co s tím (aktualizovat WebView a Chrome, zkontrolovat datum,
+         otevřít Diagnostiku telefonu). Když se appka přece jen rozběhne (pomalý telefon),
+         obrazovka sama zmizí. Na funkčním telefonu se nestane nic: kontrola jen jednou za
+         vteřinu zjišťuje, jestli je v #root něco vykresleno.
+         Také ES5 — musí jít rozebrat i tam, kde se appka rozebrat nedá. -->
+    <script>
+      (function () {
+        var LIMIT_MS = 20000, RYCHLE_MS = 4000;
+        var ua = navigator.userAgent || '';
+        var mc = /Chrom(?:e|ium)\/(\d+)/.exec(ua), ma = /Android (\d+(?:\.\d+)*)/.exec(ua);
+        var start = new Date().getTime(), termin = start + LIMIT_MS;
+        var duvod = 'dlouho', detail = '', panel = null, cas = null;
+
+        function bezi() {
+          var r = document.getElementById('root');
+          return !!(r && r.firstChild);
+        }
+        function el(tag, styl, text) {
+          var e = document.createElement(tag);
+          if (styl) e.setAttribute('style', styl);
+          if (text) e.appendChild(document.createTextNode(text));
+          return e;
+        }
+        function tlacitko(text, akce, hlavni) {
+          var b = el('button', 'font:inherit;font-weight:700;padding:12px 16px;margin:0 8px 8px 0;border-radius:8px;cursor:pointer;border:2px solid #1f2937;' +
+            (hlavni ? 'background:#f59e0b;color:#1f2937' : 'background:transparent;color:#1f2937'), text);
+          b.setAttribute('type', 'button');
+          b.onclick = akce;
+          return b;
+        }
+        function odkaz(text, href) {
+          var a = el('a', 'color:#92400e;font-weight:700', text);
+          a.setAttribute('href', href);
+          return a;
+        }
+        function zrus() {
+          if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
+          panel = null;
+        }
+        function obnov() { location.reload(); }
+        function vycisti() {
+          var stav = document.getElementById('zajic-zachrana-stav'), ukoly = [];
+          if (navigator.onLine === false) {
+            if (stav) stav.textContent = 'Telefon je offline. Mezipaměť se teď nemaže, aby šla appka po obnovení spustit — zapni internet a zkus to znovu.';
+            return;
+          }
+          try {
+            if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+              ukoly.push(navigator.serviceWorker.getRegistrations().then(function (r) {
+                return Promise.all(r.map(function (x) { return x.unregister(); }));
+              }));
+            }
+          } catch (e) {}
+          try {
+            if (window.caches && window.caches.keys) {
+              ukoly.push(window.caches.keys().then(function (k) {
+                return Promise.all(k.map(function (n) { return window.caches['delete'](n); }));
+              }));
+            }
+          } catch (e) {}
+          Promise.all(ukoly).then(obnov, obnov);
+        }
+        function ukaz() {
+          if (panel || bezi()) return;
+          var android = !!ma, text = {
+            moduly: 'Prohlížeč v tomhle telefonu je příliš starý a aplikaci vůbec neumí spustit.',
+            soubor: 'Nepodařilo se stáhnout soubory aplikace. Zkontroluj připojení k internetu (Wi-Fi nebo data) a zkus to znovu.',
+            chyba: 'Aplikace při startu narazila na chybu. Nejčastější příčinou je starý „Android System WebView“ nebo starý Chrome.',
+            dlouho: 'Aplikace se načítá nezvykle dlouho. Může jít o slabé připojení, nebo o starý prohlížeč v telefonu.'
+          }[duvod] || '';
+          var kryt = el('div', 'max-width:30rem;margin:0 auto');
+          kryt.appendChild(el('h1', 'font-size:22px;font-weight:700;line-height:1.25;margin:8px 0 12px', 'Aplikace se na tomhle telefonu nespustila'));
+          kryt.appendChild(el('p', 'margin:0 0 12px', text));
+          kryt.appendChild(el('p', 'margin:0 0 4px;font-weight:700', 'Co zkusit (od nejčastější příčiny):'));
+          var kroky = el('ol', 'margin:0 0 16px;padding-left:22px;list-style:decimal'), k1 = el('li', 'margin-bottom:6px;display:list-item');
+          if (android) {
+            k1.appendChild(document.createTextNode('V Obchodě Play aktualizuj '));
+            k1.appendChild(odkaz('Android System WebView', 'https://play.google.com/store/apps/details?id=com.google.android.webview'));
+            k1.appendChild(document.createTextNode(' a '));
+            k1.appendChild(odkaz('Chrome', 'https://play.google.com/store/apps/details?id=com.android.chrome'));
+            k1.appendChild(document.createTextNode('.'));
+          } else {
+            k1.appendChild(document.createTextNode('Aktualizuj prohlížeč (na iPhonu aktualizací systému iOS).'));
+          }
+          kroky.appendChild(k1);
+          kroky.appendChild(el('li', 'margin-bottom:6px;display:list-item', 'Aplikaci úplně zavři (v přehledu posledních aplikací ji smaž) a otevři znovu.'));
+          kroky.appendChild(el('li', 'margin-bottom:6px;display:list-item', 'Zkontroluj datum a čas v telefonu (Nastavení → Datum a čas → automaticky). Při špatných hodinách se nenačte žádný zabezpečený web.'));
+          var k4 = el('li', 'margin-bottom:6px;display:list-item', 'Nepomohlo to? Otevři ');
+          k4.appendChild(odkaz('Diagnostiku telefonu', '/diagnostika.html'));
+          k4.appendChild(document.createTextNode(' — ukáže, co přesně telefonu chybí — a pošli výsledek správci aplikace.'));
+          kroky.appendChild(k4);
+          kryt.appendChild(kroky);
+          kryt.appendChild(tlacitko('Zkusit znovu', obnov, true));
+          kryt.appendChild(tlacitko('Vyčistit mezipaměť a zkusit znovu', vycisti, false));
+          var stav = el('p', 'margin:4px 0 12px;font-size:14px;color:#92400e');
+          stav.id = 'zajic-zachrana-stav';
+          kryt.appendChild(stav);
+          kryt.appendChild(el('p', 'margin:12px 0 0;font-size:13px;color:#6b7280',
+            'Technické údaje: ' + (mc ? 'Chrome ' + mc[1] : 'neznámý prohlížeč') + (ma ? ' · Android ' + ma[1] : '') + ' · důvod: ' + duvod + (detail ? ' (' + detail + ')' : '')));
+          panel = el('div', 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483647;overflow:auto;background:#fef9ec;color:#1f2937;font:16px/1.45 sans-serif;padding:20px 16px');
+          panel.id = 'zajic-zachrana';
+          panel.setAttribute('role', 'alert');
+          panel.appendChild(kryt);
+          (document.body || document.documentElement).appendChild(panel);
+        }
+        function tick() {
+          if (bezi()) {
+            zrus();
+            if (cas) { clearInterval(cas); cas = null; }
+            return;
+          }
+          // Na pozadí prohlížeč načítání zpomaluje, takže ten čas se nepočítá.
+          if (document.hidden) { termin += 1000; return; }
+          if (!panel && new Date().getTime() >= termin) ukaz();
+        }
+        function chyba(e) {
+          try {
+            var t = e && e.target, msg;
+            if (t && t !== window && t.tagName) {
+              if (/^(SCRIPT|LINK)$/.test(t.tagName) && /\/assets\//.test(t.src || t.href || '')) { duvod = 'soubor'; detail = ''; }
+              else return;
+            } else {
+              msg = String((e && e.message) || '');
+              if (!/SyntaxError|Unexpected (token|identifier|end)|is not defined|is not a function|Cannot read prop/.test(msg)) return;
+              duvod = 'chyba'; detail = msg.slice(0, 100);
+            }
+            termin = Math.min(termin, new Date().getTime() + RYCHLE_MS);
+          } catch (x) {}
+        }
+        try { window.addEventListener('error', chyba, true); } catch (e) {}
+        cas = setInterval(tick, 1000);
+        window.__zajicZachrana = function (d) { duvod = d || duvod; ukaz(); };
+      })();
+    </script>
     <!-- Barva lišty prohlížeče / stavového řádku na Androidu. Byla #090909 —
          skoro černý pruh nad krémovou aplikací. Tuhle hodnotu drží jen do
          chvíle, než se rozběhne JS; pak ji podle zvoleného režimu přepíše
@@ -57,6 +312,11 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Spustí se jen v prohlížeči, který neumí moduly (Chrome pod 61) — tam by appka zůstala
+         prázdná. Moderní prohlížeč skripty s nomodule přeskočí. Viz „STARŠÍ ANDROID 2/2“ výše. -->
+    <script nomodule>
+      if (window.__zajicZachrana) window.__zajicZachrana('moduly');
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

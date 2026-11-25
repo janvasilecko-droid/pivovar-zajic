@@ -15,6 +15,7 @@
     "zkontroluj-workflow": "node scripts/zkontroluj-workflow.mjs",
     "zkontroluj-tlacitka": "node scripts/zkontroluj-tlacitka.mjs",
     "zkontroluj-velikost": "node scripts/zkontroluj-velikost.mjs",
+    "zkontroluj-css-podlaha": "node scripts/zkontroluj-css-podlaha.mjs",
     "zkontroluj-dotyk": "node scripts/zkontroluj-dotyk.mjs",
     "zkontroluj-popisky": "node scripts/zkontroluj-popisky.mjs",
     "zkontroluj-edge-funkce": "node scripts/zkontroluj-edge-funkce.mjs",

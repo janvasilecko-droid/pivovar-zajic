@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#f5f5f4">
+<title>Diagnostika telefonu — Pivovar Zajíc</title>
+<!--
+  Diagnostika telefonu: zjistí, jestli tenhle telefon zvládne aplikaci Pivovar Zajíc, a když ne, tak proč.
+
+  Vznik (25. 11. 2026): šéfovi nejde aplikace na starším telefonu s Androidem a nikdo nevěděl proč — starý
+  WebView nenechá po sobě žádnou stopu v databázi chyb, protože se rozbije dřív, než se appka rozběhne.
+  Tahle stránka proto nezávisí na aplikaci: je to jeden soubor bez knihoven, psaný ve starém JavaScriptu (ES5),
+  který poběží i v prohlížeči, kde aplikace ne. Nic neodesílá — výsledek si člověk zkopíruje a pošle sám.
+
+  Používá ji i APK: capacitor.config.json (android.minWebViewVersion + server.errorPath) ji ukáže místo bílé
+  obrazovky, když je WebView v telefonu starší než 66. Záchranná obrazovka v index.html na ni odkazuje taky.
+
+  Čísla níž (PODLAHA_CHROME, DOPORUCENO_CHROME) musí odpovídat src/lib/podlahaProhlizece.ts — hlídá to test
+  src/lib/diagnostika.test.ts.
+-->
+<style>
+body{margin:0;background:#f5f5f4;color:#222;font:17px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+main{max-width:42rem;margin:0 auto;padding:16px 16px 40px}
+h1{font-size:22px;color:#7a3b0c;margin:8px 0 8px}
+h2{font-size:18px;color:#7a3b0c;margin:26px 0 8px}
+p{margin:0 0 10px}
+a{color:#a64714}
+table{width:100%;border-collapse:collapse;font-size:15px;background:#fff;border:1px solid #d6d3d1}
+th,td{text-align:left;vertical-align:top;padding:7px 9px;border-bottom:1px solid #e7e5e4}
+th{width:42%;font-weight:600;color:#44403c}
+td.ano{color:#166534;font-weight:600}
+td.ne{color:#b91c1c;font-weight:600}
+td.pozor{color:#92400e;font-weight:600}
+#verdikt{border:2px solid #a8a29e;border-radius:10px;padding:14px 16px;background:#fff;margin:14px 0}
+#verdikt.ok{border-color:#16a34a;background:#f0fdf4}
+#verdikt.varovani{border-color:#d97706;background:#fffbeb}
+#verdikt.chyba{border-color:#dc2626;background:#fef2f2}
+#verdikt h2{margin:0 0 6px;font-size:20px;color:#222}
+#verdikt ol{margin:8px 0 0;padding-left:22px}
+#verdikt li{margin-bottom:6px}
+textarea{width:100%;box-sizing:border-box;min-height:11rem;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:8px;border:1px solid #a8a29e;border-radius:6px;background:#fff;color:#222}
+.tl{display:inline-block;font:inherit;font-weight:700;padding:12px 16px;margin:8px 8px 0 0;border-radius:8px;border:2px solid #7a3b0c;background:#fff;color:#7a3b0c;cursor:pointer;text-decoration:none}
+.tl.hlavni{background:#f59e0b;border-color:#92400e;color:#1c1917}
+.drobne{font-size:14px;color:#57534e}
+</style>
+</head>
+<body>
+<main>
+<h1>Diagnostika telefonu</h1>
+<p>Zjistí, jestli tenhle telefon zvládne aplikaci Pivovar Zajíc, a když ne, tak proč. <strong>Nic se neodesílá</strong> — výsledek si na konci zkopíruješ a pošleš sám.</p>
+<noscript><p><strong>Diagnostika potřebuje zapnutý JavaScript.</strong> Zapni ho v nastavení prohlížeče a stránku obnov.</p></noscript>
+
+<div id="verdikt" role="status"><h2>Zjišťuju…</h2><p>Chvilku strpení, kontrola trvá pár vteřin.</p></div>
+
+<h2>Tvůj telefon</h2>
+<table id="telefon"><tbody></tbody></table>
+
+<h2>Co umí prohlížeč</h2>
+<table id="funkce"><tbody></tbody></table>
+
+<h2>Spojení</h2>
+<table id="spojeni"><tbody></tbody></table>
+
+<h2>Zpráva pro správce aplikace</h2>
+<p>Až kontrola doběhne, zkopíruj zprávu a pošli ji (třeba přes WhatsApp). Obsahuje jen údaje o telefonu a prohlížeči, žádná jména ani hesla.</p>
+<textarea id="zprava" readonly aria-label="Zpráva pro správce aplikace"></textarea>
+<div>
+<button type="button" class="tl hlavni" id="kopirovat">Zkopírovat zprávu</button>
+<a class="tl" id="whatsapp" href="https://wa.me/" target="_blank" rel="noopener">Poslat přes WhatsApp</a>
+<a class="tl" href="/">Otevřít aplikaci</a>
+</div>
+<p class="drobne" id="stav-kopie" role="status"></p>
+
+<h2>Jak telefon opravit</h2>
+<ol>
+<li><strong>Aktualizuj WebView a Chrome.</strong> V Obchodě Play aktualizuj
+<a href="https://play.google.com/store/apps/details?id=com.google.android.webview">Android System WebView</a> a
+<a href="https://play.google.com/store/apps/details?id=com.android.chrome">Chrome</a>. Obojí je zdarma. Aplikace Pivovar Zajíc na nich stojí — když jsou staré, nejde nebo vypadá divně.</li>
+<li><strong>Nastav datum a čas automaticky</strong> (Nastavení → Systém → Datum a čas). Při špatných hodinách se nenačte žádný zabezpečený web ani přihlášení.</li>
+<li><strong>Není co aktualizovat?</strong> Pak je telefon na nejnovější verzi, kterou pro něj výrobce povolil. Zkus aplikaci otevřít v jiném prohlížeči (třeba <a href="https://play.google.com/store/apps/details?id=org.mozilla.firefox">Firefox</a> — aktualizuje se samostatně, nezávisle na systému) a v jeho nabídce zvol „Přidat na plochu“. Nezaručuju, že to na každém telefonu půjde.</li>
+<li><strong>Android 6 a starší:</strong> aplikaci z APK už nenainstaluješ (potřebuje Android 7). Zbývá otevřít web v Chrome nebo ve Firefoxu a zvolit „Přidat na plochu“.</li>
+</ol>
+<p class="drobne">Samotná aplikace se z Obchodu Play nestahuje — je to web <a href="https://zajic-pivovar.pages.dev/">zajic-pivovar.pages.dev</a>. Z Obchodu jsou potřeba jen aktualizace WebView a Chromu výše.</p>
+</main>
+<script>
+(function () {
+  'use strict';
+  // Adresa aplikace a databáze (veřejné, jsou i v aplikaci). Hlídá test src/lib/diagnostika.test.ts.
+  var APP = 'https://zajic-pivovar.pages.dev';
+  var DB = 'https://sasqexjadvlqyticxwja.supabase.co';
+  // Nejstarší Chrome / WebView, na kterém se aplikace spustí (AbortController a spol.), a od jaké verze
+  // vypadá a chová se jako na novém telefonu. Odpovídá src/lib/podlahaProhlizece.ts.
+  var PODLAHA_CHROME = 66;
+  var DOPORUCENO_CHROME = 90;
+  // Hodiny telefonu mohou jít jinak než server nejvýš o tohle (min), jinak je to varování.
+  var POVOLENY_ROZDIL_MIN = 5;
+
+  var ua = navigator.userAgent || '';
+  var nacitani = 0;
+  var vysledek = null;
+
+  function el(tag, text, trida) {
+    var e = document.createElement(tag);
+    if (text !== undefined && text !== null) e.appendChild(document.createTextNode(String(text)));
+    if (trida) e.className = trida;
+    return e;
+  }
+  function $(id) { return document.getElementById(id); }
+
+  // ---- zjišťování ------------------------------------------------------------------------------------
+  function verze(re) {
+    var m = re.exec(ua);
+    return m ? m[1] : null;
+  }
+  function cislo(v) {
+    var n = v === null || v === undefined ? NaN : parseFloat(v);
+    return isNaN(n) ? null : n;
+  }
+  function hodnotaFunguje(vlastnost, hodnota) {
+    try {
+      var d = document.createElement('div');
+      if (!(vlastnost in d.style)) return false;
+      d.style[vlastnost] = hodnota;
+      return d.style[vlastnost] !== '';
+    } catch (e) { return false; }
+  }
+  function selektorFunguje(selektor) {
+    var st = null;
+    try {
+      st = document.createElement('style');
+      document.head.appendChild(st);
+      st.sheet.insertRule(selektor + '{}', 0);
+      return true;
+    } catch (e) {
+      return false;
+    } finally {
+      try { if (st && st.parentNode) st.parentNode.removeChild(st); } catch (e2) {}
+    }
+  }
+  function flexGapFunguje() {
+    // Stejný trik jako Modernizr: sloupec ze dvou prázdných prvků s mezerou 1 px musí mít výšku 1 px.
+    try {
+      var f = document.createElement('div');
+      f.style.display = 'flex';
+      f.style.flexDirection = 'column';
+      f.style.rowGap = '1px';
+      f.appendChild(document.createElement('div'));
+      f.appendChild(document.createElement('div'));
+      document.body.appendChild(f);
+      var ok = f.scrollHeight === 1;
+      document.body.removeChild(f);
+      return ok;
+    } catch (e) { return false; }
+  }
+  function mameModuly() {
+    try { return 'noModule' in HTMLScriptElement.prototype; } catch (e) { return false; }
+  }
+  function mameDynamickyImport() {
+    // Jen se přeloží, nespustí: starý prohlížeč na `import(` hodí SyntaxError už při překladu.
+    try { new Function('import("")'); return true; } catch (e) { return !(e instanceof SyntaxError); }
+  }
+  function umiUkladat() {
+    try {
+      var k = '__diagnostika_test__';
+      window.localStorage.setItem(k, '1');
+      window.localStorage.removeItem(k);
+      return true;
+    } catch (e) { return false; }
+  }
+  function chybejiZaplaty() {
+    // Funkce, které aplikace v index.html sama doplní, když je prohlížeč nemá — tady se ptáme na ty NATIVNÍ,
+    // ale jen pokud je aplikace ještě nedoplnila (tahle stránka je nenačítá).
+    var seznam = [];
+    function ma(ok, jmeno) { if (!ok) seznam.push(jmeno); }
+    try { ma(window.crypto && typeof window.crypto.randomUUID === 'function', 'crypto.randomUUID'); } catch (e) { seznam.push('crypto.randomUUID'); }
+    ma(typeof Object.fromEntries === 'function', 'Object.fromEntries');
+    ma(typeof Object.hasOwn === 'function', 'Object.hasOwn');
+    ma(typeof Array.prototype.flat === 'function', 'Array.flat');
+    ma(typeof Array.prototype.flatMap === 'function', 'Array.flatMap');
+    ma(typeof String.prototype.matchAll === 'function', 'String.matchAll');
+    ma(typeof window.queueMicrotask === 'function', 'queueMicrotask');
+    ma(typeof globalThis !== 'undefined', 'globalThis');
+    try { ma(typeof Element.prototype.replaceChildren === 'function', 'replaceChildren'); } catch (e) { seznam.push('replaceChildren'); }
+    return seznam;
+  }
+
+  /** Okamžité (synchronní) zjištění o telefonu a prohlížeči. */
+  function zjisti() {
+    var chrome = cislo(verze(/Chrom(?:e|ium)\/(\d+)/));
+    var android = verze(/Android (\d+(?:\.\d+)*)/);
+    var cap = window.Capacitor;
+    var jeApk = false;
+    try {
+      jeApk = !!(cap && ((typeof cap.isNativePlatform === 'function' && cap.isNativePlatform()) ||
+        (typeof cap.getPlatform === 'function' && cap.getPlatform() === 'android')));
+    } catch (e) { jeApk = false; }
+    var naploche = false;
+    try { naploche = !!((window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone); } catch (e2) {}
+    var dpr = window.devicePixelRatio || 1;
+    var obrazovka = '';
+    try { obrazovka = screen.width + '×' + screen.height + ' @' + dpr; } catch (e3) {}
+    var spojeni = '';
+    try { var c = navigator.connection; spojeni = c && c.effectiveType ? c.effectiveType : ''; } catch (e4) {}
+    var pasmo = '';
+    try { pasmo = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e5) {}
+    return {
+      ua: ua,
+      chrome: chrome,
+      android: android,
+      androidSkryty: !!(chrome && chrome >= 110 && /Android 10; K/.test(ua)),
+      jeWebView: /; wv\)/.test(ua) || /Version\/\d+\.\d+ Chrome\//.test(ua),
+      jeApk: jeApk,
+      naploche: naploche,
+      pamet: typeof navigator.deviceMemory === 'number' ? navigator.deviceMemory : null,
+      jadra: typeof navigator.hardwareConcurrency === 'number' ? navigator.hardwareConcurrency : null,
+      obrazovka: obrazovka,
+      jazyk: navigator.language || '',
+      pasmo: pasmo,
+      sit: spojeni,
+      online: navigator.onLine !== false,
+      moduly: mameModuly(),
+      dynamickyImport: mameDynamickyImport(),
+      fetch: typeof window.fetch === 'function',
+      promise: typeof window.Promise === 'function',
+      abort: typeof window.AbortController === 'function',
+      ukladani: umiUkladat(),
+      indexedDb: !!window.indexedDB,
+      serviceWorker: !!(navigator.serviceWorker),
+      zaplaty: chybejiZaplaty(),
+      cssGap: flexGapFunguje(),
+      cssIs: selektorFunguje(':is(a)'),
+      cssMax: hodnotaFunguje('width', 'max(1px, 2px)'),
+      cssDvh: hodnotaFunguje('height', '1dvh'),
+      cssAspect: hodnotaFunguje('aspectRatio', '1 / 1'),
+      cssBlur: hodnotaFunguje('backdropFilter', 'blur(1px)') || hodnotaFunguje('webkitBackdropFilter', 'blur(1px)'),
+      cssHas: selektorFunguje(':has(a)'),
+      // doplní se po kontrole spojení
+      appOk: null, appMs: null, appVerze: null, dbOk: null, dbMs: null, rozdilMin: null,
+      model: null, androidReal: null, chromePlna: null
+    };
+  }
+
+  // ---- verdikt ---------------------------------------------------------------------------------------
+  /**
+   * Z nasbíraných údajů udělá verdikt: { uroven: 'ok' | 'varovani' | 'chyba', nadpis, text, kroky[], tvrde[], mekke[] }.
+   * Čistá funkce (nesahá na stránku), proto jde testovat.
+   */
+  function zhodnot(i) {
+    var tvrde = [], mekke = [], kroky = [];
+    if (!i.moduly) tvrde.push('prohlížeč neumí moduly JavaScriptu');
+    if (!i.dynamickyImport) tvrde.push('prohlížeč neumí dynamický import');
+    if (!i.fetch) tvrde.push('chybí funkce fetch (stahování dat)');
+    if (!i.promise) tvrde.push('chybí Promise');
+    if (!i.abort) tvrde.push('chybí AbortController');
+    if (!i.ukladani) tvrde.push('prohlížeč nedovolí ukládat data do telefonu (soukromý režim?)');
+    if (i.chrome !== null && i.chrome < PODLAHA_CHROME) tvrde.push('Chrome ' + i.chrome + ' je starší než nejnižší podporovaná verze ' + PODLAHA_CHROME);
+
+    if (i.chrome !== null && i.chrome >= PODLAHA_CHROME && i.chrome < DOPORUCENO_CHROME) mekke.push('starší prohlížeč (Chrome ' + i.chrome + ')');
+    if (!i.cssGap) mekke.push('prohlížeč neumí mezery v řádcích (gap)');
+    if (!i.cssIs) mekke.push('prohlížeč neumí selektor :is()');
+    if (!i.cssMax) mekke.push('prohlížeč neumí max()/min()');
+    if (i.zaplaty && i.zaplaty.length) mekke.push('chybí novější funkce JavaScriptu (' + i.zaplaty.join(', ') + '), aplikace si je doplní sama');
+    if (i.appOk === false) mekke.push('nejde se spojit s aplikací na ' + APP);
+    if (i.dbOk === false) mekke.push('nejde se spojit s databází');
+    var hodiny = i.rozdilMin !== null && Math.abs(i.rozdilMin) > POVOLENY_ROZDIL_MIN;
+    if (hodiny) mekke.push('hodiny v telefonu jdou o ' + Math.abs(Math.round(i.rozdilMin)) + ' min ' + (i.rozdilMin > 0 ? 'napřed' : 'pozadu'));
+
+    var starySystem = i.chrome !== null && i.chrome < DOPORUCENO_CHROME;
+    if (tvrde.length || starySystem || !i.cssGap || !i.cssIs) {
+      kroky.push('aktualizovat');
+    }
+    if (hodiny) kroky.push('hodiny');
+    if (i.appOk === false || i.dbOk === false) kroky.push('spojeni');
+    if (tvrde.length || starySystem) kroky.push('jinyProhlizec');
+    var androidVerze = cislo(i.androidReal || (i.androidSkryty ? null : i.android));
+    if (androidVerze !== null && androidVerze < 7) kroky.push('android6');
+
+    var uroven, nadpis, text;
+    if (tvrde.length) {
+      uroven = 'chyba';
+      nadpis = 'Aplikace se na tomhle telefonu nespustí';
+      text = 'Prohlížeč v telefonu je příliš starý: ' + tvrde.join('; ') + '.';
+    } else if (mekke.length) {
+      uroven = 'varovani';
+      nadpis = 'Poběží, ale telefon je starší nebo má problém';
+      text = 'Aplikace by měla jít spustit, ale může vypadat jinak nebo se chovat pomaleji: ' + mekke.join('; ') + '.';
+    } else {
+      uroven = 'ok';
+      nadpis = 'Telefon je v pořádku';
+      text = 'Prohlížeč má všechno, co aplikace potřebuje, a spojení funguje. Když se aplikace přesto nespustí, pošli správci zprávu níže.';
+    }
+    return { uroven: uroven, nadpis: nadpis, text: text, kroky: kroky, tvrde: tvrde, mekke: mekke };
+  }
+
+  var TEXTY_KROKU = {
+    aktualizovat: 'V Obchodě Play aktualizuj „Android System WebView“ a „Chrome“ (odkazy najdeš dole v části Jak telefon opravit).',
+    hodiny: 'Nastav v telefonu automatické datum a čas (Nastavení → Systém → Datum a čas).',
+    spojeni: 'Zkontroluj připojení k internetu (Wi-Fi nebo mobilní data) a otevři tuhle stránku znovu.',
+    jinyProhlizec: 'Nejde-li nic aktualizovat, zkus aplikaci otevřít v jiném prohlížeči (třeba Firefox) a zvolit „Přidat na plochu“.',
+    android6: 'Android 6 a starší: aplikaci z APK už nenainstaluješ (potřebuje Android 7). Použij web v Chrome nebo ve Firefoxu a „Přidat na plochu“.'
+  };
+
+  // ---- zpráva pro správce ----------------------------------------------------------------------------
+  function ano(b) { return b ? 'ano' : 'NE'; }
+  function sestavZpravu(i, v) {
+    var navysenAndroid = i.androidReal || (i.androidSkryty ? 'skryto prohlížečem' : i.android) || 'neznámý';
+    var r = [];
+    r.push('Diagnostika telefonu — Pivovar Zajíc');
+    r.push('Výsledek: ' + ({ ok: 'v pořádku', varovani: 'VAROVÁNÍ', chyba: 'CHYBA — aplikace se nespustí' }[v.uroven]));
+    r.push('Android: ' + navysenAndroid + (i.model ? ' · ' + i.model : ''));
+    r.push('Prohlížeč: ' + (i.chromePlna ? 'Chrome ' + i.chromePlna : i.chrome !== null ? 'Chrome ' + i.chrome : 'neznámý') + (i.jeWebView ? ' (WebView)' : ''));
+    r.push('Spuštěno jako: ' + (i.jeApk ? 'aplikace APK' : i.naploche ? 'aplikace z plochy (PWA)' : 'stránka v prohlížeči'));
+    if (i.appVerze) r.push('Verze aplikace na serveru: ' + i.appVerze);
+    r.push('Paměť: ' + (i.pamet !== null ? i.pamet + ' GB' : '?') + ' · jádra: ' + (i.jadra !== null ? i.jadra : '?') + ' · obrazovka: ' + (i.obrazovka || '?'));
+    r.push('Jazyk: ' + (i.jazyk || '?') + ' · pásmo: ' + (i.pasmo || '?') + ' · síť: ' + (i.sit || '?') + (i.online ? '' : ' (OFFLINE)'));
+    r.push('Hodiny proti serveru: ' + (i.rozdilMin === null ? 'nezjištěno' : (i.rozdilMin >= 0 ? '+' : '') + Math.round(i.rozdilMin * 10) / 10 + ' min'));
+    r.push('Spojení: aplikace ' + (i.appOk === null ? '?' : i.appOk ? 'ok (' + i.appMs + ' ms)' : 'NEJDE') + ' · databáze ' + (i.dbOk === null ? '?' : i.dbOk ? 'ok (' + i.dbMs + ' ms)' : 'NEJDE'));
+    r.push('Nutné funkce: moduly ' + ano(i.moduly) + ', import ' + ano(i.dynamickyImport) + ', fetch ' + ano(i.fetch) + ', AbortController ' + ano(i.abort) + ', ukládání ' + ano(i.ukladani) + ', IndexedDB ' + ano(i.indexedDb) + ', service worker ' + ano(i.serviceWorker));
+    r.push('Vzhled: gap ' + ano(i.cssGap) + ', :is() ' + ano(i.cssIs) + ', max() ' + ano(i.cssMax) + ', dvh ' + ano(i.cssDvh) + ', aspect-ratio ' + ano(i.cssAspect) + ', blur ' + ano(i.cssBlur) + ', :has() ' + ano(i.cssHas));
+    if (i.zaplaty.length) r.push('Doplní aplikace: ' + i.zaplaty.join(', '));
+    if (v.tvrde.length) r.push('Problémy: ' + v.tvrde.join('; '));
+    if (v.mekke.length) r.push('Upozornění: ' + v.mekke.join('; '));
+    r.push('UA: ' + i.ua);
+    return r.join('\n');
+  }
+
+  // ---- vykreslení ------------------------------------------------------------------------------------
+  function vypis(tabulka, radky) {
+    var tb = tabulka.getElementsByTagName('tbody')[0];
+    while (tb.firstChild) tb.removeChild(tb.firstChild);
+    for (var k = 0; k < radky.length; k++) {
+      var tr = document.createElement('tr');
+      var th = el('th', radky[k][0]);
+      var td = el('td', radky[k][1], radky[k][2] || '');
+      tr.appendChild(th);
+      tr.appendChild(td);
+      tb.appendChild(tr);
+    }
+  }
+  function radekFunkce(nazev, ok, kdyzNe) {
+    return [nazev, ok ? 'ano' : (kdyzNe === 'vzhled' ? 'ne — vzhled se může lišit' : 'NE'), ok ? 'ano' : (kdyzNe === 'vzhled' ? 'pozor' : 'ne')];
+  }
+
+  function vykresli(i) {
+    var v = zhodnot(i);
+    vysledek = { info: i, verdikt: v };
+
+    var box = $('verdikt');
+    box.className = v.uroven;
+    while (box.firstChild) box.removeChild(box.firstChild);
+    box.appendChild(el('h2', v.nadpis));
+    box.appendChild(el('p', v.text));
+    if (v.kroky.length) {
+      box.appendChild(el('p', 'Co s tím:'));
+      var ol = document.createElement('ol');
+      for (var k = 0; k < v.kroky.length; k++) ol.appendChild(el('li', TEXTY_KROKU[v.kroky[k]]));
+      box.appendChild(ol);
+    }
+
+    var androidTxt = i.androidReal || (i.androidSkryty ? 'skryto prohlížečem' : i.android) || 'neznámý';
+    vypis($('telefon'), [
+      ['Android', androidTxt + (i.model ? ' · ' + i.model : '')],
+      ['Prohlížeč', (i.chromePlna ? 'Chrome ' + i.chromePlna : i.chrome !== null ? 'Chrome ' + i.chrome : 'neznámý') + (i.jeWebView ? ' (WebView)' : ''),
+        i.chrome === null ? '' : i.chrome < PODLAHA_CHROME ? 'ne' : i.chrome < DOPORUCENO_CHROME ? 'pozor' : 'ano'],
+      ['Spuštěno jako', i.jeApk ? 'aplikace APK' : i.naploche ? 'aplikace z plochy (PWA)' : 'stránka v prohlížeči'],
+      ['Paměť', i.pamet !== null ? i.pamet + ' GB' : 'prohlížeč neříká'],
+      ['Jádra procesoru', i.jadra !== null ? String(i.jadra) : 'prohlížeč neříká'],
+      ['Obrazovka', i.obrazovka || '?'],
+      ['Jazyk · časové pásmo', (i.jazyk || '?') + ' · ' + (i.pasmo || '?')],
+      ['Hodiny telefonu', new Date().toLocaleString('cs-CZ')]
+    ]);
+
+    vypis($('funkce'), [
+      radekFunkce('Moduly JavaScriptu (nutné)', i.moduly),
+      radekFunkce('Dynamický import (nutné)', i.dynamickyImport),
+      radekFunkce('fetch a Promise (nutné)', i.fetch && i.promise),
+      radekFunkce('AbortController (nutné)', i.abort),
+      radekFunkce('Ukládání dat do telefonu (nutné)', i.ukladani),
+      radekFunkce('IndexedDB (offline data)', i.indexedDb, 'vzhled'),
+      radekFunkce('Service worker (offline režim)', i.serviceWorker, 'vzhled'),
+      ['Novější funkce JavaScriptu', i.zaplaty.length ? 'chybí ' + i.zaplaty.length + ' — aplikace si je doplní' : 'všechny jsou', i.zaplaty.length ? 'pozor' : 'ano'],
+      radekFunkce('Mezery v řádcích (gap)', i.cssGap, 'vzhled'),
+      radekFunkce('Selektor :is()', i.cssIs, 'vzhled'),
+      radekFunkce('max() / min()', i.cssMax, 'vzhled'),
+      radekFunkce('Výška dvh', i.cssDvh, 'vzhled'),
+      radekFunkce('aspect-ratio', i.cssAspect, 'vzhled'),
+      radekFunkce('Rozostření podkladu', i.cssBlur, 'vzhled'),
+      radekFunkce('Selektor :has()', i.cssHas, 'vzhled')
+    ]);
+
+    function spojeniRadek(nazev, ok, ms, kdyz) {
+      // `null` = dosud nezjištěno (běží kontrola) nebo to prohlížeč neumí (po dokončení zůstane „nezjištěno“).
+      return [nazev, ok === null ? (nacitani > 0 ? 'zjišťuju…' : 'nezjištěno') : ok ? 'v pořádku (' + ms + ' ms)' : kdyz, ok === null ? '' : ok ? 'ano' : 'ne'];
+    }
+    var hodinyRadek;
+    if (i.rozdilMin === null) hodinyRadek = ['Hodiny telefonu proti serveru', nacitani > 0 ? 'zjišťuju…' : 'nezjištěno', ''];
+    else hodinyRadek = ['Hodiny telefonu proti serveru', (i.rozdilMin >= 0 ? '+' : '') + Math.round(i.rozdilMin * 10) / 10 + ' min' + (Math.abs(i.rozdilMin) > POVOLENY_ROZDIL_MIN ? ' — špatně' : ''), Math.abs(i.rozdilMin) > POVOLENY_ROZDIL_MIN ? 'ne' : 'ano'];
+    vypis($('spojeni'), [
+      spojeniRadek('Aplikace (zajic-pivovar.pages.dev)', i.appOk, i.appMs, 'NEJDE — zkontroluj internet'),
+      spojeniRadek('Databáze', i.dbOk, i.dbMs, 'NEJDE — zkontroluj internet a datum telefonu'),
+      hodinyRadek,
+      ['Verze aplikace na serveru', i.appVerze || (nacitani > 0 ? 'zjišťuju…' : 'nezjištěno')]
+    ]);
+
+    var zprava = sestavZpravu(i, v);
+    $('zprava').value = zprava;
+    $('whatsapp').setAttribute('href', 'https://wa.me/?text=' + encodeURIComponent(zprava));
+  }
+
+  // ---- spojení (asynchronně) -------------------------------------------------------------------------
+  function hotovoUkol(i) {
+    nacitani--;
+    vykresli(i);
+    if (nacitani <= 0) document.documentElement.setAttribute('data-hotovo', '1');
+  }
+  /** Zjistí jen to, jestli spojení (včetně certifikátu) vůbec vzniklo — bez CORS jiné údaje nejsou k dispozici. */
+  function dosazitelnost(url, hotovo) {
+    if (typeof window.fetch !== 'function') { hotovo(null, null); return; }
+    var s0 = new Date().getTime();
+    var skoncilo = false;
+    function skonci(ok) {
+      if (skoncilo) return;
+      skoncilo = true;
+      hotovo(ok, new Date().getTime() - s0);
+    }
+    try {
+      window.fetch(url, { mode: 'no-cors', cache: 'no-store' }).then(function () { skonci(true); }, function () { skonci(false); });
+    } catch (e) { skonci(false); }
+    setTimeout(function () { skonci(false); }, 12000);
+  }
+  function kontrolaSpojeni(i) {
+    // Stránka v APK je místní kopie (adresa localhost): živou aplikaci tam jde jen „dosáhnout“.
+    var mistni = location.hostname === 'localhost' || location.protocol === 'file:' || location.protocol === 'capacitor:';
+    nacitani++;
+    if (mistni) {
+      dosazitelnost(APP + '/version.json?_=' + new Date().getTime(), function (ok, ms) {
+        i.appOk = ok;
+        i.appMs = ms;
+        hotovoUkol(i);
+      });
+    } else {
+      // Obyčejný požadavek na version.json: z hlavičky Date se pozná, jak jdou hodiny telefonu.
+      try {
+        var t0 = new Date().getTime();
+        var x = new XMLHttpRequest();
+        x.open('GET', '/version.json?_=' + t0, true);
+        x.timeout = 12000;
+        x.onload = function () {
+          var t1 = new Date().getTime();
+          i.appOk = x.status >= 200 && x.status < 300;
+          i.appMs = t1 - t0;
+          try {
+            var j = JSON.parse(x.responseText);
+            if (j && j.version) i.appVerze = String(j.version);
+          } catch (e) {}
+          var d = x.getResponseHeader('Date');
+          var server = d ? new Date(d).getTime() : NaN;
+          if (!isNaN(server)) i.rozdilMin = ((t0 + t1) / 2 - server) / 60000;
+          hotovoUkol(i);
+        };
+        x.onerror = x.ontimeout = function () { i.appOk = false; hotovoUkol(i); };
+        x.send();
+      } catch (e2) { i.appOk = false; hotovoUkol(i); }
+    }
+    // Databáze: na starých Androidech právě tady občas selže certifikát nebo špatné hodiny.
+    nacitani++;
+    dosazitelnost(DB + '/rest/v1/', function (ok, ms) {
+      i.dbOk = ok;
+      i.dbMs = ms;
+      hotovoUkol(i);
+    });
+  }
+  function vysokaPresnost(i) {
+    // Prohlížeče od Chromu 110 skrývají verzi Androidu a model — na požádání je ale prozradí.
+    try {
+      var d = navigator.userAgentData;
+      if (d && typeof d.getHighEntropyValues === 'function') {
+        nacitani++;
+        d.getHighEntropyValues(['platformVersion', 'model', 'uaFullVersion']).then(function (h) {
+          if (h.platformVersion) i.androidReal = String(h.platformVersion);
+          if (h.model) i.model = String(h.model);
+          if (h.uaFullVersion) i.chromePlna = String(h.uaFullVersion);
+          hotovoUkol(i);
+        }, function () { hotovoUkol(i); });
+      }
+    } catch (e) {}
+  }
+
+  // ---- tlačítka --------------------------------------------------------------------------------------
+  function zkopiruj() {
+    var t = $('zprava');
+    var hlaska = $('stav-kopie');
+    function hotovo() { hlaska.textContent = 'Zpráva je zkopírovaná — vlož ji do zprávy (dlouhé podržení → Vložit).'; }
+    function nouze() {
+      try {
+        t.removeAttribute('readonly');
+        t.focus();
+        t.select();
+        t.setSelectionRange(0, t.value.length);
+        var ok = document.execCommand && document.execCommand('copy');
+        t.setAttribute('readonly', '');
+        if (ok) hotovo(); else hlaska.textContent = 'Zkopírování se nepovedlo — podrž prst na textu výše, zvol „Vybrat vše“ a „Kopírovat“.';
+      } catch (e) {
+        hlaska.textContent = 'Zkopírování se nepovedlo — podrž prst na textu výše, zvol „Vybrat vše“ a „Kopírovat“.';
+      }
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t.value).then(hotovo, nouze);
+      else nouze();
+    } catch (e) { nouze(); }
+  }
+
+  function start() {
+    var info = zjisti();
+    vykresli(info);
+    $('kopirovat').onclick = zkopiruj;
+    kontrolaSpojeni(info);
+    vysokaPresnost(info);
+  }
+
+  // Pro testy (src/lib/diagnostika.test.ts).
+  window.__diagnostika = { zhodnot: zhodnot, sestavZpravu: sestavZpravu, zjisti: zjisti, PODLAHA_CHROME: PODLAHA_CHROME, DOPORUCENO_CHROME: DOPORUCENO_CHROME };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+</script>
+</body>
+</html>

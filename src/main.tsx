@@ -16,6 +16,7 @@ import { zapniFrontuTanku } from './lib/tankFrontaBeh';
 import { zapniPosunNadKlavesnici } from './lib/nadKlavesnici';
 import { lazyStranka } from './lib/lazyStranka';
 import { JE_SLADEK } from './lib/profilAplikace';
+import { upozorniNaStarySystem } from './lib/upozorneniStarehoTelefonu';
 
 // Samostatná aplikace AI sládek (adresa /sladek/, R39) má vlastní kořen — líný kus, hlavní aplikaci nezvětší.
 const SladekApp = lazyStranka(() => import('./screens/SladekApp'));
@@ -151,6 +152,10 @@ initTheme();
 
 // Odeslat verzi aplikace při startu (pokud je uživatel přihlášený)
 setTimeout(() => reportAppVersion(), 2000);
+
+// Starší prohlížeč v telefonu (Chrome pod 90): jednou za 14 dní řekne, že za odlišný vzhled může a co s tím
+// (lib/upozorneniStarehoTelefonu.ts). Na moderním telefonu se nestane nic.
+setTimeout(() => upozorniNaStarySystem(), 8000);
 
 // Spustit pravidelné kontroly nové verze (každých 5 minut)
 startVersionCheck();

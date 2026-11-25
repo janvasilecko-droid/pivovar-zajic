@@ -37,7 +37,7 @@ async function getCacheVersion() {
     const resp = await fetch('./version.json?t=' + Date.now(), { cache: 'no-cache' });
     if (resp.ok) {
       const info = await resp.json();
-      if (info?.version) return CACHE_PREFIX + info.version;
+      if (info && info.version) return CACHE_PREFIX + info.version;
     }
   } catch {}
   // Fallback: use a timestamp so dev builds still get a unique cache
@@ -149,7 +149,7 @@ self.addEventListener('activate', (e) => {
 // Nový worker zůstane ve waiting stavu. Aktivaci lze vyžádat pouze explicitní
 // akcí uživatele; samotná instalace nikdy nereloaduje rozpracovanou aplikaci.
 self.addEventListener('message', (event) => {
-  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 // Web Share Target: when the user shares an image (e.g. from WhatsApp) directly
