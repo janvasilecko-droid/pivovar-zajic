@@ -159,11 +159,11 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Na telefon jde přidat na plochu',
-        jak: 'V Nastavení → „Instalace aplikace“ (nebo přes nabídku prohlížeče „Přidat na plochu“) — ikona se přidá rovnou z prohlížeče, ne z obchodu Google Play. Pak se otevírá jako běžná aplikace, na celou obrazovku a bez adresního řádku. Postup krok za krokem je v oddílu „Začínáme“.',
+        jak: 'V Nastavení → „Instalace aplikace“ (nebo přes nabídku prohlížeče „Přidat na plochu“) — ikona se přidá rovnou z prohlížeče, ne z obchodu Google Play. Pak se otevírá jako běžná aplikace, na celou obrazovku a bez adresního řádku. Postup krok za krokem je v oddílu „Začínáme“. Ikona se z prohlížeče nespustí (stává se na starších telefonech)? Stránka Instalace aplikace (Nastavení → Instalace aplikace → „Ikona se nespustí nebo to nejde?“) pozná telefon a na Androidu 7 a novějším nabídne stažení skutečné aplikace s vlastní ikonou, která na prohlížeči nezávisí.',
       },
       {
         co: 'Starší telefon: aplikace nejde nebo vypadá divně',
-        jak: 'Aplikace stojí na „Android System WebView“ a Chrome. Když jsou starší než verze 66, nespustí se (místo bílé obrazovky se ukáže, co dělat); do verze 90 se spustí, ale může vypadat jinak. Oprava: v Obchodě Play aktualizuj „Android System WebView“ a „Chrome“ (zdarma). Co přesně telefonu chybí, ukáže stránka Diagnostika telefonu (Nastavení → Instalace aplikace) — výsledek pošli správci. APK potřebuje Android 7 a novější; na starším telefonu otevři aplikaci v Chrome a dej „Přidat na plochu“.',
+        jak: 'Aplikace stojí na „Android System WebView“ a Chrome. Když jsou starší než verze 66, nespustí se (místo bílé obrazovky se ukáže, co dělat); do verze 90 se spustí, ale může vypadat jinak. Oprava: v Obchodě Play aktualizuj „Android System WebView“ a „Chrome“ (zdarma). Co přesně telefonu chybí, ukáže stránka Diagnostika telefonu (Nastavení → Instalace aplikace) — výsledek pošli správci. APK potřebuje Android 7 a novější; na starším telefonu otevři aplikaci v Chrome a dej „Přidat na plochu“ — nebo si ji ulož do záložek (⋮ → hvězdička), to jde vždycky.',
       },
       {
         co: 'Když něco nesedí',

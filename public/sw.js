@@ -1,8 +1,9 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 2.441 — změň při zásahu do tohohle souboru, ať si prohlížeč
-// stáhne nový service worker (19. 9. 2026: přejmenované ikony, viz PRECACHE).
+// SW_VERSION: 2.442 — změň při zásahu do tohohle souboru, ať si prohlížeč
+// stáhne nový service worker (25. 11. 2026: stránka „bez připojení“ místo holého „Offline“;
+// 19. 9. 2026: přejmenované ikony, viz PRECACHE).
 const CACHE_PREFIX = 'pivovar-';
 const CACHE_META = `${CACHE_PREFIX}meta`;
 const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope).href;
@@ -239,6 +240,69 @@ async function stylZJakekolivVerze(req) {
   return null;
 }
 
+// 📴 Stránka „bez připojení“ — když se aplikace spouští bez signálu A bez uložené kopie.
+//
+// Dřív se v té chvíli vrátilo holé „Offline“ (503): prázdná bílá stránka s jedním slovem. Stává se to třeba
+// u aplikace spuštěné z ikony na ploše, když Chrome (hlavně na starších telefonech s málem místa) uloženou
+// kopii smazal nebo když se instalace tohohle service workeru nedokončila — a člověk neví, co s tím.
+//
+// Stránka je přímo v tomhle skriptu: soubor v cache by se smazal spolu se zbytkem, skript service workeru
+// prohlížeč drží zvlášť. Nic nestahuje a skript v ní je ES5. Sama se zkusí znovu (událost „online“
+// a ověření serveru každých 15 s) a jakmile server odpoví, načte aplikaci. Hlídá to src/lib/swOffline.test.ts.
+const STRANKA_OFFLINE = `<!doctype html>
+<html lang="cs"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Bez připojení — Pivovar Zajíc</title>
+<style>
+body{margin:0;background:#f5f5f4;color:#222;font:18px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+main{max-width:36rem;margin:0 auto;padding:24px 18px}
+h1{font-size:23px;color:#7a3b0c;margin:8px 0 12px}
+p{margin:0 0 12px}a{color:#a64714}
+li{margin-bottom:8px}
+.tl{display:block;width:100%;box-sizing:border-box;text-align:center;font:inherit;font-weight:700;padding:16px;margin:16px 0;border-radius:10px;border:2px solid #92400e;background:#f59e0b;color:#1c1917;cursor:pointer}
+.drobne{font-size:15px;color:#57534e}
+</style></head><body><main>
+<h1>Bez připojení</h1>
+<p>Aplikace Pivovar Zajíc se teď nemůže spojit se serverem a nemá u sebe uloženou kopii, ze které by se spustila.</p>
+<p><strong>Co zkusit:</strong></p>
+<ol>
+<li>Zapni Wi-Fi nebo mobilní data (nebo se přesuň tam, kde je signál).</li>
+<li>Chvíli počkej — aplikace se spustí sama, jakmile se připojení vrátí — nebo klepni na <strong>Zkusit znovu</strong>.</li>
+</ol>
+<button type="button" class="tl" id="znovu">Zkusit znovu</button>
+<p class="drobne" id="stav" role="status"></p>
+<p class="drobne">Nejde to ani s připojením? Otevři <a href="/diagnostika.html">Diagnostiku telefonu</a> — ukáže, co přesně telefonu chybí — a pošli výsledek správci aplikace. Jak aplikaci nainstalovat: <a href="/instalace">Instalace aplikace</a>.</p>
+</main>
+<script>
+(function () {
+  var PAUZA = 15000;
+  var stav = document.getElementById('stav');
+  function znovu() { stav.textContent = 'Zkouším se připojit…'; location.reload(); }
+  document.getElementById('znovu').onclick = znovu;
+  window.addEventListener('online', znovu);
+  setInterval(function () {
+    if (document.hidden) return;
+    try {
+      var x = new XMLHttpRequest();
+      x.open('GET', '/version.json?t=' + Date.now());
+      x.timeout = 8000;
+      x.onload = function () { if (x.status === 200) znovu(); };
+      x.send();
+    } catch (e) {}
+  }, PAUZA);
+})();
+</script>
+</body></html>`;
+
+function odpovedOffline() {
+  return new Response(STRANKA_OFFLINE, {
+    status: 503,
+    statusText: 'Offline',
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
@@ -317,7 +381,8 @@ self.addEventListener('fetch', (e) => {
         } catch {
           // If still no cache (first load offline) serve cached index.html as fallback
           const fallback = await matchInInstalledCache('./index.html');
-          return fallback || new Response('Offline', { status: 503, statusText: 'Offline' });
+          // Ani ta není (smazaná kopie, nedokončená instalace) → srozumitelná stránka místo holého „Offline“.
+          return fallback || odpovedOffline();
         }
       })()
     );
