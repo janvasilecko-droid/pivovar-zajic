@@ -124,6 +124,9 @@ describe('Rozbor — rozdíl oproti inventuře bokem (měsíc)', () => {
     // Název a číslo jsou dva sloupce řádku — mezi nimi v textu DOM mezera není.
     const polozky = within(blok).getAllByRole('listitem').map((li) => [...li.children].map((c) => (c.textContent ?? '').replace(/\s+/g, ' ').trim()).join(' | '));
     expect(polozky).toEqual(['Osma 1l | −27 ks · 2 týdny', '12° Světlá KEG 50l | +2 ks · 1 týden']);
+    // Po návratu na týden blok zmizí, i když jsou kontroly měsíce už načtené.
+    fireEvent.click(screen.getByRole('button', { name: 'Týden' }));
+    expect(screen.queryByTestId('rozbor-ztrata-bokem')).toBeNull();
   });
 
   it('měsíc bez uložené kontroly to řekne; měsíc, kde všechno sedělo, taky', async () => {
