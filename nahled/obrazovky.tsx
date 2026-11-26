@@ -32,6 +32,7 @@ const OBRAZOVKY = {
   // „Prodejna" (obchod) i „Personál" ukazují i tlačítko „Odfasovat".
   prodejna: { popis: 'Fasování → Prodejna (obchod)', vykresli: () => <ProdejnaScreen table="fasovani_private" title="Fasování" /> },
   personal: { popis: 'Fasování → Personál', vykresli: () => <ProdejnaScreen table="fasovani" title="Fasování" showVycep /> },
+  odpis: { popis: 'Fasování → Odpis (důvod odpisu)', vykresli: () => <ProdejnaScreen table="writeoffs" title="Odpis" /> },
   potreby: { popis: 'Nastavení → Potřeby stáčení', vykresli: () => <BottlingTasksSettings setPage={() => {}} /> },
   statistika: { popis: 'Statistika', vykresli: () => <Statistika /> },
   importStaceni: {
