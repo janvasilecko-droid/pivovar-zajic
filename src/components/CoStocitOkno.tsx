@@ -20,7 +20,9 @@ import { isoWeekKey, weekRange } from './WeeklyOrderSummaryCard';
 import { dayKeyFromISO, BEZ_TERMINU, type DayPlan } from '../lib/keggingPlan';
 import { usePlanStaceni } from '../lib/usePlanStaceni';
 import StaraDataPruh from './StaraDataPruh';
+import PredemObjednaneUpozorneni from './PredemObjednaneUpozorneni';
 import { planProVyber, ulozeneObdobi, denDalsihoZavozu, chybiMimoVyber as spoctiChybiMimoVyber } from '../lib/coStocit';
+import { predemObjednane, radkyUpozorneni } from '../lib/predemObjednane';
 import { DAYS } from '../lib/shared';
 import { uloz } from '../lib/uloziste';
 import { IkonaSud, IkonaLahev } from './ikony';
@@ -34,6 +36,15 @@ const KLIC_OBDOBI = 'pivovar_costocit_obdobi2';
 // celá zabraná přehledy a k dlaždicím se muselo posouvat). Nový klíč, ať se
 // sbalí všem jednou — kdo si ho pak rozbalí, tomu zůstane rozbalené.
 const KLIC_SBALENO = 'pivovar_costocit_sbaleno2';
+// „Rozumím" u upozornění na předem objednané (lib/predemObjednane.ts) — pamatuje se v zařízení do konce
+// týdne (týden je součástí klíče), nová předem objednaná objednávka ho ukáže znovu.
+const KLIC_PREDEM = 'pivovar_predem_skryto_';
+const ctiSeznam = (klic: string): string[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(klic) ?? '[]');
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch { return []; }
+};
 
 const cti = (klic: string) => { try { return localStorage.getItem(klic); } catch { return null; } };
 
@@ -95,6 +106,7 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
   // dokud se neklikne na jiný (6. 10. 2026, lib/coStocit.ts ulozeneObdobi).
   const [obdobi, setObdobi] = useState<string>(() => ulozeneObdobi(cti(KLIC_OBDOBI), dnesniDen));
   const [sbaleno, setSbaleno] = useState(() => cti(KLIC_SBALENO) !== '0');
+  const [skrytoPredem, setSkrytoPredem] = useState<string[]>(() => ctiSeznam(KLIC_PREDEM + weekKey));
 
   // Data i plán sudů a lahví — sdílené se Sklepem (lib/usePlanStaceni.ts),
   // ať obě místa počítají „co stočit" jedním výpočtem.
@@ -112,6 +124,24 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
     ...(lahve ? [{ druh: 'lahve' as Druh, plan: planLahve }] : []),
   ]), [sudy, lahve, planSudy, planLahve]);
   const pivoPodleId = useMemo(() => new Map((data?.beers ?? []).map((b) => [b.id, b])), [data]);
+
+  // 📅 Předem objednané (lib/predemObjednane.ts): objednávky s týdenním předstihem a dnem závozu v tomhle
+  // týdnu. Majitel 26. 11. 2026: „…upozornit v pondělí týden kdy to má být stočený." Plán je do týdne zařadí
+  // sám, tohle je výslovné upozornění nad ním — vidět i při sbaleném okně.
+  const predem = useMemo(() => (data ? predemObjednane(data.orders, data.orderItems, dnes) : []), [data, dnes]);
+  const predemRadky = useMemo(() => {
+    const obalPodleId = new Map((data?.packages ?? []).map((p) => [p.id, p]));
+    return radkyUpozorneni(
+      predem.filter((o) => !skrytoPredem.includes(o.id)),
+      (id) => { const b = id ? pivoPodleId.get(id) : null; return b ? beerName(b) : 'pivo'; },
+      (id) => { const p = id ? obalPodleId.get(id) : null; return p ? kratkyObal(p.label) : 'obal'; },
+    );
+  }, [predem, skrytoPredem, data, pivoPodleId]);
+  function rozumimPredem() {
+    const vse = predem.map((o) => o.id);
+    setSkrytoPredem(vse);
+    uloz(KLIC_PREDEM + weekKey, JSON.stringify(vse));
+  }
 
   const objednanoCelkem = planSudy.totalOrdered + planLahve.totalOrdered;
   const sloupceSudu = matice.sloupce.filter((s) => s.druh === 'sudy').length;
@@ -218,6 +248,8 @@ export default function CoStocitOkno({ setPage, sudy, lahve }: {
           {sbaleno ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
         </span>
       </button>
+
+      {predemRadky.length > 0 && <PredemObjednaneUpozorneni radky={predemRadky} onRozumim={rozumimPredem} />}
 
       {!sbaleno && (
         <div className="px-3.5 pb-3 pt-2 space-y-2">
