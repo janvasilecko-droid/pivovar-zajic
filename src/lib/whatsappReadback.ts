@@ -408,8 +408,10 @@ export function analyzeReadback(message: WhatsAppIncoming): ReadbackAnalysis {
     // Kontrola po částech: porovná se s oknem, ze kterého AI (pravděpodobně)
     // četla; bez okna (unmatched) s celým textem zprávy.
     const windowText = match ? text.slice(match.start, match.end) : text;
-    // Bez data, ať se „30" z „13 .11.30l" najde jako samostatné číslo.
-    const canonWindow = canonicalizeNumbers(normalizeForReadbackParts(bezData(windowText)));
+    // Bez data, ať se „30" z „13 .11.30l" najde jako samostatné číslo. A bez odmlky: z „18 .12...20l"
+    // (25. 11. 2026, odběratel odděluje části třemi tečkami) by „20" za třemi tečkami vypadalo jako
+    // desetinné místo a objem 20 l svítil červeně, i když ho AI přečetla správně.
+    const canonWindow = canonicalizeNumbers(normalizeForReadbackParts(bezData(windowText)).replace(/\.{2,}/g, ' '));
     const parts: ItemReadbackPart[] = extractOrderParts(rawLine).map((part) => ({
       part,
       found: valuePresent(part.value, canonWindow),

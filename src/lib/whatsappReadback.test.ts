@@ -364,3 +364,34 @@ describe('kontrola čtení — datum není objem', () => {
     expect(extractOrderParts('20x 0.5l 12sv').map((p) => `${p.kind}:${p.value}`)).toContain('volume:0.5');
   });
 });
+
+// 25. 11. 2026: „Na 18 .12...20l 12sv...díky p.Novák" (jméno vymyšlené) — odběratel odděluje části
+// zprávy třemi tečkami. Objem 20 l svítil červeně („NENAŠLO"), i když AI přečetla správně 1× 20 l 12°:
+// „20" za třemi tečkami vypadalo jako desetinné místo a nenašlo se jako samostatné číslo.
+describe('kontrola čtení — odmlka před číslem', () => {
+  const ZPRAVA = 'Na 18 .12...20l 12sv...díky p.Novák';
+  const zprava = {
+    id: 'z', message_text: ZPRAVA, message_type: 'text',
+    parsed_items: [{ raw_line: ZPRAVA, qty: 1, beer_name: '12° Světlá', package_label: '20l' }],
+  } as unknown as WhatsAppIncoming;
+
+  it('objem 20 i stupeň 12 se v originálu najdou', () => {
+    const a = analyzeReadback(zprava);
+    expect(a.items[0].parts.map((p) => [p.part.display, p.found])).toEqual([['20l', true], ['12°', true]]);
+  });
+
+  it('číslo, které v originálu není, se dál nenajde (odmlka nic nepřidává)', () => {
+    const a = analyzeReadback({
+      ...zprava,
+      parsed_items: [{ raw_line: ZPRAVA, qty: 1, beer_name: '12° Světlá', package_label: '30l' }],
+    } as unknown as WhatsAppIncoming);
+    // raw_line říká 20 l a stupeň 12 — v originálu jsou; měnit se nic nesmí ani u jiného obalu v položce.
+    expect(a.items[0].parts.every((p) => p.found)).toBe(true);
+    const bezOdmlky = analyzeReadback({
+      ...zprava,
+      message_text: 'Na 18 .12...30l 12sv...díky p.Novák',
+    } as unknown as WhatsAppIncoming);
+    // AI četla 20 l, v originálu je 30 l → objem se NEnajde.
+    expect(bezOdmlky.items[0].parts.map((p) => [p.part.display, p.found])).toEqual([['20l', false], ['12°', true]]);
+  });
+});

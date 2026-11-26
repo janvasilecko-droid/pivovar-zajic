@@ -34,7 +34,7 @@ vi.mock('../lib/whatsappParser', () => ({
 
 const beers: any[] = [{ id: 'b-12', name: '12° Světlá' }];
 const packages: any[] = [{ id: 'p30', label: '30l', kind: 'keg', volume_l: 30 }];
-const places: any[] = [{ id: 'pl-x', name: 'Restaurace' }];
+const places: any[] = [{ id: 'pl-x', name: 'Restaurace' }, { id: 'pl-y', name: 'Hospoda U Lípy' }];
 
 const zprava = (text: string, extra: Record<string, unknown> = {}): any => ({
   id: 'z-1',
@@ -90,6 +90,27 @@ describe('WhatsAppOrderReviewModal — datum ze zprávy', () => {
     renderModal(zprava('Na 13 .11.30l 12sv, děkuji'));
     await screen.findByText(/pá 13\. 11\./);
     expect(screen.queryByText(/objem 11[.,]30/)).toBeNull();
+  });
+
+  // 25. 11. 2026 (snímek z telefonu): „Na 18 .12...20l 12sv...díky p.Novák" — odběratel odděluje části
+  // třemi tečkami. Okno ukázalo výchozí středu 2. 12. místo data ze zprávy a objem svítil červeně.
+  // Majitel: „aplikace to musí nastavit ten datum". (Jméno odběratele je vymyšlené, obal 30 l kvůli sadě.)
+  it('„Na 18 .12...30l 12sv...díky": pátek 18. 12. místo výchozí středy, objem se v originálu našel', async () => {
+    const text = 'Na 18 .12...30l 12sv...díky p.Novák';
+    const { onApprove } = renderModal(zprava(text, {
+      parsed_place_id: 'pl-y',
+      parsed_place_name: 'Hospoda U Lípy',
+      message_timestamp: '2026-11-25T11:54:54+00:00',
+      created_at: '2026-11-25T11:54:54+00:00',
+    }));
+    await waitFor(() => expect(screen.getByText(/pá 18\. 12\./)).toBeTruthy());
+    expect(screen.queryByText(/výchozí den/)).toBeNull();
+    expect(screen.queryByText(/nevybráno/)).toBeNull();
+    expect(screen.getByTitle('objem 30l se v originálu našlo')).toBeTruthy();
+    expect(screen.queryByTitle(/NENAŠLO/)).toBeNull();
+    fireEvent.click(screen.getByText('Schválit a odeslat do objednávek'));
+    await waitFor(() => expect(onApprove).toHaveBeenCalledTimes(1));
+    expect(onApprove.mock.calls[0][0]).toMatchObject({ parsed_delivery_day: 'pa', parsed_delivery_date: '2026-12-18' });
   });
 
   it('„pozítří" od pátku = neděle 8. 11.', async () => {
