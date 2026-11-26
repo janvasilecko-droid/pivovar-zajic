@@ -201,6 +201,8 @@ export const orders = [
   // Pátek s deseti pivy — ať je v náhledu vidět, jak přehled vypadá, když je stáčení hodně.
   { id: 'o-5', order_date: denTydne(0), delivery_date: denTydne(4), delivery_day: 'pa', place_name: 'Festival', status: 'nova', is_delivered: false },
   { id: 'o-4', order_date: denTydne(0), delivery_date: null, delivery_day: null, place_name: 'Kiosek u koupaliště', status: 'nova', is_delivered: false },
+  // Předem objednané: zadáno před třemi týdny na pátek tohoto týdne → upozornění „Předem objednané“ nad Co stočit.
+  { id: 'o-pre', order_date: posunDnu(PONDELI, -21), delivery_date: denTydne(4), delivery_day: 'pa', place_name: 'Zahrada U Rybníka', status: 'nova', is_delivered: false },
   // Statistika → Žebříčky „Kdo by měl brzy objednat": pravidelný odběratel
   // každých 14 dní, poslední závoz před 17 dny → 3 dny po termínu.
   ...[59, 45, 31, 17].map((dnu, i) => ({
@@ -215,6 +217,7 @@ export const order_items = [
   { id: 'oi-4', order_id: 'o-2', beer_id: 'b-11sv', package_id: 'p-keg30', quantity: 6 },
   { id: 'oi-5', order_id: 'o-2', beer_id: 'b-10de', package_id: 'p-keg20', quantity: 5 },
   { id: 'oi-6', order_id: 'o-3', beer_id: 'b-12tm', package_id: 'p-lah033', quantity: 60 },
+  { id: 'oi-pre', order_id: 'o-pre', beer_id: 'b-12sv', package_id: 'p-keg20', quantity: 1 },
   { id: 'oi-p0', order_id: 'o-5', beer_id: 'b-12sv', package_id: 'p-keg50', quantity: 2 },
   { id: 'oi-q0', order_id: 'o-5', beer_id: 'b-12sv', package_id: 'p-keg30', quantity: 3 },
   { id: 'oi-p1', order_id: 'o-5', beer_id: 'b-12tm', package_id: 'p-keg30', quantity: 3 },
