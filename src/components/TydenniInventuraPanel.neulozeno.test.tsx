@@ -1,12 +1,18 @@
-// Týdenní inventura: napočítané, ale NEULOŽENÉ počty musí svítit.
+// Úprava skladu: napočítané, ale NEULOŽENÉ počty musí svítit.
 // Majitel 26. 11. 2026: „když dám reálný stav skladu, musí s tím počítat" — nula u Osmy 1 l se ale nikdy neuložila
 // (tlačítko se jmenovalo „Uložit kontrolu", nápověda jinde říkala „Uložit vše") a nikde to nesvítilo.
+// Samočinné uložení má vlastní soubor (TydenniInventuraPanel.autoulozeni.test.tsx); tady je pauza před ním dlouhá,
+// ať pruh zůstane vidět a nic se samo nezapíše.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { buildMovements } from '../lib/stockLedger';
 
 const h = vi.hoisted(() => ({ ulozeno: [] as Record<string, unknown>[] }));
 
+vi.mock('../lib/autoulozeniUpravySkladu', async (puvodni) => ({
+  ...(await puvodni<typeof import('../lib/autoulozeniUpravySkladu')>()),
+  AUTOUKLADANI_MS: 60_000,
+}));
 vi.mock('../lib/businessDate', () => ({ businessDateISO: () => '2026-10-15', posunMesic: (m: string) => m }));
 vi.mock('../lib/supabase', () => ({
   supabase: {
@@ -54,7 +60,7 @@ const pole = () => screen.getByPlaceholderText('—') as HTMLInputElement;
 
 beforeEach(() => { localStorage.clear(); h.ulozeno.length = 0; });
 
-describe('Týdenní inventura — neuložené počty', () => {
+describe('Úprava skladu — neuložené počty', () => {
   it('bez napočítaného čísla žádný pruh a tlačítko je jen „Uložit vše"', async () => {
     await otevri();
     expect(screen.queryByTestId('tydenni-neulozeno')).toBeNull();
@@ -65,8 +71,8 @@ describe('Týdenní inventura — neuložené počty', () => {
     await otevri();
     fireEvent.change(pole(), { target: { value: '0' } });
     await waitFor(() => expect(screen.getByTestId('tydenni-neulozeno')).toBeTruthy());
-    expect(screen.getByTestId('tydenni-neulozeno').textContent).toMatch(/1 položka napočítaná, ale neuložených/);
-    expect(screen.getByTestId('tydenni-neulozeno').textContent).toMatch(/Sklad ani Rozbor s nimi zatím nepočítají/);
+    expect(screen.getByTestId('tydenni-neulozeno').textContent).toMatch(/Čeká na uložení: 1 položka — uloží se samo za chvilku/);
+    expect(screen.getByTestId('tydenni-neulozeno').textContent).toMatch(/Sklad ani Rozbor s tím zatím nepočítají/);
     expect(screen.getByRole('button', { name: 'Uložit vše (1)' })).toBeTruthy();
   });
 

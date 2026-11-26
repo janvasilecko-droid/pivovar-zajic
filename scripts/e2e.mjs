@@ -173,6 +173,28 @@ try {
   overit(chybyKonzole.length === 0, `stránka nevyhodila chybu${chybyKonzole.length ? ': ' + chybyKonzole[0] : ''}`);
   await stranka.close();
 
+  // ── Scénář 1b: Úprava skladu se ukládá sama ──────────────────────────
+  // 26. 11. 2026: „…úprava skladu, z toho se to musí ukládat a počítat“ — napsané číslo se po krátké pauze uloží
+  // samo, bez tlačítka (nula u Osmy se dřív nikdy neuložila, protože se nikdo neklepl na „Uložit").
+  console.log('\nScénář: Úprava skladu — napsané číslo se uloží samo, bez klepnutí na tlačítko');
+  const sama = await b.newPage({ viewport: { width: 390, height: 844 } });
+  const chybySama = [];
+  sama.on('pageerror', (e) => chybySama.push(String(e)));
+  await sama.goto(`${ADRESA}/panel.html`, { waitUntil: 'networkidle' });
+  await sama.locator('input[inputmode="decimal"]').first().fill('0');
+  overit(await sama.getByTestId('tydenni-neulozeno').isVisible(), 'napsané číslo (nula) nejdřív čeká na uložení — žlutý pruh');
+  overit(/uloží se samo/.test(await sama.getByTestId('tydenni-neulozeno').innerText()), 'pruh říká, že se uloží samo');
+  await sama.waitForTimeout(3600);
+  const zapisySama = await sama.evaluate(async () => {
+    const m = await import('/mock/supabase.ts');
+    return m.zapisy.length;
+  });
+  overit(zapisySama > 0, `bez klepnutí na tlačítko se číslo samo uložilo (${zapisySama} zápis)`);
+  overit(await sama.getByTestId('tydenni-ulozeno-auto').isVisible(), 'ukázalo se „Uloženo“');
+  overit(!(await sama.getByTestId('tydenni-neulozeno').isVisible()), 'žlutý pruh zmizel');
+  overit(chybySama.length === 0, `stránka nevyhodila chybu${chybySama.length ? ': ' + chybySama[0] : ''}`);
+  await sama.close();
+
   // ── Scénář 2: vzorník prvků v obou režimech ──────────────────────────
   // Chrání grafiku: kdyby se rozbila třída, proměnná barvy nebo komponenta
   // ze vzorníku, projeví se to tady a ne až na telefonu ve sklepě.

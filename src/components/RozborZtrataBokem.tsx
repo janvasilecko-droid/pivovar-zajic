@@ -22,10 +22,10 @@ export default function RozborZtrataBokem({ mesicText, vysledek }: { mesicText: 
       </div>
       <p className="text-xs font-bold text-neutral-700">
         Jen bokem: do stavu skladu ani do čísel nahoře se nepočítá — počítá se jen to, co je napočítané. Součet rozdílů, které
-        týdenní počítání odhalilo (napočítáno proti tomu, co appka čekala).
+        odhalila Úprava skladu (napočítáno proti tomu, co appka čekala).
       </p>
       {kontrol === 0 ? (
-        <p className="text-xs font-black text-neutral-800">V tomhle měsíci není uložená žádná týdenní inventura.</p>
+        <p className="text-xs font-black text-neutral-800">V tomhle měsíci není uložená žádná Úprava skladu.</p>
       ) : radky.length === 0 ? (
         <p className="text-xs font-black text-emerald-800">Za {kontrol} uložených kontrol všechno sedělo — žádný rozdíl.</p>
       ) : (

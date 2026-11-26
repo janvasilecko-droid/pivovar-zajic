@@ -70,14 +70,14 @@ const mesic = () => fireEvent.click(screen.getByRole('button', { name: 'Měsíc'
 const koncept = (pondeli: string, mapa: Record<string, string>) => localStorage.setItem(`tydenni_napocitano_${pondeli}`, JSON.stringify(mapa));
 
 describe('Rozbor — neuložené počty týdenní inventury', () => {
-  it('rozepsaná nula za TENTO týden: řádek „inv. 0 (rozepsáno)" a pruh s tlačítkem do týdenní inventury', async () => {
+  it('rozepsaná nula za TENTO týden: řádek „inv. 0 (rozepsáno)" a pruh s tlačítkem do Úpravy skladu', async () => {
     koncept('2026-10-12', { os__l1: '0' });
     await otevri();
     expect(radky().join(' | ')).toMatch(/Osma 1l.*inv\. 0 \(rozepsáno\)/);
     const pruh = screen.getByTestId('rozbor-rozepsano');
-    expect(pruh.textContent).toMatch(/1 počet z týdenní inventury je jen rozepsané/);
+    expect(pruh.textContent).toMatch(/1 počet z Úpravy skladu je jen rozepsané/);
     expect(pruh.textContent).toMatch(/neuložené/);
-    fireEvent.click(within(pruh).getByRole('button', { name: /Otevřít týdenní inventuru/ }));
+    fireEvent.click(within(pruh).getByRole('button', { name: /Otevřít Úpravu skladu/ }));
     expect(h.setPage).toHaveBeenCalledWith('inventory', undefined, 'tydenni');
   });
 
@@ -85,7 +85,7 @@ describe('Rozbor — neuložené počty týdenní inventury', () => {
     koncept('2026-10-05', { os__l1: '0', sv__k50: '3' });
     koncept('2026-10-12', { sv__l1: '12' });
     await otevri();
-    expect(screen.getByTestId('rozbor-rozepsano').textContent).toMatch(/3 počty z týdenní inventury jsou jen rozepsané/);
+    expect(screen.getByTestId('rozbor-rozepsano').textContent).toMatch(/3 počty z Úpravy skladu jsou jen rozepsané/);
     expect(radky().join(' | ')).toMatch(/Osma 1l.*inv\. 0 \(rozepsáno\)/);
     expect(radky().join(' | ')).toMatch(/Světlá 50l.*inv\. 3 \(rozepsáno\)/);
   });
@@ -132,7 +132,7 @@ describe('Rozbor — rozdíl oproti inventuře bokem (měsíc)', () => {
   it('měsíc bez uložené kontroly to řekne; měsíc, kde všechno sedělo, taky', async () => {
     await otevri();
     mesic();
-    expect((await screen.findByTestId('rozbor-ztrata-bokem')).textContent).toMatch(/není uložená žádná týdenní inventura/);
+    expect((await screen.findByTestId('rozbor-ztrata-bokem')).textContent).toMatch(/není uložená žádná Úprava skladu/);
     h.kontroly = [kontrola('2026-10-11', 'os', 'l1', 0, null)];
     fireEvent.click(screen.getByRole('button', { name: 'Týden' }));
     mesic();
