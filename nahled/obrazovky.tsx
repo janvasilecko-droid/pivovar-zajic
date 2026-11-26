@@ -17,6 +17,7 @@ import ToastHost from '../src/components/ToastHost';
 import { VarkySklep } from '../src/components/VarkySklep';
 import { ZtratyTankuPrehled } from '../src/components/ZtratyTankuPrehled';
 import CoStocitOkno from '../src/components/CoStocitOkno';
+import RozborScreen from '../src/screens/RozborScreen';
 import ProdejnaScreen from '../src/screens/ProdejnaScreen';
 import { BottlingTasksSettings } from '../src/components/BottlingTasksSettings';
 import Statistika from '../src/screens/Statistika';
@@ -27,6 +28,7 @@ import * as data from './mock/data';
 const OBRAZOVKY = {
   varky: { popis: 'Sklep → Várky & kvašení', vykresli: () => <VarkySklep beers={data.beers as any} tanks={data.cellar_tanks as any} /> },
   ztraty: { popis: 'Sklep → Ztráty při stáčení', vykresli: () => <ZtratyTankuPrehled cycles={data.cellar_tank_cycles as any} /> },
+  rozbor: { popis: 'Rozbor (týden / měsíc)', vykresli: () => <div style={{ maxWidth: 520 }}><RozborScreen setPage={() => {}} /></div> },
   costocit: { popis: 'Domů → Co stočit', vykresli: () => <div style={{ maxWidth: 420 }}><CoStocitOkno setPage={() => {}} sudy lahve /></div> },
   // Výdej ze skladu — tatáž komponenta se jen přepíná tabulkou, takže
   // „Prodejna" (obchod) i „Personál" ukazují i tlačítko „Odfasovat".

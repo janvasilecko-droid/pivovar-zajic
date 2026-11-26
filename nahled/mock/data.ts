@@ -142,6 +142,13 @@ export const cellar_tanks = [
 /** Rozdělaná kontrola — ať je při otevření vidět i stav „už se počítalo". */
 export const tydenni_inventura = [
   { tyden_od: PONDELI, beer_id: 'b-12tm', package_id: 'p-keg50', napocitano: 2, ocekavano: 2, rozdil: 0, vyreseno: null },
+  // Uložená kontrola před dvěma týdny s rozdíly — pro blok „Rozdíl oproti inventuře“ bokem v měsíčním Rozboru.
+  ...[
+    ['b-12sv', 'p-lah05', 2, 25], ['b-11sv', 'p-keg30', 4, 6], ['b-10de', 'p-keg20', 5, 4],
+  ].map(([beer_id, package_id, napocitano, ocekavano]) => ({
+    tyden_od: posunDnu(PONDELI, -14), tyden_do: posunDnu(PONDELI, -8), beer_id, package_id,
+    napocitano, ocekavano, rozdil: (napocitano as number) - (ocekavano as number), vyreseno: 'ponechano',
+  })),
 ];
 
 /** Ukončené cykly tanků — pro přehled ztrát (Sklep → Ztráty při stáčení). */

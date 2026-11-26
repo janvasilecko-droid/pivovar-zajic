@@ -18,7 +18,7 @@ vi.mock('../lib/pohybyPredvyber', () => ({ predvyberPohyby: (...a: unknown[]) =>
 vi.mock('../lib/supabase', async (puvodni) => {
   const skutecny = await puvodni<typeof import('../lib/supabase')>();
   // týdenní inventura: nic napočítaného
-  const q: any = { select: () => q, in: () => q, then: (ok: (r: unknown) => unknown) => Promise.resolve({ data: [] }).then(ok) };
+  const q: any = { select: () => q, in: () => q, gte: () => q, lte: () => q, then: (ok: (r: unknown) => unknown) => Promise.resolve({ data: [] }).then(ok) };
   return { ...skutecny, supabase: { from: () => q }, useRealtime: vi.fn() };
 });
 vi.mock('../lib/businessDate', async (puvodni) => {

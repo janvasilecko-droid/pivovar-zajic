@@ -236,3 +236,48 @@ describe('popisky pohybů se sudy na lahve', () => {
   });
 });
 
+
+// 26. 11. 2026 (majitel): „fasování personál, musí být vidět kdo fasoval" — v Pohybech u řádku a v tabulce po
+// dnech („komu se ten den vydalo"). Jména i důvody jsou vymyšlené (repozitář je veřejný).
+describe('Pohyby — kdo fasoval a proč se odepsalo', () => {
+  const D = '2026-11-20';
+  const zdroje = buildMovements({
+    inventoryRows: [{ entry_date: D, beer_id: 'b12', package_id: 'k30', quantity: 20, note: 'Počáteční stav' }],
+    fasovaniRows: [
+      { entry_date: D, beer_id: 'b12', package_id: 'k30', quantity: 2, who: 'Eva' },
+      { entry_date: D, beer_id: 'b12', package_id: 'k30', quantity: 1, who: 'Jana' },
+      { entry_date: D, beer_id: 'b12', package_id: 'k30', quantity: 1, who: 'Eva' },
+    ],
+    writeoffsRows: [{ entry_date: D, beer_id: 'b12', package_id: 'k30', quantity: 3, who: 'Výhra v tombole' }],
+    zavozDeductionRows: [{ deduct_date: D, beer_id: 'b12', package_id: 'k30', quantity: 4, order_id: 'o1' }],
+  });
+  const r = sestavPohybyObdobi(zdroje, { od: D, doDne: D, beerId: 'b12', packageId: 'k30', dnes: D }, (id) => (id === 'o1' ? 'U Zajíce' : undefined));
+  const radky = r.dny[0].radky;
+
+  it('řádek fasování personálu nese jméno, odpisu důvod, závozu odběratele', () => {
+    expect(radky.filter((x) => x.druh === 'fasovani').map((x) => x.kdo).sort()).toEqual(['Eva', 'Eva', 'Jana']);
+    expect(radky.find((x) => x.druh === 'odpis')!.kdo).toBe('Výhra v tombole');
+    expect(radky.find((x) => x.druh === 'zavoz')!.kdo).toBe('U Zajíce');
+  });
+
+  it('v tabulce po dnech je „komu“ rozepsané: Fasování personál · Eva (součet za den), Odpis · důvod, odběratel sám', () => {
+    const [den] = tabulkaPoDnech(r.dny, 'b12', 'k30');
+    const komu = Object.fromEntries(den.komu.map((k) => [k.jmeno, k.mnozstvi]));
+    expect(komu).toEqual({
+      'U Zajíce': -4,
+      'Fasování personál · Eva': -3,
+      'Fasování personál · Jana': -1,
+      'Odpis · Výhra v tombole': -3,
+    });
+  });
+
+  it('řádek bez jména se popisuje jako dřív', () => {
+    const bez = buildMovements({
+      inventoryRows: [{ entry_date: D, beer_id: 'b12', package_id: 'k30', quantity: 5, note: 'Počáteční stav' }],
+      fasovaniRows: [{ entry_date: D, beer_id: 'b12', package_id: 'k30', quantity: 1 }],
+    });
+    const rr = sestavPohybyObdobi(bez, { od: D, doDne: D, beerId: 'b12', packageId: 'k30', dnes: D }, () => undefined);
+    expect(rr.dny[0].radky.find((x) => x.druh === 'fasovani')!.kdo).toBe('');
+    expect(tabulkaPoDnech(rr.dny, 'b12', 'k30')[0].komu).toEqual([{ jmeno: 'Fasování personál', mnozstvi: -1 }]);
+  });
+});

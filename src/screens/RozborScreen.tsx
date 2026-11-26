@@ -15,7 +15,7 @@
 // a výběr odběratele. Týden bez odběratele zůstal jak byl — počítá se z plánu
 // stáčení (stočit, mínus ve skladu, inventura). Měsíc a odběratel se počítají
 // přímo z objednávek (lib/rozborObdobi.ts).
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { beerBg, beerName, supabase, useRealtime } from '../lib/supabase';
 import { businessDateISO, posunMesic } from '../lib/businessDate';
@@ -29,6 +29,8 @@ import { nazevMesice } from '../lib/inventoryFix';
 import { konecMesice } from '../lib/stockLedger';
 import { nactiJson } from '../lib/uloziste';
 import { predvyberPohyby } from '../lib/pohybyPredvyber';
+import { ztrataOprotiInventure, type ZaznamKontroly } from '../lib/ztrataOprotiInventure';
+import RozborZtrataBokem from '../components/RozborZtrataBokem';
 import { Spinner, EmptyState } from '../components/ui';
 import type { Page } from '../components/Layout';
 
@@ -37,7 +39,7 @@ function kratkyObal(label: string): string {
   return m ? m[0].replace(/\s+/g, '') : label;
 }
 
-export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }) {
+export default function RozborScreen({ setPage }: { setPage: (p: Page, targetSection?: string, subTab?: string) => void }) {
   const dnes = businessDateISO();
   const weekKey = isoWeekKey(dnes);
   const { data, chyba, planySudy, planyLahve, zasoba, pohyby } = usePlanStaceni(weekKey);
@@ -50,10 +52,12 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
   // (11. 10. 2026: „v rozboru chci vidět i počet u týdenní inventury").
   const pondeli = weekRange(weekKey).start.toISOString().slice(0, 10);
   const [inventura, setInventura] = useState<Map<string, InventuraRozboru>>(new Map());
-  const nactiInventuru = () => {
+  const minulePondeli = (() => {
     const minule = new Date(pondeli + 'T00:00:00Z');
     minule.setUTCDate(minule.getUTCDate() - 7);
-    const minulePondeli = minule.toISOString().slice(0, 10);
+    return minule.toISOString().slice(0, 10);
+  })();
+  const nactiInventuru = () => {
     supabase.from('tydenni_inventura').select('beer_id,package_id,napocitano,updated_at,tyden_od')
       .in('tyden_od', [pondeli, minulePondeli])
       .then(({ data: radky }) => {
@@ -72,7 +76,24 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
       });
   };
   useEffect(() => { nactiInventuru(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [pondeli]);
-  useRealtime(['tydenni_inventura'], () => nactiInventuru());
+  // 📉 Týdenní kontroly zvoleného měsíce — jen pro blok „Rozdíl oproti inventuře" bokem (jen v měsíčním rozboru).
+  const [kontroly, setKontroly] = useState<ZaznamKontroly[] | null>(null);
+  // Pomalejší odpověď pro měsíc, který už není vidět (člověk mezitím přelistoval), by přepsala ty správné řádky.
+  const kontrolyMesic = useRef(mesic);
+  const nactiKontroly = () => {
+    const pro = mesic;
+    kontrolyMesic.current = pro;
+    supabase.from('tydenni_inventura').select('tyden_od,tyden_do,beer_id,package_id,rozdil,vyreseno')
+      .gte('tyden_do', `${pro}-01`).lte('tyden_do', konecMesice(pro))
+      .then(({ data: radky, error }) => { if (!error && kontrolyMesic.current === pro) setKontroly((radky as ZaznamKontroly[]) ?? []); });
+  };
+  useEffect(() => {
+    if (rezim !== 'mesic') return;
+    setKontroly(null);
+    nactiKontroly();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rezim, mesic]);
+  useRealtime(['tydenni_inventura'], () => { nactiInventuru(); if (rezim === 'mesic') nactiKontroly(); });
   if (chyba && !data) return <EmptyState varianta="chyba" text="Rozbor se nepodařilo načíst." />;
   if (!data) return <Spinner />;
   const pivoPodleId = new Map(data.beers.map((b) => [b.id, b]));
@@ -94,9 +115,16 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
 
   let polozky: RadekRozboru[];
   let pocetObj = 0;
+  /** Počty z týdenní inventury, které jsou jen rozepsané v tomhle zařízení (neuložené). */
+  let rozepsanych = 0;
   if (zPlanu) {
-    // Rozepsané (zatím neuložené) počty z týdenní inventury — leží v zařízení.
+    // Rozepsané (zatím neuložené) počty z týdenní inventury — leží v zařízení. I z minulého týdne: v pondělí
+    // a v úterý se počítá ten uplynulý, a jeho rozepsaná čísla by tu jinak nebyla vidět vůbec.
     const koncept = nactiJson<Record<string, string>>(`tydenni_napocitano_${pondeli}`, {});
+    const konceptMinuly = nactiJson<Record<string, string>>(`tydenni_napocitano_${minulePondeli}`, {});
+    // Uložené v databázi má přednost; pak rozepsané tohoto týdne, pak rozepsané minulého.
+    const inventuraSKonceptem = slucInventuruSKonceptem(slucInventuruSKonceptem(inventura, koncept, dnes), konceptMinuly, dnes, true);
+    rozepsanych = [...inventuraSKonceptem.values()].filter((v) => v.rozepsano).length;
     polozky = radkyRozboru({
       planSudy: mergeWeekPlan(planySudy, 'týden').items,
       planLahve: mergeWeekPlan(planyLahve, 'týden').items,
@@ -110,7 +138,7 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
       pohyby,
       piva: data.beers,
       obaly: data.packages,
-      inventura: slucInventuruSKonceptem(inventura, koncept, dnes),
+      inventura: inventuraSKonceptem,
     });
   } else if (objednavky.data) {
     const vysledek = radkyRozboruObdobi({
@@ -163,13 +191,15 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
               type="button"
               data-testid="radek-rozboru"
               onClick={() => { predvyberPohyby(it.beer_id, it.package_id, rezim === 'mesic' ? mesic : undefined); setPage('stock_pohyby'); }}
-              className="w-full min-h-[48px] flex items-center justify-between gap-2 rounded border border-neutral-200 bg-white hover:bg-amber-50 px-3 py-2 text-left text-sm font-bold text-neutral-950 shadow-xs"
+              className="w-full min-h-[48px] flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded border border-neutral-200 bg-white hover:bg-amber-50 px-3 py-2 text-left text-sm font-bold text-neutral-950 shadow-xs"
             >
-              <span className="flex items-center gap-2 min-w-0">
+              {/* Číslice vpravo se při dlouhém řádku zalomí pod název (dřív `shrink-0` roztáhlo stránku do stran:
+                  stoč. + obj. + fas. + sklad + rozdíl + „inv. 0 (rozepsáno)“ naměřeno o 84 px víc než 390 px telefon). */}
+              <span className="flex items-center gap-2 min-w-[4rem] flex-1">
                 <span className="w-3 h-3 rounded-full shrink-0 border border-neutral-300" style={{ background: beerBg(pivo) }} />
                 <span className="truncate font-black">{pivo ? beerName(pivo) : it.beer_name} {kratkyObal(it.package_label)}</span>
               </span>
-              <span className="shrink-0 tabular-nums text-xs text-right">
+              <span className="ml-auto max-w-full tabular-nums text-xs text-right">
                 {it.stoceno > 0 && <span className="text-emerald-800">stoč. {it.stoceno}</span>}
                 {it.stoceno > 0 && it.objednano > 0 && ' · '}
                 {it.objednano > 0 && <>obj. {it.objednano}</>}
@@ -252,8 +282,24 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page) => void }
         </div>
       </div>
 
+      {rozepsanych > 0 && (
+        <div data-testid="rozbor-rozepsano" role="status" className="rounded border-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950 space-y-1.5">
+          <p>
+            {rozepsanych} {rozepsanych === 1 ? 'počet' : rozepsanych < 5 ? 'počty' : 'počtů'} z týdenní inventury {rozepsanych === 1 ? 'je' : 'jsou'} jen
+            rozepsané v tomhle zařízení (<b>neuložené</b>) — Rozbor ani Sklad s nimi zatím nepočítají.
+          </p>
+          <button type="button" className="btn-ghost !rounded text-xs font-black" onClick={() => setPage('inventory', undefined, 'tydenni')}>
+            Otevřít týdenní inventuru a uložit
+          </button>
+        </div>
+      )}
+
       <p className="text-sm font-bold text-neutral-700">{uvod}</p>
       {seznam}
+      {/* 📉 Rozdíl oproti inventuře za měsíc — jen bokem, do čísel se nepočítá (26. 11. 2026). */}
+      {rezim === 'mesic' && odberatel === null && kontroly && (
+        <RozborZtrataBokem mesicText={nazevMesice(mesic)} vysledek={ztrataOprotiInventure(kontroly, mesic, data.beers, data.packages)} />
+      )}
     </div>
   );
 }

@@ -80,6 +80,12 @@ export type Movement = {
    * AŽ PO počítání (9. 10. 2026: „v týdenní inventuře nemám započítané lahve").
    */
   createdAt?: string | null;
+  /**
+   * Kdo fasoval (Fasování personál: jméno z pole „Pro koho") nebo proč se odepsalo (Odpis: důvod).
+   * Jen k zobrazení v Pohybech — do výpočtu stavu nevstupuje. Majitel 26. 11. 2026: „fasování personál,
+   * musí být vidět kdo fasoval" (a stejně u důvodu odpisu).
+   */
+  kdo?: string | null;
 };
 
 /**
@@ -106,6 +112,8 @@ export type RadekPohybu = {
   order_id?: string | null;
   /** Rozlišuje dva zápisy se stejným datem, pivem a počtem (viz `seen` níž). */
   created_at?: string | null;
+  /** fasovani: jméno z pole „Pro koho"; writeoffs: důvod odpisu. */
+  who?: string | null;
   /** Stáčení lahví: kolik sudů se na ně spotřebovalo a jakých. */
   kegs_used?: number | string | null;
   kegs_used_package_id?: string | null;
@@ -258,9 +266,10 @@ export function buildMovements(src: StockSources): Movement[] {
   const out: Movement[] = [];
   const packages = src.packages ?? [];
 
-  const push = (date: any, beer: any, pkg: any, qty: number, kind: MovementKind, note?: string | null, orderId?: string | null, createdAt?: string | null) => {
+  const push = (date: any, beer: any, pkg: any, qty: number, kind: MovementKind, note?: string | null, orderId?: string | null, createdAt?: string | null, kdo?: string | null) => {
     if (!date || !beer || !pkg || !qty) return;
-    out.push({ date: String(date).slice(0, 10), beer_id: beer, package_id: pkg, qty, kind, note: note ?? null, orderId: orderId ?? null, ...(createdAt ? { createdAt } : {}) });
+    const komu = String(kdo ?? '').trim();
+    out.push({ date: String(date).slice(0, 10), beer_id: beer, package_id: pkg, qty, kind, note: note ?? null, orderId: orderId ?? null, ...(createdAt ? { createdAt } : {}), ...(komu ? { kdo: komu } : {}) });
   };
 
   // Inventura — reset stavu. Při shodném datu vyhraje řádek s vyšší prioritou,
@@ -310,9 +319,9 @@ export function buildMovements(src: StockSources): Movement[] {
   (src.keggingRows ?? []).filter((r) => !String(r.note ?? '').includes('[mimo-sklad]')).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'kegovani', r.note, null, r.created_at));
   (src.bottlingRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, Number(r.quantity || 0), 'staceni', r.note, null, r.created_at));
   // Výdej označený [v-pocitani] už je v napočítaném stavu (Úprava skladu) — sklad se podruhé nesnižuje.
-  (src.fasovaniRows ?? []).filter((r) => !jeVPocitani((r as { note?: string | null }).note)).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'fasovani', null, null, r.created_at));
+  (src.fasovaniRows ?? []).filter((r) => !jeVPocitani((r as { note?: string | null }).note)).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'fasovani', null, null, r.created_at, r.who));
   (src.prodejnaRows ?? []).filter((r) => !jeVPocitani((r as { note?: string | null }).note)).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'prodejna', null, null, r.created_at));
-  (src.writeoffsRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'odpis', null, null, r.created_at));
+  (src.writeoffsRows ?? []).forEach((r) => push(r.entry_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'odpis', null, null, r.created_at, r.who));
   (src.zavozDeductionRows ?? []).forEach((r) => push(r.deduct_date, r.beer_id, r.package_id, -Number(r.quantity || 0), 'zavoz', null, r.order_id, r.created_at));
   (src.adjustmentRows ?? []).forEach((r) => {
     // Ztrátu pozná DŮVOD (reason) a objednávka — sloupec `note` tabulka
