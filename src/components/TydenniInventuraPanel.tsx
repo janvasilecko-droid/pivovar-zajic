@@ -10,7 +10,7 @@
 // Zapisuje se stejnými funkcemi jako u měsíční uzávěrky (lib/inventoryFix.ts,
 // lib/tankZapis.ts). Vlastní verze zápisu by byla druhá pravda o tomtéž.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CalendarRange, Calculator, Check, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, ListChecks, MinusCircle, Plus, RefreshCw, Save, Search, SkipForward, Wand2 } from 'lucide-react';
+import { AlertTriangle, CalendarRange, Calculator, Check, ChevronLeft, ChevronRight, ClipboardList, Clock, ExternalLink, ListChecks, MinusCircle, Plus, RefreshCw, Save, Search, SkipForward, Wand2 } from 'lucide-react';
 import { supabase, fetchAllRows, formatPackageLabel, beerBg, beerText } from '../lib/supabase';
 import { Spinner } from './ui';
 import { QuickCountModal } from './QuickCountModal';
@@ -31,6 +31,7 @@ import { popisPolozek, objednavkaShoduje, zapisShoduje, type PrehledObjednavka, 
 import { StitekStavu } from './StitekStavu';
 import { lzeUlozitKoncept, slucInventuru } from '../lib/rozepsanaInventura';
 import { nactiJson, ulozJson } from '../lib/uloziste';
+import { AUTOUKLADANI_MS, duvodBlokace, radkyNeulozene, rozdelNeulozene, vetyPruhu } from '../lib/autoulozeniUpravySkladu';
 import { chyba, oznam, potvrd, uspech, varovani } from '../lib/toast';
 import { zapamatujPozici } from '../lib/drzPozici';
 import { normalizujCislo } from '../lib/cisloVstup';
@@ -100,6 +101,13 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   // čísla nesmí posunout čas počítání (updated_at) — podle něj se k počtu
   // přičítají pohyby, které přišly po počítání (9. 10. 2026).
   const ulozenePoctyRef = useRef<Map<string, number>>(new Map());
+  // 💾 Úprava skladu se ukládá sama (lib/autoulozeniUpravySkladu.ts). Samo se ukládají jen čísla zadaná v TOMHLE
+  // otevření (psaní, Popořadě, sčítadlo) — číslo rozepsané dřív by se tichým uložením přiřadilo dnešku.
+  const cerstveKlice = useRef<Set<string>>(new Set());
+  /** Stav políček v okamžiku, kdy samočinné uložení selhalo — dokud se nezmění, nezkouší se dokola. */
+  const [selhaloAuto, setSelhaloAuto] = useState<string | null>(null);
+  /** Kolik položek se naposledy uložilo samo (null = nic nebo už se zase píše). */
+  const [autoUlozeno, setAutoUlozeno] = useState<number | null>(null);
   // 🔎 Detail rozdílu — rozbalí se u řádku, který nesedí: odkud se vzal
   // (jaké pohyby se s ním za ten týden dělo) a proklik na objednávky, které
   // se do toho počítaly (viz zavoz_deductions.order_id).
@@ -114,14 +122,22 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
    * a teprve „Uložit vše" / „Dopsat stáčení" s nimi něco udělá.
    */
   const [scitadlo, setScitadlo] = useState(false);
+  /** Číslo zadané člověkem v tomhle otevření: smí se uložit samo (viz cerstveKlice). */
+  function zapisPocet(klic: string, hodnota: string) {
+    cerstveKlice.current.add(klic);
+    setAutoUlozeno(null);
+    setNapocitano((m) => ({ ...m, [klic]: hodnota }));
+  }
   function vyplnZeScitadla(polozky: { beerId: string; packageId: string; count: number }[]) {
     if (polozky.length === 0) return;
+    for (const p of polozky) cerstveKlice.current.add(stockKey(p.beerId, p.packageId));
+    setAutoUlozeno(null);
     setNapocitano((m) => {
       const dalsi = { ...m };
       for (const p of polozky) dalsi[stockKey(p.beerId, p.packageId)] = String(p.count);
       return dalsi;
     });
-    oznam(`Vyplněno ${polozky.length} položek do „Napočítáno". Zkontroluj čísla a ulož.`);
+    oznam(`Vyplněno ${polozky.length} položek do „Napočítáno". Uloží se samo za chvilku, nebo klepni na „Uložit vše".`);
   }
   // `tise` = opakování z pruhu „čísla nemusí být aktuální": nesmí schovat
   // seznam a vyhodit člověka z políčka, do kterého zrovna píše počet.
@@ -163,7 +179,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     } catch (e: any) {
       setChybaNacteni(String(e?.message || e));
       // Tiché opakování nehlásí toast znovu a znovu — stačí pruh nahoře.
-      if (!tise) chyba('Týdenní inventuru se nepodařilo načíst: ' + (e?.message || e));
+      if (!tise) chyba('Úpravu skladu se nepodařilo načíst: ' + (e?.message || e));
     } finally {
       setBezi(false);
     }
@@ -175,6 +191,13 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     if (!lzeUlozitKoncept(loadedTydenRef.current, obdobi.od)) return;
     ulozJson(`tydenni_napocitano_${obdobi.od}`, napocitano);
   }, [napocitano, obdobi.od]);
+
+  // Jiný týden = jiná čísla: co se zadalo v tom předchozím, se tu samo ukládat nesmí.
+  useEffect(() => {
+    cerstveKlice.current = new Set();
+    setAutoUlozeno(null);
+    setSelhaloAuto(null);
+  }, [obdobi.od]);
 
   /**
    * „Čekáno" se počítá ze skladové knihy. Když je z paměti telefonu nebo se
@@ -276,11 +299,18 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   const souhrn = useMemo(() => souhrnTydne(radkyObalu), [radkyObalu]);
 
   // 💾 Napočítáno, ale NEULOŽENO: číslo leží jen v tomhle zařízení — Sklad ani Rozbor s ním nepočítají, dokud
-  // se neklepne na „Uložit vše". Majitel 26. 11. 2026: „když dám reálný stav skladu, musí s tím počítat" — nula
-  // u Osmy 1 l se ale nikdy neuložila: tlačítko se jmenovalo „Uložit kontrolu", nápověda jinde říkala „Uložit vše"
-  // a neuložená čísla nikde nesvítila, takže Rozbor dál počítal původní stav. Počítá se ze všech řádků, i těch,
-  // které filtr (Lahve / Sudy, hledání) zrovna schoval.
-  const neulozeno = vsechnyRadky.filter((r) => r.napocitano !== null && ulozenePoctyRef.current.get(r.klic) !== r.napocitano).length;
+  // se neuloží. Majitel 26. 11. 2026: „když dám reálný stav skladu, musí s tím počítat" — nula u Osmy 1 l se ale
+  // nikdy neuložila: tlačítko se jmenovalo „Uložit kontrolu", nápověda jinde říkala „Uložit vše" a neuložená čísla
+  // nikde nesvítila, takže Rozbor dál počítal původní stav. A: „…úprava skladu, z toho se to musí ukládat a počítat"
+  // — teď se číslo uloží samo (autoulozit níž); tohle je pruh pro to, co se samo neuloží nebo ještě čeká. Počítá se
+  // ze všech řádků, i těch, které filtr (Lahve / Sudy, hledání) zrovna schoval.
+  const neulozene = radkyNeulozene(vsechnyRadky, ulozenePoctyRef.current);
+  const neulozeno = neulozene.length;
+  const { cerstve: neulozeneCerstve, starsi: neulozeneStarsi } = rozdelNeulozene(neulozene, cerstveKlice.current);
+  const blokace = duvodBlokace({
+    maKnihu: !!kniha, bezi, uklada: !!uklada, zPameti, chybaNacteni: !!chybaNacteni,
+    selhaloUlozeni: selhaloAuto !== null && selhaloAuto === JSON.stringify(napocitano),
+  });
 
   // 💰 Hodnota v Kč: cena z ceníku ke dni, ke kterému se počítá; kde chybí,
   // orientační podle obalu (jako měsíční inventura). Stejný rozsah řádků jako
@@ -459,6 +489,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
       const error = await upsertKontrol(spocitane, (r) => (r.rozdil === 0 ? null : 'ponechano'));
       if (error) throw new Error(error);
       uspech(`Uloženo ${spocitane.length} napočítaných položek za týden ${popisTydne(obdobi.od, obdobi.do)}.`);
+      setSelhaloAuto(null);
     } catch (e: any) {
       chyba('Uložení se nepovedlo: ' + (e?.message || e));
       return;
@@ -468,6 +499,51 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
     // Sklad a ostatní obrazovky si uložené počty načtou znovu.
     await nacti();
   }
+
+  /**
+   * Samočinné uložení čerstvě zadaných čísel. Stejná cesta jako „Uložit vše" (upsertKontrol), jen potichu: bez
+   * dotazů, bez přenačtení celé knihy (to je desítky dotazů při každé pauze v psaní) a bez zprávy o úspěchu —
+   * úspěch je vidět v pruhu. Ostatní obrazovky se o zápisu dozvědí jako jindy: vlastní zápis zahodí sdílenou paměť
+   * a realtime ohlásí změnu.
+   */
+  async function autoulozit() {
+    if (blokace !== null) return;
+    const k = neulozeneCerstve;
+    if (k.length === 0) return;
+    setUklada('auto');
+    try {
+      const error = await upsertKontrol(k, (r) => (r.rozdil === 0 ? null : 'ponechano'));
+      if (error) throw new Error(error);
+      setSelhaloAuto(null);
+      setAutoUlozeno(k.length);
+    } catch (e: any) {
+      // Stav políček v okamžiku selhání: dokud se nezmění, nezkouší se to dokola (viz duvodBlokace).
+      setSelhaloAuto(JSON.stringify(napocitano));
+      chyba('Automatické uložení se nepovedlo: ' + (e?.message || e) + ' Klepni na „Uložit vše".');
+    } finally {
+      setUklada(null);
+    }
+  }
+  // Odložené volání vidí vždycky poslední vykreslení (čerstvá čísla i čerstvá kniha), ne to z doby naplánování.
+  const autoulozitRef = useRef(autoulozit);
+  autoulozitRef.current = autoulozit;
+
+  // Po krátké pauze od poslední změny se čerstvě zadané uloží samo. Každá změna odpočet začíná znovu.
+  useEffect(() => {
+    if (blokace !== null || neulozeneCerstve.length === 0) return;
+    const casovac = setTimeout(() => { void autoulozitRef.current(); }, AUTOUKLADANI_MS);
+    return () => clearTimeout(casovac);
+  }, [blokace, vsechnyRadky, neulozeneCerstve.length]);
+
+  // Zhasnutý displej / jiná aplikace / odchod z obrazovky dřív, než pauza doběhla: uložit hned, ne ztratit.
+  useEffect(() => {
+    const schovano = () => { if (document.visibilityState === 'hidden') void autoulozitRef.current(); };
+    document.addEventListener('visibilitychange', schovano);
+    return () => {
+      document.removeEventListener('visibilitychange', schovano);
+      void autoulozitRef.current();
+    };
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -541,8 +617,9 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
         {rezim === 'pocitani' && (
           <>
             <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950" data-testid="napoveda-upravy-skladu">
-              Napiš, kolik kusů je opravdu na skladě, a ulož. Sklad se hned nastaví na tohle číslo
-              (ukazoval 70, napočítáš 55 → ukáže 55) a od té chvíle se k němu počítá stáčení a výdeje.
+              Napiš, kolik kusů je opravdu na skladě — uloží se samo, jakmile na chvilku přestaneš psát
+              (tlačítko „Uložit vše“ uloží hned). Sklad se hned nastaví na tohle číslo (ukazoval 70,
+              napočítáš 55 → ukáže 55) a od té chvíle se k němu počítá stáčení a výdeje.
               Rozdíl se uloží k dohledání, nic se nemaže.
             </p>
             {/* 🍾/🛢️ Nahoře, jako první — na telefonu se přepíná hned po
@@ -631,11 +708,23 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
                 role="status"
                 className="rounded border-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950 flex items-start gap-2"
               >
-                <AlertTriangle size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
-                <span>
-                  {neulozeno} {neulozeno === 1 ? 'položka napočítaná' : neulozeno < 5 ? 'položky napočítané' : 'položek napočítaných'}, ale <b>neuložených</b> — leží
-                  jen v tomhle zařízení. Sklad ani Rozbor s nimi zatím nepočítají; klepni na „Uložit vše".
-                </span>
+                {blokace === null && neulozeneStarsi.length === 0
+                  ? <Clock size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
+                  : <AlertTriangle size={16} className="shrink-0 mt-0.5" aria-hidden="true" />}
+                <div className="space-y-1">
+                  {vetyPruhu({ cerstve: neulozeneCerstve.length, starsi: neulozeneStarsi.length, blokace }).map((veta) => <p key={veta}>{veta}</p>)}
+                </div>
+              </div>
+            )}
+
+            {!bezi && neulozeno === 0 && autoUlozeno !== null && (
+              <div
+                data-testid="tydenni-ulozeno-auto"
+                role="status"
+                className="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-900 flex items-center gap-2"
+              >
+                <Check size={16} className="shrink-0" aria-hidden="true" />
+                <span>Uloženo — Sklad i Rozbor s napočítaným už počítají.</span>
               </div>
             )}
 
@@ -698,7 +787,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
           index={indexPoporade}
           setIndex={setIndexPoporade}
           napocitano={napocitano}
-          setNapocitano={setNapocitano}
+          zapisPocet={zapisPocet}
         />
       )}
 
@@ -762,7 +851,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
                       <input
                         inputMode="decimal"
                         value={napocitano[r.klic] ?? ''}
-                        onChange={(e) => setNapocitano((m) => ({ ...m, [r.klic]: normalizujCislo(e.target.value, true) }))}
+                        onChange={(e) => zapisPocet(r.klic, normalizujCislo(e.target.value, true))}
                         placeholder="—"
                         className="input !w-20 !px-2 text-center font-black tabular-nums min-h-[44px]"
                       />
@@ -855,8 +944,8 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
         beers={((kniha?.piva ?? []) as any[]).filter((b) => !jeLimonada(b.name)) as any}
         packages={(kniha?.obaly ?? []) as any}
         onConfirmCount={vyplnZeScitadla}
-        titulek="Sčítadlo — týdenní kontrola"
-        popisUlozeni="Vyplní se tím pole ‚Napočítáno‘. Nic se neukládá — čísla si pak projdi a ulož tlačítkem ‚Uložit vše‘."
+        titulek="Sčítadlo — Úprava skladu"
+        popisUlozeni="Vyplní se tím pole ‚Napočítáno‘. Uloží se samo za chvilku (tlačítko ‚Uložit vše‘ uloží hned) — čísla si ještě projdi, jdou přepsat."
         potvrditPopisek="Vyplnit do kontroly"
       />
     </div>
@@ -873,13 +962,14 @@ function PoporadeVstup({
   index,
   setIndex,
   napocitano,
-  setNapocitano,
+  zapisPocet,
 }: {
   radky: TydenniRadek[];
   index: number;
   setIndex: Dispatch<SetStateAction<number>>;
   napocitano: Record<string, string>;
-  setNapocitano: Dispatch<SetStateAction<Record<string, string>>>;
+  /** Zapíše číslo jako zadané člověkem (smí se uložit samo, viz cerstveKlice). */
+  zapisPocet: (klic: string, hodnota: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const r = radky[index] ?? null;
@@ -905,7 +995,7 @@ function PoporadeVstup({
 
   function potvrdit() {
     if (!r) return;
-    setNapocitano((m) => ({ ...m, [r.klic]: hodnota }));
+    zapisPocet(r.klic, hodnota);
     setIndex((i) => i + 1);
   }
 

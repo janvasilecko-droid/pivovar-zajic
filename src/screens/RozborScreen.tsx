@@ -115,7 +115,7 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page, targetSec
 
   let polozky: RadekRozboru[];
   let pocetObj = 0;
-  /** Počty z týdenní inventury, které jsou jen rozepsané v tomhle zařízení (neuložené). */
+  /** Počty z Úpravy skladu (týdenní inventury), které jsou jen rozepsané v tomhle zařízení (neuložené). */
   let rozepsanych = 0;
   if (zPlanu) {
     // Rozepsané (zatím neuložené) počty z týdenní inventury — leží v zařízení. I z minulého týdne: v pondělí
@@ -165,7 +165,7 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page, targetSec
 
   const obdobiText = rezim === 'mesic' ? nazevMesice(mesic) : 'tento týden';
   const uvod = zPlanu
-    ? 'Objednáno a stočeno tento týden — sudy i lahve, „inv." = napočítáno v týdenní inventuře. Klepni na položku — otevře se historie pohybů (stočeno, závozy…).'
+    ? 'Objednáno a stočeno tento týden — sudy i lahve, „inv." = napočítáno v Úpravě skladu. Klepni na položku — otevře se historie pohybů (stočeno, závozy…).'
     : odberatel
       ? `Objednáno — ${odberatel.jmeno}, ${obdobiText} (${pocetObjednavek(pocetObj)}). Stočeno a sklad se u odběratele neukazují: pivo se stáčí do zásoby, ne pro odběratele. Klepni na položku — otevře se historie pohybů.`
       : `Objednáno a stočeno — ${obdobiText}, sudy i lahve${obsahujeDnes ? '; „sklad" je stav teď' : ''}. Klepni na položku — otevře se historie pohybů za měsíc.`;
@@ -215,7 +215,7 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page, targetSec
                   </span>
                 )}
                 {it.inventura && (
-                  <span className="font-black text-sky-800" title={it.inventura.minulyTyden ? 'Napočítáno v týdenní inventuře minulého týdne' : 'Napočítáno v týdenní inventuře'}>
+                  <span className="font-black text-sky-800" title={it.inventura.minulyTyden ? 'Napočítáno v Úpravě skladu minulého týdne' : 'Napočítáno v Úpravě skladu'}>
                     {' '}· inv. {it.inventura.kusu} {it.inventura.rozepsano ? '(rozepsáno)' : `(${Number(it.inventura.den.slice(8, 10))}. ${Number(it.inventura.den.slice(5, 7))}.)`}
                   </span>
                 )}
@@ -285,11 +285,11 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page, targetSec
       {rozepsanych > 0 && (
         <div data-testid="rozbor-rozepsano" role="status" className="rounded border-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950 space-y-1.5">
           <p>
-            {rozepsanych} {rozepsanych === 1 ? 'počet' : rozepsanych < 5 ? 'počty' : 'počtů'} z týdenní inventury {rozepsanych === 1 ? 'je' : 'jsou'} jen
+            {rozepsanych} {rozepsanych === 1 ? 'počet' : rozepsanych < 5 ? 'počty' : 'počtů'} z Úpravy skladu {rozepsanych === 1 ? 'je' : 'jsou'} jen
             rozepsané v tomhle zařízení (<b>neuložené</b>) — Rozbor ani Sklad s nimi zatím nepočítají.
           </p>
           <button type="button" className="btn-ghost !rounded text-xs font-black" onClick={() => setPage('inventory', undefined, 'tydenni')}>
-            Otevřít týdenní inventuru a uložit
+            Otevřít Úpravu skladu a uložit
           </button>
         </div>
       )}

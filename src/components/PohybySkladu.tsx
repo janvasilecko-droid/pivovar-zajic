@@ -535,11 +535,11 @@ export default function PohybySkladu() {
         });
         return (
           <div className="rounded-xl border-2 border-sky-300 bg-sky-50 p-3 space-y-2">
-            <p className="text-sm font-black text-sky-950">Týdenní inventura — co se napočítalo ({r.length})</p>
+            <p className="text-sm font-black text-sky-950">Úprava skladu — co se napočítalo ({r.length})</p>
             {r.length === 0 && (
               <p className="text-xs font-bold text-sky-950">
-                Pro tenhle výběr a období není v týdenní inventuře nic napočítáno. Počty se ukládají tlačítkem „Uložit vše" v Týdenní inventuře
-                (Sklad → Inventura); rozepsané, neuložené počty se ukážou jen v zařízení, kde byly zadané.
+                Pro tenhle výběr a období není v Úpravě skladu nic napočítáno. Počty se ukládají samy po zadání (jistota: tlačítko „Uložit vše")
+                v Inventuře → záložka „Úprava skladu“; rozepsané, neuložené počty se ukážou jen v zařízení, kde byly zadané.
               </p>
             )}
             <ul className="space-y-1.5">

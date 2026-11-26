@@ -62,7 +62,7 @@ describe('PohybySkladu', () => {
 
   it('ukáže napočítané hodnoty týdenní inventury (co appka čekala a jaký je sklad teď)', async () => {
     render(<PohybySkladu />);
-    await waitFor(() => expect(screen.getByText(/Týdenní inventura — co se napočítalo/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Úprava skladu — co se napočítalo/)).toBeTruthy());
     expect(screen.getByText(/napočítáno/)).toBeTruthy();
     expect(screen.getByText(/appka čekala/)).toBeTruthy();
     expect(screen.getByText(/rozdíl -1/)).toBeTruthy();
