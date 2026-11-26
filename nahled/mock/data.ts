@@ -101,8 +101,13 @@ export const fasovani_private = [
   { id: 'fp-2', beer_id: 'b-summ', beer_name: 'Summer Ale', package_id: 'p-lah033', package_label: 'Lahev 0,33l', quantity: 24, entry_date: den(1), who: null, note: null },
 ];
 
+// Důvod odpisu se v appce zapisuje do sloupce `who` (pole „Důvod odpisu“), ne do `reason` — viz add() v ProdejnaScreen.
 export const writeoffs = [
-  { id: 'wo-1', beer_id: 'b-summ', beer_name: 'Summer Ale', package_id: 'p-lah033', package_label: 'Lahev 0,33l', quantity: 4, entry_date: den(1), who: null, reason: 'rozbitá láhev' },
+  { id: 'wo-1', beer_id: 'b-summ', beer_name: 'Summer Ale', package_id: 'p-lah033', package_label: 'Lahev 0,33l', quantity: 4, entry_date: den(1), who: 'Rozbitá láhev', reason: null },
+  { id: 'wo-2', beer_id: 'b-12sv', beer_name: '12° Světlý ležák', package_id: 'p-keg50', package_label: 'KEG 50l', quantity: 1, entry_date: den(1), who: 'Výhra v tombole', reason: null },
+  { id: 'wo-3', beer_id: 'b-12sv', beer_name: '12° Světlý ležák', package_id: 'p-lah05', package_label: 'Lahev 0,5l', quantity: 2, entry_date: den(1), who: 'Karel', reason: null },
+  { id: 'wo-4', beer_id: 'b-10de', beer_name: '10° Desítka', package_id: 'p-lah05', package_label: 'Lahev 0,5l', quantity: 2, entry_date: den(1), who: 'Karel', reason: null },
+  { id: 'wo-5', beer_id: 'b-12sv', beer_name: '12° Světlý ležák', package_id: 'p-lah05', package_label: 'Lahev 0,5l', quantity: 1, entry_date: den(1), who: null, reason: null },
 ];
 
 /** Zavezeno na objednávky — hlavní odliv. */

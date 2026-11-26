@@ -46,16 +46,18 @@ import { jizZapsane, mesiceDnu, otazkaJizZapsano, otazkaUzamcenychMesicu, platny
 const DRUHY_VYDEJE = [
   {
     tabulka: 'fasovani_private', stranka: 'prodejna', popis: 'Prodejna', kde: 'v prodejně',
-    poleNavic: null, popisek: '', napoveda: '',
+    poleNavic: null, popisek: '', popisekRadku: '', napoveda: '',
   },
   {
     tabulka: 'fasovani', stranka: 'fasovani', popis: 'Personál', kde: 've fasování personálu',
-    poleNavic: 'jmeno', popisek: 'Pro koho',
+    poleNavic: 'jmeno', popisek: 'Pro koho', popisekRadku: 'Pro koho',
     napoveda: 'Jméno — komu se fasuje',
   },
   {
     tabulka: 'writeoffs', stranka: 'writeoffs', popis: 'Odpis', kde: 'v odpisu',
-    poleNavic: 'duvod', popisek: 'Důvod odpisu',
+    // `popisekRadku` je štítek před textem pod řádkem v přehledu na telefonu (26. 11. 2026: „v odpisu nejde vidět
+    // důvod odpisu, výhra v tombole…“) — krátký, ať se vejde do úzkého sloupce.
+    poleNavic: 'duvod', popisek: 'Důvod odpisu', popisekRadku: 'Důvod',
     napoveda: 'Proč se odepisuje (zkažené, rozbitá láhev…)',
   },
 ] as const;
@@ -1156,6 +1158,10 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                               const beer = beers.find((b) => b.id === x.beer_id);
                               const pkg = packages.find((p) => p.id === x.package_id);
                               const otevreny = rozbalenyZaznam === x.id;
+                              // 📝 Důvod odpisu / komu se fasovalo je vidět hned pod řádkem, ne až po jeho rozbalení
+                              // (26. 11. 2026: „v odpisu nejde vidět důvod odpisu, výhra v tombole…“). Zápis
+                              // vznikl s důvodem, ale na telefonu se ukázal jen v drobné řádce pod sloupci.
+                              const duvod = showWhoColumn ? getRowWho(x) : '—';
                               return (
                                 <div className={`rounded ${otevreny ? 'bg-amber-200/80' : ''}`}>
                                   <button
@@ -1164,10 +1170,19 @@ export default function ProdejnaScreen({ setPage, mode = 'all', table = 'fasovan
                                     onClick={() => setRozbalenyZaznam((id) => (id === x.id ? null : x.id))}
                                     className="tap w-full min-h-[44px] flex items-center gap-1.5 text-left px-1 text-xs text-amber-950"
                                   >
-                                    <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20 vlastni-vyska" style={{ backgroundColor: beerBg(beer) }} />
-                                    <span className="font-black min-w-0">{x.beer_name ?? beer?.name ?? '—'}</span>
-                                    <span className="font-bold text-amber-800 shrink-0 whitespace-nowrap">{pkg ? `${Number(pkg.volume_l)} l` : '—'}</span>
-                                    <span className="ml-auto font-mono font-black text-sm shrink-0 tabular-nums">{x.quantity}</span>
+                                    <span className="min-w-0 flex-1 py-1">
+                                      <span className="flex items-center gap-1.5">
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/20 vlastni-vyska" style={{ backgroundColor: beerBg(beer) }} />
+                                        <span className="font-black min-w-0">{x.beer_name ?? beer?.name ?? '—'}</span>
+                                        <span className="font-bold text-amber-800 shrink-0 whitespace-nowrap">{pkg ? `${Number(pkg.volume_l)} l` : '—'}</span>
+                                      </span>
+                                      {duvod !== '—' && (
+                                        <span data-testid="duvod-radku" className="block pl-4 text-popisek font-bold text-amber-800 break-words">
+                                          {druh.popisekRadku}: {duvod}
+                                        </span>
+                                      )}
+                                    </span>
+                                    <span className="font-mono font-black text-sm shrink-0 tabular-nums">{x.quantity}</span>
                                   </button>
                                 </div>
                               );
