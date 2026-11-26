@@ -191,6 +191,7 @@
     "20261231460000_bez_zavozu_den_objednavky.sql",
     "20261231470000_seeberg_luzec_patek.sql",
     "20261231480000_sklad_a_drobak_pod_radka.sql",
-    "20261231490000_naucene_opravy_cteni.sql"
+    "20261231490000_naucene_opravy_cteni.sql",
+    "20261231500000_predem_objednane_push.sql"
   ]
 }
