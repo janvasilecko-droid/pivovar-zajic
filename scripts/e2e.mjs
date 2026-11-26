@@ -98,6 +98,21 @@ async function pripnoutRezim(page, rezim) {
   await page.addInitScript(([klic, hodnota]) => window.localStorage.setItem(klic, JSON.stringify(hodnota)), [KLIC_REZIMU_PRUVODCE, rezim]);
 }
 
+/**
+ * „Dnes“ pro okno Nová objednávka je v e2e PEVNÉ, ne skutečné datum.
+ *
+ * 26. 11. 2026 (čtvrtek) spadlo nasazení: výchozí den závozu (středa 2. 12.) byl už v dalším měsíci,
+ * okno takový závoz nechá uložit až po zaškrtnutí „Potvrzuji, že závoz … spadá do …“ a scénář o tom
+ * nevěděl. Test tedy padal bez jediné změny v kódu — vždy pár dní před koncem měsíce a každý měsíc
+ * znovu. Scénáře okna proto jedou na dni uprostřed měsíce (pondělí 9. 11. 2026) a konec měsíce má
+ * vlastní scénář (3a) na čtvrtku 26. 11. 2026. Časovače běží dál, jen `new Date()` stojí.
+ * Jiný den na zkoušku: E2E_DNES=2026-11-20T11:00:00Z node scripts/e2e.mjs
+ */
+const PEVNE_DNES = new Date(process.env.E2E_DNES ?? '2026-11-09T11:00:00Z');
+async function pripnoutDnes(page, kdy = PEVNE_DNES) {
+  await page.clock.setFixedTime(kdy);
+}
+
 /** Počká na písmo appky (včetně českých znaků) a řekne, jestli se opravdu načetlo. */
 async function pockejNaPisma(page) {
   return page.evaluate(async () => {
@@ -206,6 +221,7 @@ try {
   const chybyPruvodce = [];
   pruvodce.on('pageerror', (e) => chybyPruvodce.push(String(e)));
   await pripnoutRezim(pruvodce, 'stranka');
+  await pripnoutDnes(pruvodce);
   await pruvodce.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
 
   /** Rozložení okna: nic se nerozjíždí do stran a každý cíl pro prst má aspoň 44 px. */
@@ -335,6 +351,7 @@ try {
   const chybyAbeceda = [];
   abeceda.on('pageerror', (e) => chybyAbeceda.push(String(e)));
   await pripnoutRezim(abeceda, 'stranka');
+  await pripnoutDnes(abeceda);
   await abeceda.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
   const kontrolaAbecedy = async (kde) => {
     const r = await abeceda.evaluate(() => {
@@ -387,6 +404,7 @@ try {
   const chybyPocitac = [];
   pocitac.on('pageerror', (e) => chybyPocitac.push(String(e)));
   await pripnoutRezim(pocitac, 'stranka');
+  await pripnoutDnes(pocitac);
   await pocitac.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
   await pocitac.getByRole('region', { name: 'Souhrn objednávky' }).waitFor();
   overit(await pocitac.getByRole('region', { name: 'Pro koho a na kdy' }).isVisible(), 'počítač: vidět odběratele a den');
@@ -400,6 +418,48 @@ try {
   overit(chybyPocitac.length === 0, `průvodce na počítači nevyhodil chybu${chybyPocitac.length ? ': ' + chybyPocitac[0] : ''}`);
   await pocitac.close();
 
+  // ── Scénář 3a: konec měsíce — závoz spadne do dalšího měsíce ──────────
+  // Přesně ten den, kdy spadlo nasazení (čtvrtek 26. 11. 2026): výchozí den Radka (středa 2. 12.) je už
+  // v prosinci, okno proto nechá objednávku uložit až po zaškrtnutí „Potvrzuji, že závoz … spadá do …“
+  // (jinak by se potichu započítala do skladu a uzávěrky jiného měsíce). Hlídá skutečné CSS i pořadí:
+  // hláška → pole k potvrzení → pivo → uložení.
+  console.log('\nScénář: nová objednávka — závoz spadá do dalšího měsíce (konec měsíce)');
+  const konec = await b.newPage({ viewport: { width: 390, height: 844 } });
+  const chybyKonec = [];
+  konec.on('pageerror', (e) => chybyKonec.push(String(e)));
+  await pripnoutRezim(konec, 'stranka');
+  await pripnoutDnes(konec, new Date('2026-11-26T11:00:00Z'));
+  await konec.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
+  const hlaseniKonec = konec.getByTestId('pruvodce-hlaseni');
+  const tlUlozitKonec = konec.getByRole('button', { name: 'Uložit objednávku', exact: true });
+  overit(await konec.evaluate(() => new Date().getDate()) === 26, 'v okně je pevné „dnes“ 26. 11. (konec měsíce)');
+  await konec.getByLabel('Hledat odběratele').fill('sklad');
+  await konec.getByRole('group', { name: 'Odběratelé' }).getByRole('button', { name: /^Radek/ }).click();
+  const potvrzeniMesice = konec.getByRole('checkbox', { name: /Potvrzuji, že závoz 2\.\s12\.\s2026 spadá do/ });
+  overit(await potvrzeniMesice.isVisible() && !(await potvrzeniMesice.isChecked()), 'výchozí závoz St 2. 12. je v prosinci: pole „Potvrzuji, že závoz …“ je vidět a odškrtnuté');
+  overit((await hlaseniKonec.textContent())?.includes('spadá do dalšího měsíce') === true, 'hláška nad tlačítky chce potvrdit závoz v dalším měsíci');
+  overit(await tlUlozitKonec.isDisabled(), 'bez potvrzení je uložení zamčené');
+  const vyskaPotvrzeni = await potvrzeniMesice.evaluate((el) => el.closest('label')?.getBoundingClientRect().height ?? 0);
+  overit(vyskaPotvrzeni >= 43.5, `pole k potvrzení má aspoň 44 px na výšku (${Math.round(vyskaPotvrzeni)} px)`);
+  await kontrolaRozlozeniNa(konec, 'konec měsíce: čeká na potvrzení');
+  await konec.getByRole('button', { name: /^12° Světlá/ }).click();
+  await konec.getByRole('textbox', { name: 'Kolik kusů?' }).fill('2');
+  await konec.getByRole('button', { name: /^Hotovo/ }).click();
+  overit(await tlUlozitKonec.isDisabled(), 'ani s pivem se bez potvrzení nedá uložit');
+  await potvrzeniMesice.check();
+  overit(await tlUlozitKonec.isEnabled(), 'po zaškrtnutí potvrzení je uložení odemčené');
+  overit(!((await hlaseniKonec.textContent()) ?? '').includes('dalšího měsíce'), 'po potvrzení hláška o dalším měsíci zmizela');
+  await kontrolaRozlozeniNa(konec, 'konec měsíce: potvrzeno');
+  await tlUlozitKonec.click();
+  await konec.getByRole('button', { name: 'Otevřít průvodce' }).waitFor();
+  const ulozenoKonec = JSON.parse((await konec.getByTestId('ulozeno').textContent()) ?? '[]');
+  overit(
+    ulozenoKonec.length === 1 && ulozenoKonec[0].placeId === 'p-radek' && ulozenoKonec[0].potvrzenoDalsiMesic === true,
+    'uložila se objednávka Radka s potvrzeným dalším měsícem',
+  );
+  overit(chybyKonec.length === 0, `konec měsíce: okno nevyhodilo chybu${chybyKonec.length ? ': ' + chybyKonec[0] : ''}`);
+  await konec.close();
+
   // ── Scénář 3b: průvodce PO KROCÍCH (výchozí způsob od 23. 11. 2026) ───
   // Majitel: „otevře se strana s odběrateli, dlaždice jak jsou včetně A–Ž, nejčastějších 10;
   // když vyberu odběratele, vyberu den závozu, datum, poznámku; další je záložka piva;
@@ -411,6 +471,7 @@ try {
   const kroky = await b.newPage({ viewport: { width: 390, height: 844 } });
   const chybyKroky = [];
   kroky.on('pageerror', (e) => chybyKroky.push(String(e)));
+  await pripnoutDnes(kroky);
   await kroky.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
 
   const NADPISY_KROKU = ['Pro koho?', 'Kdy se veze?', 'Které pivo?', 'Souhrn objednávky'];
@@ -469,9 +530,10 @@ try {
   await prvniDen.click();
   overit(await prvniDen.getAttribute('aria-pressed') === 'true', 'den závozu jde vybrat klepnutím');
   overit((await kroky.getByTestId('pruvodce-kontext').textContent())?.includes(`${zkratkaDne} ${kratceDne.split(' · ')[0]}`) === true, 'vybraný den je vidět nad krokem');
-  // Neděle na konci měsíce: první nabízený den je už v dalším měsíci a okno chce potvrzení (jinak se nepokračuje).
-  const dalsiMesicKroky = kroky.getByRole('checkbox', { name: /Potvrzuji, že závoz/ });
-  if (await dalsiMesicKroky.count() > 0) await dalsiMesicKroky.check();
+  // Pevné „dnes“ je uprostřed měsíce: první nabízený den je ve stejném měsíci a okno nechce potvrzení „další měsíc“
+  // (to proklikává scénář 3a na konci měsíce). Dřív se tu pole potichu zaškrtlo, když se objevilo — test pak
+  // procházel jinou cestou podle toho, jaký je zrovna den. Teď by se objevení pole ohlásilo.
+  overit(await kroky.getByRole('checkbox', { name: /Potvrzuji, že závoz/ }).count() === 0, 'uprostřed měsíce okno nežádá potvrzení „další měsíc“');
   overit(await kroky.getByLabel('Jiné datum závozu (i zpětně)').isVisible(), 'je tu i pole pro jiné datum');
   await kroky.getByLabel('Poznámka').fill('zavolat před závozem');
   await celeVOkne(tlDal, '2. krok: „Dál"');
@@ -568,6 +630,7 @@ try {
   const krokyPc = await b.newPage({ viewport: { width: 1280, height: 800 } });
   const chybyKrokyPc = [];
   krokyPc.on('pageerror', (e) => chybyKrokyPc.push(String(e)));
+  await pripnoutDnes(krokyPc);
   await krokyPc.goto(`${ADRESA}/pruvodce.html`, { waitUntil: 'networkidle' });
   await krokyPc.getByRole('heading', { name: 'Pro koho?' }).waitFor();
   overit(await krokyPc.getByRole('navigation', { name: 'Kroky objednávky' }).isVisible(), 'počítač: nahoře je lišta kroků');

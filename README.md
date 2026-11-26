@@ -278,6 +278,13 @@ dorazil — proti skutečné komponentě aplikace, jen s paměťovou náhradou
 Supabase. Kontroluje i to, co jednotkový test nevidí: že se pole a
 tlačítko dají trefit prstem (44 px) a že stránka nevyhodila chybu.
 
+Scénáře okna Nová objednávka jedou na **pevném „dnes“** (pondělí 9. 11. 2026;
+jiný den na zkoušku: `E2E_DNES=2026-11-20T11:00:00Z node scripts/e2e.mjs`),
+ne na skutečném datu. Okno totiž chce potvrdit závoz, který spadne do dalšího
+měsíce, takže test se skutečným datem padal vždy pár dní před koncem měsíce
+(nasazení 26. 11. 2026) — a nic v kódu se přitom nezměnilo. Konec měsíce má
+vlastní scénář na čtvrtku 26. 11. 2026.
+
 Snímky jdou do `nahled/snimky/` (mimo git). Prohlížeč se bere ze systému
 (`CHROMIUM_PATH`, jinak obvyklá umístění); když žádný není, skript to řekne
 a skončí bez chyby.
