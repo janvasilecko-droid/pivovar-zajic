@@ -144,7 +144,7 @@ export function resetNahledu() {
   posluchaci.forEach((fn) => fn());
 }
 
-type Filtr = { typ: 'eq' | 'in' | 'ilike'; col: string; val: any };
+type Filtr = { typ: 'eq' | 'in' | 'ilike' | 'gte' | 'lte'; col: string; val: any };
 
 /** `%text%` z ilike na regex — jen tolik, kolik appka posílá (import stáčení z excelu). */
 function ilikeRegex(vzor: string): RegExp {
@@ -157,6 +157,9 @@ function pouzijFiltry(radky: Radek[], filtry: Filtr[]): Radek[] {
     filtry.every((f) => {
       if (f.typ === 'eq') return r[f.col] === f.val;
       if (f.typ === 'ilike') return typeof r[f.col] === 'string' && ilikeRegex(f.val).test(r[f.col]);
+      // Rozsah podle data (YYYY-MM-DD se porovnává jako text): Rozbor načítá týdenní kontroly zvoleného měsíce.
+      if (f.typ === 'gte') return r[f.col] != null && String(r[f.col]) >= String(f.val);
+      if (f.typ === 'lte') return r[f.col] != null && String(r[f.col]) <= String(f.val);
       return (f.val as any[]).includes(r[f.col]);
     }),
   );
@@ -172,6 +175,8 @@ function dotaz(tabulka: string) {
   const api: any = {
     eq(col: string, val: any) { filtry.push({ typ: 'eq', col, val }); return api; },
     in(col: string, val: any[]) { filtry.push({ typ: 'in', col, val }); return api; },
+    gte(col: string, val: any) { filtry.push({ typ: 'gte', col, val }); return api; },
+    lte(col: string, val: any) { filtry.push({ typ: 'lte', col, val }); return api; },
     filter(col: string, op: string, val: any) { if (op === 'ilike') filtry.push({ typ: 'ilike', col, val }); return api; },
     order(col: string, opts?: { ascending?: boolean }) { radit = col; sestupne = opts?.ascending === false; return api; },
     limit(n: number) { pocet = n; return api; },

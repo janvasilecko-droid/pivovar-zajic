@@ -71,6 +71,8 @@ export function slucInventuruSKonceptem(
   uložené: Map<string, InventuraRozboru>,
   koncept: Record<string, string>,
   dnes: string,
+  /** Koncept patří minulému týdnu (týden se počítá i v pondělí a v úterý po něm). */
+  minulyTyden = false,
 ): Map<string, InventuraRozboru> {
   const out = new Map(uložené);
   for (const [klic, text] of Object.entries(koncept ?? {})) {
@@ -78,7 +80,7 @@ export function slucInventuruSKonceptem(
     if (t === '' || out.has(klic)) continue;
     const n = Number(t);
     if (!Number.isFinite(n)) continue;
-    out.set(klic, { kusu: n, den: dnes, minulyTyden: false, rozepsano: true });
+    out.set(klic, { kusu: n, den: dnes, minulyTyden, rozepsano: true });
   }
   return out;
 }

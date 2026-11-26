@@ -433,3 +433,39 @@ describe('vracení sudů při opravě manka lahví', () => {
     expect(mv.filter((m) => m.kind === 'sud_na_lahve')).toHaveLength(0);
   });
 });
+
+// 26. 11. 2026 (majitel): „fasování personál, musí být vidět kdo fasoval" — a stejně u důvodu odpisu
+// („výhra v tombole…"). Jméno a důvod se jen nesou k zobrazení v Pohybech, stav skladu je beze změny.
+describe('buildMovements — kdo fasoval a proč se odepsalo', () => {
+  const zdroje = {
+    packages,
+    fasovaniRows: [
+      { entry_date: '2026-11-20', beer_id: B, package_id: P30, quantity: 2, who: 'Eva' },
+      { entry_date: '2026-11-20', beer_id: B, package_id: P30, quantity: 1, who: '  Jana  ' },
+      { entry_date: '2026-11-21', beer_id: B, package_id: P30, quantity: 1, who: null },
+    ],
+    prodejnaRows: [{ entry_date: '2026-11-20', beer_id: B, package_id: P30, quantity: 1, who: 'Karel' }],
+    writeoffsRows: [{ entry_date: '2026-11-22', beer_id: B, package_id: P30, quantity: 3, who: 'Výhra v tombole' }],
+  };
+
+  it('fasování nese jméno (oříznuté), odpis důvod; řádek bez jména žádné kdo nemá', () => {
+    const m = buildMovements(zdroje);
+    expect(m.filter((x) => x.kind === 'fasovani').map((x) => [x.date, x.qty, x.kdo])).toEqual([
+      ['2026-11-20', -2, 'Eva'],
+      ['2026-11-20', -1, 'Jana'],
+      ['2026-11-21', -1, undefined],
+    ]);
+    expect(m.find((x) => x.kind === 'odpis')!.kdo).toBe('Výhra v tombole');
+  });
+
+  it('prodejna jméno nenese (v její tabulce není pole navíc)', () => {
+    const p = buildMovements(zdroje).find((x) => x.kind === 'prodejna')!;
+    expect(p.kdo).toBeUndefined();
+  });
+
+  it('stav skladu je stejný s jmény i bez nich', () => {
+    const bez = { ...zdroje, fasovaniRows: zdroje.fasovaniRows.map(({ who: _w, ...r }) => r), writeoffsRows: zdroje.writeoffsRows.map(({ who: _w, ...r }) => r) };
+    expect(qty(zdroje, '2026-11-30')).toBe(qty(bez, '2026-11-30'));
+    expect(qty(zdroje, '2026-11-30')).toBe(-(2 + 1 + 1 + 1 + 3));
+  });
+});

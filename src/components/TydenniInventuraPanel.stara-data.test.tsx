@@ -116,11 +116,11 @@ describe('Týdenní inventura — čísla z paměti telefonu', () => {
     expect(h.zapisy).toEqual([]);
   });
 
-  it('„Uložit kontrolu" se taky zeptá a po „ne" nic neuloží', async () => {
+  it('„Uložit vše" se taky zeptá a po „ne" nic neuloží', async () => {
     h.kniha.zPameti = true;
     h.potvrd.mockResolvedValue(false);
     await otevriSRozdilem();
-    fireEvent.click(screen.getByRole('button', { name: /Uložit kontrolu/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Uložit vše/ }));
     await waitFor(() => expect(h.potvrd).toHaveBeenCalledTimes(1));
     expect(h.zapisy).toEqual([]);
   });

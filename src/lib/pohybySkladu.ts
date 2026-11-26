@@ -280,7 +280,8 @@ export function sestavPohybyObdobi(
         beer_id: m.beer_id,
         package_id: m.package_id,
         mnozstvi: m.qty,
-        kdo: (m.orderId && jmenoOdberatele(m.orderId)) || '',
+        // Odběratel u závozu; u fasování personálu jméno, u odpisu důvod (Movement.kdo).
+        kdo: (m.orderId && jmenoOdberatele(m.orderId)) || m.kdo || '',
         poznamka: (m.note ?? '').trim(),
         orderId: m.orderId ?? null,
         stavPo: stavPo.po.get(m) ?? 0,
@@ -413,7 +414,8 @@ export function tabulkaPoDnech(dny: DenPohybu[], beerId: string, packageId: stri
       if (sloupec) bunky[sloupec] += r.mnozstvi;
       else inventura = r.mnozstvi;
       if (sloupec && sloupec !== 'stoceno') {
-        const jmeno = r.kdo || r.popis;
+        // Závoz: jméno odběratele. Fasování a odpis: „Fasování personál · Eva", „Odpis · výhra v tombole".
+        const jmeno = !r.kdo ? r.popis : r.druh === 'zavoz' ? r.kdo : `${r.popis} · ${r.kdo}`;
         komu.set(jmeno, (komu.get(jmeno) ?? 0) + r.mnozstvi);
       }
     }

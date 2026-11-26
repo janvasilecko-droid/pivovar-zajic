@@ -150,8 +150,11 @@ try {
   // 3) Uložení. Tlačítko musí existovat, být trefitelné a po kliknutí
   //    nesmí zůstat zamčené (to byla skutečná chyba: odemklo se dřív, než
   //    zápis doběhl, takže dvojklik uložil dvakrát).
-  const ulozit = stranka.getByRole('button', { name: /Uložit kontrolu/i });
-  overit(await ulozit.count() > 0, 'tlačítko „Uložit kontrolu" je na obrazovce');
+  const ulozit = stranka.getByRole('button', { name: /Uložit vše/i });
+  overit(await ulozit.count() > 0, 'tlačítko „Uložit vše" je na obrazovce');
+  // Napočítané, ale neuložené číslo musí svítit (26. 11. 2026: nula u Osmy se neuložila a nikdo to neviděl).
+  overit(await stranka.getByTestId('tydenni-neulozeno').isVisible(), 'napočítaný, ale neuložený počet ukáže pruh „neuloženo“');
+  overit(/Uložit vše \(\d+\)/.test((await ulozit.first().innerText()).trim()), 'tlačítko ukazuje, kolik položek čeká na uložení');
   const rozmerTlacitka = await ulozit.first().boundingBox();
   overit(rozmerTlacitka !== null && rozmerTlacitka.height >= 44, `tlačítko je ${Math.round(rozmerTlacitka?.height ?? 0)} px vysoké (min. 44)`);
 

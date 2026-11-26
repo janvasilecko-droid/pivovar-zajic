@@ -10,7 +10,7 @@
 // Zapisuje se stejnými funkcemi jako u měsíční uzávěrky (lib/inventoryFix.ts,
 // lib/tankZapis.ts). Vlastní verze zápisu by byla druhá pravda o tomtéž.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarRange, Calculator, Check, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, ListChecks, MinusCircle, Plus, RefreshCw, Save, Search, SkipForward, Wand2 } from 'lucide-react';
+import { AlertTriangle, CalendarRange, Calculator, Check, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, ListChecks, MinusCircle, Plus, RefreshCw, Save, Search, SkipForward, Wand2 } from 'lucide-react';
 import { supabase, fetchAllRows, formatPackageLabel, beerBg, beerText } from '../lib/supabase';
 import { Spinner } from './ui';
 import { QuickCountModal } from './QuickCountModal';
@@ -111,7 +111,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   /**
    * 🧮 Dotykové sčítadlo. Napočítané kusy jen PŘEDVYPLNÍ pole
    * „Napočítáno" — do databáze nic nejde. Člověk si čísla ještě prohlédne
-   * a teprve „Uložit kontrolu" / „Dopsat stáčení" s nimi něco udělá.
+   * a teprve „Uložit vše" / „Dopsat stáčení" s nimi něco udělá.
    */
   const [scitadlo, setScitadlo] = useState(false);
   function vyplnZeScitadla(polozky: { beerId: string; packageId: string; count: number }[]) {
@@ -274,6 +274,13 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
   }, [pohybyOtevrenehoRadku, objednavkyInfo]);
 
   const souhrn = useMemo(() => souhrnTydne(radkyObalu), [radkyObalu]);
+
+  // 💾 Napočítáno, ale NEULOŽENO: číslo leží jen v tomhle zařízení — Sklad ani Rozbor s ním nepočítají, dokud
+  // se neklepne na „Uložit vše". Majitel 26. 11. 2026: „když dám reálný stav skladu, musí s tím počítat" — nula
+  // u Osmy 1 l se ale nikdy neuložila: tlačítko se jmenovalo „Uložit kontrolu", nápověda jinde říkala „Uložit vše"
+  // a neuložená čísla nikde nesvítila, takže Rozbor dál počítal původní stav. Počítá se ze všech řádků, i těch,
+  // které filtr (Lahve / Sudy, hledání) zrovna schoval.
+  const neulozeno = vsechnyRadky.filter((r) => r.napocitano !== null && ulozenePoctyRef.current.get(r.klic) !== r.napocitano).length;
 
   // 💰 Hodnota v Kč: cena z ceníku ke dni, ke kterému se počítá; kde chybí,
   // orientační podle obalu (jako měsíční inventura). Stejný rozsah řádků jako
@@ -614,9 +621,23 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
                 <RefreshCw size={16} className={bezi ? 'animate-spin' : ''} /> Načíst znovu
               </button>
               <button type="button" onClick={ulozVse} disabled={!!uklada || bezi} className="btn-primary !rounded min-h-[44px]">
-                <Save size={16} /> Uložit kontrolu
+                <Save size={16} /> Uložit vše{neulozeno > 0 ? ` (${neulozeno})` : ''}
               </button>
             </div>
+
+            {!bezi && neulozeno > 0 && (
+              <div
+                data-testid="tydenni-neulozeno"
+                role="status"
+                className="rounded border-2 border-amber-400 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950 flex items-start gap-2"
+              >
+                <AlertTriangle size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
+                <span>
+                  {neulozeno} {neulozeno === 1 ? 'položka napočítaná' : neulozeno < 5 ? 'položky napočítané' : 'položek napočítaných'}, ale <b>neuložených</b> — leží
+                  jen v tomhle zařízení. Sklad ani Rozbor s nimi zatím nepočítají; klepni na „Uložit vše".
+                </span>
+              </div>
+            )}
 
             {!bezi && (
               <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
@@ -835,7 +856,7 @@ export default function TydenniInventuraPanel({ setPage }: { setPage?: (p: any, 
         packages={(kniha?.obaly ?? []) as any}
         onConfirmCount={vyplnZeScitadla}
         titulek="Sčítadlo — týdenní kontrola"
-        popisUlozeni="Vyplní se tím pole ‚Napočítáno‘. Nic se neukládá — čísla si pak projdi a ulož tlačítkem ‚Uložit kontrolu‘."
+        popisUlozeni="Vyplní se tím pole ‚Napočítáno‘. Nic se neukládá — čísla si pak projdi a ulož tlačítkem ‚Uložit vše‘."
         potvrditPopisek="Vyplnit do kontroly"
       />
     </div>
