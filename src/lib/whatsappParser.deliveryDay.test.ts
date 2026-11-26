@@ -118,6 +118,13 @@ describe('detectDeliveryDay — datum s mezerami a nalepeným množstvím, pozí
     expect(r.cleanText).toBe('Na 30l 12sv, děkuji');
   });
 
+  // 25. 11. 2026: „Na 18 .12...20l 12sv...díky p.Novák" — tři tečky za datem (jméno vymyšlené).
+  it('„Na 18 .12...20l 12sv...díky" = pátek 18. 12., z textu zmizí jen datum', () => {
+    const r = detectDeliveryDay('Na 18 .12...20l 12sv...díky p.Novák');
+    expect(r).toMatchObject({ day: 'pa', dateStr: '2026-12-18' });
+    expect(r.cleanText).toBe('Na ...20l 12sv...díky p.Novák');
+  });
+
   it('„na pozítří" od pátku = neděle 8. 11.', () => {
     expect(detectDeliveryDay('na pozítří 2x30l')).toMatchObject({ day: 'ne', dateStr: '2026-11-08' });
     expect(detectDeliveryDay('pozitri 2x30l').dateStr).toBe('2026-11-08');

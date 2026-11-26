@@ -93,3 +93,49 @@ describe('zítra, pozítří, dnes podle dne zprávy', () => {
     expect(relativniDen('pozítří', '2026-12-31')?.datum).toBe('2027-01-02');
   });
 });
+
+// 25. 11. 2026 (středa): „Na 18 .12...20l 12sv...díky p.Novák" (jméno vymyšlené). Odběratel odděluje
+// části zprávy třemi tečkami, takže za měsícem nestála jedna tečka, ale tři — server ani okno datum
+// nepřečetly a objednávka dostala výchozí středu 2. 12. místo pátku 18. 12.
+// Majitel: „aplikace to musí nastavit ten datum".
+describe('odmlka („...") za datem', () => {
+  const ZPRAVA = 'Na 18 .12...20l 12sv...díky p.Novák';
+  const ZPRAVY_DEN = '2026-11-25'; // den, kdy zpráva přišla
+
+  it('zpráva z provozu = pátek 18. 12., datum se z textu vyřízne jen po měsíc', () => {
+    const d = datumZeZpravy(ZPRAVA, ZPRAVY_DEN)!;
+    expect(d).toMatchObject({ datum: '2026-12-18', den: 'pa', zobrazeni: '18.12.', nalezeno: '18 .12' });
+    expect(ZPRAVA.slice(d.od, d.do)).toBe('18 .12');
+    expect(bezData(ZPRAVA, ZPRAVY_DEN)).toBe('Na       ...20l 12sv...díky p.Novák');
+  });
+
+  it('dvě až čtyři tečky, s mezerou i bez ní, za předložkou i za dnem', () => {
+    for (const t of [
+      'Na 18.12.. 20l 12sv',
+      'Na 18.12... 20l 12sv',
+      'na 18. 12.... 2x30',
+      'do 18 .12...2x30l',
+      'pátek 18.12...',
+      'Na 18.12 ... 20l',
+    ]) {
+      expect(datum(t), t).toBe('2026-12-18');
+    }
+  });
+
+  it('odmlka není datum: čísla oddělená tečkami se nečtou jako den a měsíc', () => {
+    expect(datum('Jantar 1.5...2x')).toBeNull();
+    expect(datum('12sv...20l')).toBeNull();
+    expect(datum('3...12...20l')).toBeNull();
+    // Bez předložky se holé datum nebere ani bez odmlky („objednávka 13.11 2x30" výš).
+    expect(datum('objednávka 18.12...')).toBeNull();
+  });
+
+  it('s odmlkou platí stejná opatrnost jako bez ní: jednotka za číslem a čas nejsou datum', () => {
+    expect(datum('na 1.5...l')).toBeNull();
+    expect(datum('v 10.30...')).toBeNull();
+  });
+
+  it('typografická odmlka „…" se četla už dřív a čte se dál', () => {
+    expect(datum('Na 18 .12…20l 12sv…díky')).toBe('2026-12-18');
+  });
+});

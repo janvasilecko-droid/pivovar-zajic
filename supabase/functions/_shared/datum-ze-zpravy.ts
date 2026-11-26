@@ -139,12 +139,26 @@ function kandidati(text: string): Kandidat[] {
 }
 
 /**
+ * Odmlka („...", „....") se nahradí mezerami stejné délky — pozice ve zprávě zůstanou.
+ *
+ * Z provozu 25. 11. 2026: „Na 18 .12...20l 12sv...díky p.Novák" (jméno vymyšlené). Odběratel
+ * odděluje části zprávy třemi tečkami, takže za měsícem nenásledovala jedna tečka, ale tři, a žádné
+ * pravidlo výš datum nepřijalo (všechna chtějí za měsícem nanejvýš jednu tečku). Server ani okno
+ * proto datum 18. 12. nepřečetly a objednávka dostala výchozí středu 2. 12.
+ *
+ * Dvě a víc teček za sebou nejsou nikdy součást data ani čísla („13.11." má tečky odděleně), takže
+ * jejich vynechání nic nepřebírá. Datum s odmlkou za sebou se pak čte jako „bez tečky na konci"
+ * a platí pro něj stejná opatrnost jako jinde: jen za předložkou nebo názvem dne (pravidlo 4 výš).
+ */
+const bezOdmlk = (text: string) => text.replace(/\.{2,}/g, (m) => ' '.repeat(m.length));
+
+/**
  * Konkrétní datum ve zprávě (první platné podle pořadí ve zprávě), nebo null.
  * `dnes` (YYYY-MM-DD) slouží k doplnění roku — u zprávy datum, kdy přišla.
  */
 export function datumZeZpravy(text: string | null | undefined, dnes: string = datumPraha()): DatumZpravy | null {
   if (!text) return null;
-  const vse = kandidati(text).sort((a, b) => a.od - b.od || b.text.length - a.text.length);
+  const vse = kandidati(bezOdmlk(text)).sort((a, b) => a.od - b.od || b.text.length - a.text.length);
   const letos = Number(dnes.slice(0, 4));
   for (const k of vse) {
     // Dvoumístný rok jen letošní nebo příští („13.11.26"), jinak to bývá něco jiného.
