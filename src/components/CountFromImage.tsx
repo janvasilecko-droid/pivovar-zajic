@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Modal, Spinner } from './ui';
 import { ImageEditor } from './ImageEditor';
+import { PocitaniTeckami } from './PocitaniTeckami';
 import type { Beer, Package } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
@@ -96,6 +97,8 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
   const [results, setResults] = useState<CountItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  /** Fotka, na které se právě počítají lahve tečkami (id), jinak null. */
+  const [teckyFotka, setTeckyFotka] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -198,12 +201,14 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
   function retakePhoto(photoId: string) {
     setResults((rs) => rs.filter((r) => r.photo_id !== photoId));
     setPhotos((ps) => ps.map((p) => p.id === photoId ? { ...p, preview: null, editing: null, rawText: '', err: null, progress: 0 } : p));
+    if (teckyFotka === photoId) setTeckyFotka(null);
     fileRef.current?.click();
   }
 
   function removePhoto(photoId: string) {
     setResults((rs) => rs.filter((r) => r.photo_id !== photoId));
     setPhotos((ps) => ps.filter((p) => p.id !== photoId));
+    if (teckyFotka === photoId) setTeckyFotka(null);
   }
 
   function updateResult(i: number, patch: Partial<CountItem>) {
@@ -212,6 +217,31 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
 
   function removeResult(i: number) {
     setResults((rs) => rs.filter((_, idx) => idx !== i));
+  }
+
+  /**
+   * Počet ověřený tečkami je pro danou fotku pravda: nahradí všechny řádky,
+   * které k ní přečetla AI. Nechat je vedle sebe by při uložení sečetlo
+   * tutéž paletu dvakrát. Pivo a obal se převezmou z prvního řádku AI.
+   */
+  function pouzijPocetZTecek(photoId: string, pocet: number) {
+    setResults((rs) => {
+      const prvni = rs.find((r) => r.photo_id === photoId);
+      const radek: CountItem = {
+        package_label: prvni?.package_label ?? null,
+        package_label_resolved: prvni?.package_label_resolved ?? null,
+        beer_name: prvni?.beer_name ?? null,
+        quantity: pocet,
+        note: 'Spočítáno tečkami na fotce',
+        beer_id: prvni?.beer_id ?? '',
+        package_id: prvni?.package_id ?? '',
+        photo_id: photoId,
+        _key: prvni?._key ?? novyKlic(),
+      };
+      if (!prvni) return [...rs, radek];
+      return rs.filter((r) => r === prvni || r.photo_id !== photoId).map((r) => (r === prvni ? radek : r));
+    });
+    setTeckyFotka(null);
   }
 
   function addPresetCrate(qty: number, noteText: string) {
@@ -342,6 +372,17 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
           </div>
         ))}
 
+        {/* Počítání lahví tečkami na vybrané fotce */}
+        {photos.filter((p) => p.id === teckyFotka && p.preview).map((p) => (
+          <div key={p.id} className="card p-3 border border-amber-200 rounded">
+            <PocitaniTeckami
+              src={p.preview!}
+              onPotvrdit={(pocet) => pouzijPocetZTecek(p.id, pocet)}
+              onZrusit={() => setTeckyFotka(null)}
+            />
+          </div>
+        ))}
+
         {/* Photo previews — kompaktní mřížka */}
         {photos.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -370,6 +411,11 @@ export function CountFromImage({ beers, packages, onClose, onSaved, table = 'inv
                 )}
                 {p.err && (
                   <div className="px-2 py-1 bg-rose-50 text-udaj text-rose-700 font-bold leading-tight">{p.err}</div>
+                )}
+                {!isKegMode && !p.busy && p.preview && (
+                  <button type="button" className="w-full btn-tmave btn-sm rounded-none" onClick={() => setTeckyFotka(p.id)}>
+                    Spočítat tečkami
+                  </button>
                 )}
                 {!p.busy && p.preview && (
                   <button className="w-full text-udaj py-1 bg-neutral-800 text-amber-300 hover:bg-neutral-700 font-bold transition tap" onClick={() => retakePhoto(p.id)}><RefreshCw className="ikona-text" /></button>
