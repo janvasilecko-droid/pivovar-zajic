@@ -26,7 +26,18 @@ function atrapaUloziste() {
     if (!sklad.has(nazev)) sklad.set(nazev, new Map());
     const m = sklad.get(nazev)!;
     return {
-      match: async (r: any) => { const hit = m.get(adresa(r)); return hit ? hit.clone() : undefined; },
+      match: async (r: any, opce?: { ignoreSearch?: boolean }) => {
+        let hit = m.get(adresa(r));
+        if (!hit && opce?.ignoreSearch) {
+          const bezParametru = (u: string) => u.split('?')[0];
+          for (const [k, v] of m) if (bezParametru(k) === bezParametru(adresa(r))) { hit = v; break; }
+        }
+        if (!hit) return undefined;
+        const kopie = hit.clone();
+        // Příznak „vznikla přesměrováním" si skutečná cache pamatuje — atrapa ho přenáší taky.
+        if (hit.redirected) Object.defineProperty(kopie, 'redirected', { value: true });
+        return kopie;
+      },
       put: async (r: any, res: Response) => { m.set(adresa(r), res); },
       keys: async () => [...m.keys()].map((url) => ({ url })),
     };
@@ -44,6 +55,13 @@ function atrapaUloziste() {
       await meta.put(`${ORIGIN}/__installed-cache__`, new Response('pivovar-2.1'));
       const c = await otevri('pivovar-2.1');
       for (const [u, telo] of Object.entries(soubory)) await c.put(u, new Response(telo, { status: 200 }));
+    },
+    /** Uloží stránku tak, jak ji vrátí hosting po přesměrování (`/index.html` → `/`): s příznakem `redirected`. */
+    async nainstalujPresmerovanou(cesta: string, telo: string) {
+      const c = await otevri('pivovar-2.1');
+      const res = new Response(telo, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      Object.defineProperty(res, 'redirected', { value: true });
+      await c.put(cesta, res);
     },
   };
 }
@@ -118,6 +136,49 @@ describe('service worker — navigace bez signálu', () => {
     const res = (await sw.pozadavek(`${ORIGIN}/?page=orders`))!;
     expect(res.status).toBe(200);
     expect(await res.text()).toContain('APLIKACE');
+  });
+
+  it('adresa s parametrem, kterou se signálem nikdo neotevřel, se bez signálu otevře z uložené aplikace', async () => {
+    // 27. 11. 2026, změřeno na živém webu: `/` bez signálu šla, `/?page=dashboard` skončila chybou prohlížeče.
+    const uloziste = atrapaUloziste();
+    await uloziste.nainstaluj({ './': '<!doctype html><div id="root">APLIKACE</div>' });
+    const sw = nactiSw(bezSite, uloziste);
+    for (const u of [`${ORIGIN}/?page=dashboard`, `${ORIGIN}/?page=orders&x=1`, `${ORIGIN}/`]) {
+      const res = (await sw.pozadavek(u))!;
+      expect(res.status, u).toBe(200);
+      expect(await res.text(), u).toContain('APLIKACE');
+    }
+  });
+
+  it('parametr se ignoruje jen u téže cesty — jiná stránka (Instalace) se s aplikací nesplete', async () => {
+    const uloziste = atrapaUloziste();
+    await uloziste.nainstaluj({ './': 'APLIKACE', './instalace': 'STRANKA-INSTALACE' });
+    const sw = nactiSw(bezSite, uloziste);
+    expect(await (await sw.pozadavek(`${ORIGIN}/instalace?z=ikony`))!.text()).toBe('STRANKA-INSTALACE');
+    expect(await (await sw.pozadavek(`${ORIGIN}/?page=home`))!.text()).toBe('APLIKACE');
+  });
+
+  it('stránka uložená po přesměrování hostingu (/index.html → /) se podá bez příznaku přesměrování', async () => {
+    // Odpověď s `redirected: true` prohlížeč jako stránku odmítne (net::ERR_FAILED) — service worker ji přebalí.
+    const uloziste = atrapaUloziste();
+    await uloziste.nainstalujPresmerovanou('./index.html', '<!doctype html><div id="root">APLIKACE</div>');
+    await uloziste.nainstaluj({});
+    const sw = nactiSw(bezSite, uloziste);
+    for (const u of [`${ORIGIN}/?page=dashboard`, `${ORIGIN}/index.html`, `${ORIGIN}/neco/jineho`]) {
+      const res = (await sw.pozadavek(u))!;
+      expect(res.status, u).toBe(200);
+      expect(res.redirected, u).toBe(false);
+      expect(res.headers.get('Content-Type'), u).toBe('text/html; charset=utf-8');
+      expect(await res.text(), u).toContain('APLIKACE');
+    }
+  });
+
+  it('když je uložená čistá stránka i ta po přesměrování, bere se ta čistá', async () => {
+    const uloziste = atrapaUloziste();
+    await uloziste.nainstalujPresmerovanou('./index.html', 'PO-PRESMEROVANI');
+    await uloziste.nainstaluj({ './': 'CISTA' });
+    const sw = nactiSw(bezSite, uloziste);
+    expect(await (await sw.pozadavek(`${ORIGIN}/jina-cesta`))!.text()).toBe('CISTA');
   });
 
   it('se signálem projde odpověď serveru beze změny (i chyba serveru, ta není „bez připojení“)', async () => {

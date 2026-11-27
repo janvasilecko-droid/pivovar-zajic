@@ -70,6 +70,22 @@ describe('zkontrolujSw — stránka „Bez připojení“', () => {
     expect(p[0]).toContain('Navigace v sw.js');
   });
 
+  it('navigace, která by podala stránku s příznakem přesměrování nebo neuměla adresu s parametrem, se pozná', () => {
+    // 27. 11. 2026: na živém webu šla bez signálu otevřít `/`, ale `/?page=dashboard` skončila chybou prohlížeče.
+    for (const [co, cim] of [
+      ['const cached = await strankaZCache(req);', 'const cached = await matchInInstalledCache(req);'],
+      ['return bezPresmerovani(hit);', 'return hit;'],
+      [', ignoreSearch: true }', ' }'],
+      ['if (!res || !res.redirected) return res;', 'return res;'],
+    ]) {
+      const rozbity = SW.replace(co, cim);
+      expect(rozbity, co).not.toBe(SW);
+      const p = zkontrolujSw(rozbity);
+      expect(p, co).toHaveLength(1);
+      expect(p[0], co).toContain('strankaZCache');
+    }
+  });
+
   it('chybějící stránka se pozná', () => {
     const bez = SW.replace('const STRANKA_OFFLINE = `', 'const JINA_PROMENNA = `');
     expect(bez).not.toBe(SW);

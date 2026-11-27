@@ -1,8 +1,9 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 2.443 — změň při zásahu do tohohle souboru, ať si prohlížeč
-// stáhne nový service worker (27. 11. 2026: všechny obrazovky se ukládají hned při instalaci, viz KUSY;
+// SW_VERSION: 2.444 — změň při zásahu do tohohle souboru, ať si prohlížeč
+// stáhne nový service worker (27. 11. 2026: start bez signálu i na adrese s parametrem, viz strankaZCache;
+// 27. 11. 2026: všechny obrazovky se ukládají hned při instalaci, viz KUSY;
 // 25. 11. 2026: stránka „bez připojení“ místo holého „Offline“; 19. 9. 2026: přejmenované ikony, viz PRECACHE).
 const CACHE_PREFIX = 'pivovar-';
 const CACHE_META = `${CACHE_PREFIX}meta`;
@@ -102,6 +103,30 @@ async function matchInInstalledCache(req) {
   // ignoreVary: soubory aplikace se podle hlaviček neliší; kdyby server někdy poslal `Vary`, uložená kopie
   // by se jinak pro stejnou adresu „nenašla" a appka by bez signálu nenaběhla.
   return c.match(req, { ignoreVary: true });
+}
+
+/**
+ * Odpověď, kterou smí dostat NAVIGACE (otevření stránky).
+ *
+ * Hosting přesměrovává `/index.html` na `/`, takže uložená `./index.html` nese příznak „vznikla přesměrováním"
+ * — a takovou odpověď prohlížeč jako stránku odmítne (net::ERR_FAILED). Bez signálu tak nešla otevřít žádná
+ * adresa, která nebyla uložená přesně (27. 11. 2026, změřeno na živém webu: `/` ano, `/?page=dashboard` ne).
+ * Tělo a hlavičky se proto přebalí do nové odpovědi bez toho příznaku.
+ */
+async function bezPresmerovani(res) {
+  if (!res || !res.redirected) return res;
+  return new Response(await res.blob(), { status: res.status, statusText: res.statusText, headers: res.headers });
+}
+
+/**
+ * Stránka aplikace z nainstalované cache: přesná adresa, jinak táž cesta BEZ parametrů. Aplikace je jedna
+ * stránka — `/?page=sklad` je tentýž soubor jako `/` — takže bez signálu jde otevřít i odkaz, který se signálem
+ * nikdo neotevřel (upozornění, záložka, odkaz ze zprávy).
+ */
+async function strankaZCache(req) {
+  const c = await caches.open(await getInstalledCache());
+  const hit = (await c.match(req, { ignoreVary: true })) || (await c.match(req, { ignoreVary: true, ignoreSearch: true }));
+  return bezPresmerovani(hit);
 }
 
 // Nacachuje PRECACHE do dane cache — kazdy soubor zvlast (ne atomicky Cache.addAll),
@@ -420,7 +445,7 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       (async () => {
         // First, try cache
-        const cached = await matchInInstalledCache(req);
+        const cached = await strankaZCache(req);
         if (cached) {
           // Cache hit: serve immediately, then refresh in background
           e.waitUntil(
@@ -457,7 +482,7 @@ self.addEventListener('fetch', (e) => {
           return res;
         } catch {
           // If still no cache (first load offline) serve cached index.html as fallback
-          const fallback = await matchInInstalledCache('./index.html');
+          const fallback = (await strankaZCache('./')) || (await strankaZCache('./index.html'));
           // Ani ta není (smazaná kopie, nedokončená instalace) → srozumitelná stránka místo holého „Offline“.
           return fallback || odpovedOffline();
         }
