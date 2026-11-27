@@ -2,7 +2,7 @@
  "format": "pivovar-zaloha-manifest",
  "v": 1,
  "sada": "hlavni",
- "datum": "2026-11-26T11:09:06.222Z",
+ "datum": "2026-11-27T11:01:36.999Z",
  "tabulky": {
   "beers": {
    "radku": 13,
@@ -34,7 +34,7 @@
   },
   "vycepy": {
    "radku": 5,
-   "sha256": "c8e627a1a839c432972467a6e22591b77f12ac6183f4022a19163fda560514da"
+   "sha256": "9d88cf78bcb2cd42198eb5900eb63e797c0d43e57675dd2cc8af475ac927bdde"
   },
   "merch_items": {
    "radku": 0,
@@ -57,8 +57,8 @@
    "sha256": "23e9f905b5cf562d8ac45eff2c1b849622d21dffae1c734f4029b597310625ba"
   },
   "calendar_events": {
-   "radku": 370,
-   "sha256": "b2343b69e1564d4389f21faa8168a01723c3f2e1bdcc09c53b65400d5321c0f4"
+   "radku": 376,
+   "sha256": "cd4adef2dba186019b196cb66b648f8c0f3157f223ee92ecd56e9eae59177096"
   },
   "checklisty_hotovo": {
    "radku": 313,
@@ -117,8 +117,8 @@
    "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   },
   "migrace_aplikovane": {
-   "radku": 73,
-   "sha256": "e5e9548e16b5cd079b91dbbe49c7214c30b40ff909581c0259cae9f30964c90a"
+   "radku": 74,
+   "sha256": "437267096ecb8a7bcfa14e57de8a83876b85b27695af2db5089a8405a1fc3679"
   },
   "tank_uprava_log": {
    "radku": 0,
@@ -126,7 +126,7 @@
   },
   "cellar_tanks": {
    "radku": 11,
-   "sha256": "b418c3de7ea7f60b94974756389b03c3b3a196939f7189023ddcfad19f0b1a06"
+   "sha256": "49893a24cb54a1c8a6f2cf9679d90e9cfb54de50126c8d5f5ebbe67c5331fea3"
   },
   "price_list": {
    "radku": 0,
@@ -145,20 +145,20 @@
    "sha256": "2c2b65adb0087857b29224a16a88c63ab213e432ac8068d3c8d8a211ad217120"
   },
   "fasovani": {
-   "radku": 41,
-   "sha256": "e8027f1aab32daf87c9ffa27b5e5dc2288a5823c0a3affd3ae902d123e6828f7"
+   "radku": 42,
+   "sha256": "f55e26f5b8de312d952d4e5614e9775ab552eaa6c51f40322910237db37c5e48"
   },
   "fasovani_private": {
-   "radku": 226,
-   "sha256": "2555b80cbd778a20e9d3667215a18bbeccb5b981efaddbf8b1924a227ff564db"
+   "radku": 230,
+   "sha256": "71b6338702b1da2ece1d8ff4a33d9f84abb93c9ad253bbc694e058c0c50ebb84"
   },
   "inventory": {
    "radku": 353,
    "sha256": "bd127a81ebb1644926f7bb0d943e4b9ae4cf0de2c3595913bc9131d8f280588b"
   },
   "inventory_adjustments": {
-   "radku": 17,
-   "sha256": "bb1862fc3e63d50191ee35575f717cc906a670571d61c11ea6e975a706d23c6a"
+   "radku": 18,
+   "sha256": "af6158dce8877e5df71734dae2235fe762b5f81bdde0dfe9a90875117ae6b9ea"
   },
   "keg_prefuk": {
    "radku": 5,
@@ -249,28 +249,28 @@
    "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
   },
   "orders": {
-   "radku": 377,
-   "sha256": "a63519bee702d793ce7f8cb7fe8ab5183f559bbf2809cbee660c5a6cce72350f"
+   "radku": 383,
+   "sha256": "7c3de01f800686049631e9c9fcb3f2027b75d8564a8e240fffc6e146fcf8efa9"
   },
   "whatsapp_incoming": {
-   "radku": 504,
-   "sha256": "32a87913d0c1a5d878fa3fd30919a907b1437bfa4350258a7b766a52a35707d6"
+   "radku": 508,
+   "sha256": "b70d9703db01bcd393f6fa7ae219d84e719cba0d7521cbc88882c084a94c90b3"
   },
   "whatsapp_prijem_log": {
-   "radku": 408,
-   "sha256": "fdc7b6d6d301f6d29bdbbc528f3f932a105ea1b3c77365ad335dd6c872bb1f27"
+   "radku": 412,
+   "sha256": "da5df853a3880e3b3a491b296d038e63b5920ae77ef089d838f1e3d5ddebe295"
   },
   "order_items": {
-   "radku": 1081,
-   "sha256": "e48a12dbed0cd4da5b1984b818583bf93498fe988e6fd99a2856d50bced6aee1"
+   "radku": 1089,
+   "sha256": "fe6b3e92bc9b5abbbffd1d6a2ff18b19e63372f9156c15dd76021019571ed0a3"
   },
   "kegging": {
-   "radku": 448,
-   "sha256": "29989e956202f2c7946593d0d5dafc88061d5fc6a7ed283c03d6b6f641936c2c"
+   "radku": 449,
+   "sha256": "e7c2883d7c42237037058d01569a0e39fd0ed162cd839b89b608790039e796f9"
   },
   "zavoz_deductions": {
-   "radku": 1076,
-   "sha256": "9c238e6c2174f7fdedc31f28ebb0feb710cab0ae85899c1f346c35b6a1e1504a"
+   "radku": 1084,
+   "sha256": "e635f3d95fb562fb793493819f22a5352af9df0ac52966b36f35a986033f1a4b"
   },
   "keg_returns": {
    "radku": 0,
@@ -278,7 +278,7 @@
   },
   "vycepy_rezervace": {
    "radku": 1,
-   "sha256": "154f5c440f6d4979049008f6db4db54a46d416fc62936e9083cef42fc51f0804"
+   "sha256": "ff942fc703607eb5d4bd02d015a3e62c80fcd530abebb42e6ccc1a681a26e152"
   },
   "zavoz_ukoly_hotovo": {
    "radku": 0,
