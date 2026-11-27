@@ -7,6 +7,8 @@ const h = vi.hoisted(() => ({
   radky: [{ entry_date: '2026-09-01', quantity: 1 }] as any[],
   tydenni: [] as any[],
   cekat: null as null | Promise<void>,
+  /** Obsluhy živého kanálu: [tabulka, funkce] — zaregistrují se jednou, při prvním čtení. */
+  obsluhy: [] as [string, () => void][],
 }));
 
 vi.mock('./supabase', () => ({
@@ -20,12 +22,15 @@ vi.mock('./supabase', () => ({
     },
   }),
   supabase: {
-    channel: () => ({ on() { return this; }, subscribe() { return this; } }),
+    channel: () => ({
+      on(_udalost: string, filtr: { table: string }, obsluha: () => void) { h.obsluhy.push([filtr.table, obsluha]); return this; },
+      subscribe() { return this; },
+    }),
   },
 }));
 
 import { nactiSdilenouTabulku, vycistiSdilenaData, MAX_STARI_MS } from './sdilenaData';
-import { zneplatniTabulku, zneplatniVse } from './zneplatneni';
+import { priZneplatneni, zneplatniTabulku, zneplatniVse } from './zneplatneni';
 import { vycistiZPameti, zapisZPameti } from './zPameti';
 
 beforeEach(() => {
@@ -120,6 +125,28 @@ describe('nactiSdilenouTabulku', () => {
 
 // 15. 10. 2026: „občas se nechce načíst sklad" — při slabém signálu dotaz vyprší
 // a appka odpoví z paměti telefonu. Taková data se nesmí tvářit jako čerstvá.
+describe('co je „změna dat" pro kopii v telefonu (lib/offlineKopie.ts)', () => {
+  it('návrat do appky a obnovené spojení paměť zahodí, ale změnu nehlásí; změna z živého kanálu ano', async () => {
+    await nactiSdilenouTabulku('bottling');                    // první čtení spustí hlídání
+    const zmeny = vi.fn();
+    const odhlas = priZneplatneni(zmeny);
+    try {
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('online'));
+      expect(zmeny).not.toHaveBeenCalled();
+      h.dotazy.length = 0;
+      await nactiSdilenouTabulku('bottling');
+      expect(h.dotazy).toEqual(['bottling']);                  // paměť se opravdu zahodila
+      // Kolega něco zapsal (živý kanál): kopie v telefonu si tabulku stáhne znovu.
+      h.obsluhy.find(([t]) => t === 'bottling')![1]();
+      expect(zmeny.mock.calls).toEqual([['bottling']]);
+      // Vnořená tabulka: hlásí se ona sama (nadřazenou si odvodí posluchač).
+      h.obsluhy.filter(([t]) => t === 'akce_items').forEach(([, f]) => f());
+      expect(zmeny.mock.calls.map((c) => c[0])).toContain('akce_items');
+    } finally { odhlas(); }
+  });
+});
+
 describe('data z paměti telefonu místo ze serveru', () => {
   it('výsledek je poznačený a do sdílené paměti se NEULOŽÍ — příští čtení zkusí server znovu', async () => {
     let pust!: () => void;

@@ -12,6 +12,9 @@ import { readdirSync, readFileSync } from 'node:fs';
 const POVOLENO = new Set([
   'auth.tsx', 'config.ts', 'profileSync.ts', 'chybyHlaseni.ts', 'pushOdber.ts', 'odpoctyPush.ts',
   'appVersionTracker.ts', 'googlePrihlaseni.ts', 'prepinaniUctu.ts', 'uctyUlozene.ts', 'nahledUzivatele.ts', 'permissions.ts',
+  // Práce bez signálu (27. 11. 2026): přihlášení uložené v telefonu a KOMU patří kopie dat. Nic nepočítají —
+  // kopie drží řádky tak, jak je server tomu účtu vydal (docs/offline.md).
+  'relaceOffline.ts', 'offlineKopie.ts',
 ]);
 
 describe('výpočty (src/lib) nezávisí na přihlášeném uživateli', () => {

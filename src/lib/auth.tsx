@@ -11,6 +11,8 @@ import { getNastaveniRychlychOdpoctu, saveNastaveniRychlychOdpoctu } from './ryc
 import { normalizujNastaveni } from './rychleOdpocty';
 import { jeNahled, profilNovehoUzivatele } from './nahledUzivatele';
 import { JE_SLADEK } from './profilAplikace';
+import { nastavUzivateleKopie, smazKopie } from './offlineKopieSklad';
+import { ulozenaRelace } from './relaceOffline';
 
 type AuthCtx = {
   session: Session | null;
@@ -115,6 +117,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let zruseno = false;
     supabase.auth.getSession().then(({ data }) => {
       if (zruseno) return;
+      // Kopie dat pro práci bez signálu patří tomuhle účtu (lib/offlineKopieSklad.ts) — nastavit dřív, než se
+      // začne načítat profil, ať má i on bez signálu z čeho odpovědět.
+      nastavUzivateleKopie(data.session?.user?.id ?? null);
       setSession(data.session);
       if (data.session?.user) loadProfile(data.session.user).finally(() => { if (!zruseno) setLoading(false); });
       else setLoading(false);
@@ -122,6 +127,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((e, s) => {
       // Odkaz „zapomenuté heslo“ z e-mailu: uživatel je přihlášený, ale musí si nastavit nové heslo.
       if (e === 'PASSWORD_RECOVERY') setMusiNastavitHeslo(true);
+      // Bez signálu s prošlým tokenem může knihovna ohlásit „bez relace", i když přihlášení v telefonu pořád
+      // je (jen se nedá obnovit). Odhlásit smí jen skutečné odhlášení — jinak by appka ve sklepě skončila na
+      // přihlašovací obrazovce, kde se bez signálu přihlásit nedá (lib/relaceOffline.ts).
+      if (!s && e !== 'SIGNED_OUT' && ulozenaRelace(supabase.auth as unknown as { storageKey?: unknown })) return;
+      nastavUzivateleKopie(s?.user?.id ?? null);
       setSession(s);
       if (s?.user) {
         loadProfile(s.user);
@@ -220,7 +230,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: res.error ? srozumitelnaChybaPrihlaseni(res.error.message) : null };
   };
 
-  const signOut = () => supabase.auth.signOut().then(() => { setProfile(null); });
+  // Po odhlášení se z telefonu maže i kopie dat pro práci bez signálu — patřila odhlášenému účtu. Jen když se
+  // odhlášení opravdu povedlo: bez signálu ho knihovna neprovede (přihlášení zůstane) a kopie je pak jediné,
+  // z čeho appka umí odpovídat.
+  const signOut = () => supabase.auth.signOut().then((vysledek) => {
+    setProfile(null);
+    if (!vysledek?.error) void smazKopie();
+  });
 
   const patchProfile = (patch: Partial<Profile>) => {
     setProfile((prev) => (prev ? { ...prev, ...patch } : prev));

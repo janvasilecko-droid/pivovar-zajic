@@ -13,6 +13,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { useRealtime, supabase } from './supabase';
+import { priZneplatneni } from './zneplatneni';
 
 type StatusCallback = (status: string) => void;
 
@@ -96,5 +97,26 @@ describe('useRealtime — pojistka proti tichému pádu kanálu', () => {
 
     await vi.advanceTimersByTimeAsync(120_000);
     expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('pojistka a návrat do appky nejsou „změna dat" — kopie v telefonu se kvůli nim nestahuje; skutečná změna ano', async () => {
+    const kanal = fakniKanal();
+    vi.spyOn(supabase, 'channel').mockReturnValue(kanal as any);
+    const zmeny = vi.fn();
+    const odhlas = priZneplatneni(zmeny);
+    try {
+      render(<Testovaci onChange={() => {}} />);
+      kanal.posliStatus('SUBSCRIBED');
+      await vi.advanceTimersByTimeAsync(60_000 + 500);          // minutová pojistka
+      document.dispatchEvent(new Event('visibilitychange'));    // návrat do appky
+      kanal.posliStatus('CHANNEL_ERROR');
+      window.dispatchEvent(new CustomEvent('pivovar:online-refetch'));
+      await vi.advanceTimersByTimeAsync(500);
+      expect(zmeny).not.toHaveBeenCalled();
+      // Skutečná změna od kolegy (postgres_changes) se posluchačům ohlásí.
+      const obsluha = (kanal.on.mock.calls as unknown as [string, { table: string }, () => void][]).find((c) => c[1].table === 'bottling')![2];
+      obsluha();
+      expect(zmeny.mock.calls).toEqual([['bottling']]);
+    } finally { odhlas(); }
   });
 });

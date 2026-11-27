@@ -1,9 +1,9 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 2.442 — změň při zásahu do tohohle souboru, ať si prohlížeč
-// stáhne nový service worker (25. 11. 2026: stránka „bez připojení“ místo holého „Offline“;
-// 19. 9. 2026: přejmenované ikony, viz PRECACHE).
+// SW_VERSION: 2.443 — změň při zásahu do tohohle souboru, ať si prohlížeč
+// stáhne nový service worker (27. 11. 2026: všechny obrazovky se ukládají hned při instalaci, viz KUSY;
+// 25. 11. 2026: stránka „bez připojení“ místo holého „Offline“; 19. 9. 2026: přejmenované ikony, viz PRECACHE).
 const CACHE_PREFIX = 'pivovar-';
 const CACHE_META = `${CACHE_PREFIX}meta`;
 const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope).href;
@@ -18,6 +18,18 @@ const CACHE_META_KEY = new URL('./__installed-cache__', self.registration.scope)
 // tlačítka). Vypadalo to jako rozbitá grafika, přitom chyběl jeden soubor.
 const SHELL = [];
 
+// 📴 Všechny ostatní kusy aplikace — obrazovky a knihovny. Taky je doplňuje build (scripts/shell-do-sw.mjs).
+//
+// Majitel 27. 11. 2026: „furt to nefunguje offline … napíše to, že to je offline, a neukážou se mi žádný data."
+// Jedna z příčin: aplikace je rozdělená na ~130 kusů, které se stahují, až když se obrazovka poprvé otevře —
+// a do paměti telefonu se dostaly právě jen tak. Obrazovka, kterou člověk se signálem neotevřel (a po KAŽDÉ
+// aktualizaci znovu žádná), se bez signálu vůbec nenačetla: Sklad zůstal jako šedé obdélníky.
+//
+// Teď se všechny kusy uloží hned při instalaci service workeru (tedy dřív, než se nová verze nabídne
+// k aktualizaci). Co se od minulé verze nezměnilo, se jen zkopíruje ze staré paměti — nestahuje se znovu.
+// Mimo zůstávají tři těžké knihovny (PDF a Excel, ~860 kB): ty se uloží, až když je někdo poprvé použije.
+const KUSY = [];
+
 // Písma jsou v precache schválně: bez nich appka offline spadne na systémové
 // písmo a vypadá jako cizí. Jsou vlastní (ne z Googlu) právě proto, že
 // fetch handler níž cizí domény vůbec nechytá — viz `url.origin !== ...`.
@@ -25,6 +37,7 @@ const SHELL = [];
 const PRECACHE = [
   './', './index.html', './manifest.webmanifest',
   './icon-192-v2.png', './icon-512-v2.png', './favicon.ico', './version.json',
+  './logo-zajic.svg', './logo-zajic-znak.svg',
   './fonts/plus-jakarta-sans-latin-wght-normal.woff2',
   './fonts/plus-jakarta-sans-latin-ext-wght-normal.woff2',
   './fonts/outfit-latin-wght-normal.woff2',
@@ -86,7 +99,9 @@ async function getInstalledCache() {
 async function matchInInstalledCache(req) {
   const CACHE = await getInstalledCache();
   const c = await caches.open(CACHE);
-  return c.match(req);
+  // ignoreVary: soubory aplikace se podle hlaviček neliší; kdyby server někdy poslal `Vary`, uložená kopie
+  // by se jinak pro stejnou adresu „nenašla" a appka by bez signálu nenaběhla.
+  return c.match(req, { ignoreVary: true });
 }
 
 // Nacachuje PRECACHE do dane cache — kazdy soubor zvlast (ne atomicky Cache.addAll),
@@ -105,6 +120,48 @@ async function ensurePrecached(c) {
   );
 }
 
+/**
+ * Doplní do cache `c` všechny kusy aplikace (KUSY), které v ní ještě nejsou. Vrací { ulozeno, celkem }.
+ *
+ * Kus má v názvu otisk obsahu, takže stejný název = stejný obsah: co už v cache je, to se přeskočí, a co leží
+ * v cache STARŠÍ verze, se jen zkopíruje (po aktualizaci se tak stahují jen změněné kusy). Zbytek se stáhne,
+ * nejvýš po šesti naráz — na slabém signálu by sto souběžných stahování jen zahltilo spojení. Selhání jednoho
+ * kusu nic neshodí; doplní se příště (při aktivaci, nebo když si o to řekne stránka — zpráva DOPLN_OFFLINE).
+ */
+async function doplnKusy(c) {
+  const hotove = new Set((await c.keys()).map((r) => r.url));
+  const chybi = KUSY.map((k) => new URL(k, self.registration.scope).href).filter((u) => !hotove.has(u));
+  let stare = [];
+  if (chybi.length > 0) {
+    try {
+      const klice = await caches.keys();
+      const jmena = klice.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_META);
+      stare = await Promise.all(jmena.map((k) => caches.open(k)));
+    } catch {}
+  }
+  let ulozeno = KUSY.length - chybi.length;
+  const fronta = chybi.slice();
+  const pracuj = async () => {
+    for (;;) {
+      const url = fronta.shift();
+      if (!url) return;
+      try {
+        let res = null;
+        for (const stara of stare) {
+          if (stara === c) continue;
+          res = await stara.match(url, { ignoreVary: true });
+          if (res) break;
+        }
+        if (!res) res = await stahniSOpakovanim(url);
+        // Oba zdroje dávají jen úspěšné odpovědi (stará paměť i stahniSOpakovanim) — chyba se nikdy neuloží.
+        if (res) { await c.put(url, res); ulozeno++; }
+      } catch {}
+    }
+  };
+  await Promise.all([pracuj(), pracuj(), pracuj(), pracuj(), pracuj(), pracuj()]);
+  return { ulozeno, celkem: KUSY.length };
+}
+
 self.addEventListener('install', (e) => {
   e.waitUntil(
     (async () => {
@@ -114,6 +171,8 @@ self.addEventListener('install', (e) => {
       self.__pivovarCache = CACHE;
       const c = await caches.open(CACHE);
       await ensurePrecached(c);
+      // Obrazovky a knihovny — ať je nová verze kompletní dřív, než se nabídne k aktualizaci.
+      await doplnKusy(c);
       await rememberInstalledCache(CACHE);
     })()
   );
@@ -124,6 +183,9 @@ self.addEventListener('activate', (e) => {
     (async () => {
       const CACHE = await getInstalledCache();
       installedVersion = CACHE;
+      // Nejdřív doplnit, co při instalaci nedoběhlo (slabý signál) — DOKUD ještě existují staré cache, ze
+      // kterých se dají nezměněné kusy zkopírovat. Teprve pak staré cache smazat.
+      try { await doplnKusy(await caches.open(CACHE)); } catch {}
       const keys = await caches.keys();
       await Promise.all(
         keys
@@ -151,6 +213,21 @@ self.addEventListener('activate', (e) => {
 // akcí uživatele; samotná instalace nikdy nereloaduje rozpracovanou aplikaci.
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+  // Stránka si říká: „doplň, co z obrazovek v telefonu chybí, a řekni mi stav" (po startu a po návratu signálu
+  // — src/lib/offlineObrazovky.ts). Když nic nechybí, nic se nestahuje.
+  if (event.data && event.data.type === 'DOPLN_OFFLINE') {
+    event.waitUntil((async () => {
+      let stav = { ulozeno: 0, celkem: KUSY.length };
+      try {
+        stav = await doplnKusy(await caches.open(await getInstalledCache()));
+      } catch {}
+      const zprava = { type: 'OFFLINE_STAV', ulozeno: stav.ulozeno, celkem: stav.celkem };
+      try {
+        if (event.source && event.source.postMessage) event.source.postMessage(zprava);
+        else for (const client of await self.clients.matchAll()) client.postMessage(zprava);
+      } catch {}
+    })());
+  }
 });
 
 // Web Share Target: when the user shares an image (e.g. from WhatsApp) directly

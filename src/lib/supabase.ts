@@ -2,9 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 import { klicUlozistePrihlaseni } from './profilAplikace';
 import { useEffect, useRef } from 'react';
 import { cacheGetResponse, getCachedResponse, getTableRows, upsertTableRows } from './offlineCache';
-import { aplikujOperace, cekajiciUpravy, enqueue, getQueue, nedavneProslyZapisy, zapamatujProsly, type QueuedOp } from './offline';
+import { aplikujOperace, cekajiciUpravy, enqueue, getQueue, nedavneProslyZapisy, prehravaSeFronta, zapamatujProsly, type QueuedOp } from './offline';
 import { zneplatniTabulku, zneplatniVse } from './zneplatneni';
 import { zapisZPameti } from './zPameti';
+import { nactiKopii, nastavUzivateleKopie, type KopieTabulky } from './offlineKopieSklad';
+import { idPrihlaseneho, nainstalujRelaciBezSignalu, tokenVHlavicceVyprsel } from './relaceOffline';
+import { cekaniNaSit, cekejNaDokladVypadku, nastavSonduSpojeni, ohlasOdpovedServeru, ohlasSelhaniSite, ohlasTicho, pustSondu, vypadekCerstvy } from './jisticSpojeni';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -61,7 +64,10 @@ function getHeader(init: RequestInit | undefined, name: string): string | null {
     for (const [k, v] of h) if (String(k).toLowerCase() === name.toLowerCase()) return String(v);
     return null;
   }
-  return (h as Record<string, string>)[name] ?? null;
+  // Obyčejný objekt: jména hlaviček bez ohledu na velikost písmen (jako u Headers).
+  const hledane = name.toLowerCase();
+  for (const k of Object.keys(h)) if (k.toLowerCase() === hledane) return String((h as Record<string, string>)[k]);
+  return null;
 }
 
 /**
@@ -162,28 +168,89 @@ export function finalizeOfflineRows(rows: any[], searchParams: URLSearchParams, 
   return zPresneUrl ? rows : sliceByRange(rows, searchParams);
 }
 
-async function serveCached(url: URL, rest: RestInfo | null, wantCount: boolean): Promise<Response> {
-  let rows: any[] | null = null;
-  let contentRange: string | null = null;
-  let zPresneUrl = false;
-  const cached = await getCachedResponse(url.toString());
-  if (cached) { rows = cached.rows; contentRange = cached.contentRange; zPresneUrl = true; }
-  if (!rows && rest) {
-    const tblRows = await getTableRows(rest.table);
-    // Celý obsah tabulky vracíme jen pro dotazy bez filtrů (např. číselníky) —
-    // filtrovaný dotaz by jinak dostal nesprávná data.
-    if (tblRows && tblRows.length > 0 && !hasRowFilters(url)) rows = tblRows;
-  }
-  const merged = applyPendingOps(rows ?? [], rest?.table ?? '');
-  const finalRows = finalizeOfflineRows(merged, url.searchParams, zPresneUrl);
+type Vyhodnoceni = typeof import('./offlineDotaz');
+let vyhodnoceni: Promise<Vyhodnoceni | null> | null = null;
 
-  const headers: Record<string, string> = {};
-  if (wantCount) headers['Content-Range'] = `0-${Math.max(finalRows.length - 1, 0)}/${finalRows.length}`;
-  else if (contentRange) headers['Content-Range'] = contentRange;
-  // Tady víme, že odpověď vznikla offline (fetch selhal) a data jsou buď z
-  // mezipaměti, nebo prázdná — uživatel by si myslel, že v tabulce nic není.
-  // Signalizujeme UI banner (Layout.tsx), aby ukázal, že data nemusí být aktuální.
-  //
+/**
+ * Vyhodnocení dotazů nad kopií (lib/offlineDotaz.ts). Je v samostatném kusu aplikace — při startu se signálem
+ * ho nikdo nepotřebuje a start nemá co zdržovat. Natáhne se chvíli po spuštění (lib/offlineUdrzba.ts) a jinak
+ * při první odpovědi z kopie; bez signálu ho dá paměť telefonu (service worker ukládá všechny kusy).
+ * `null` = nepodařilo se načíst → platí starý postup; příště se zkusí znovu.
+ */
+export function nactiVyhodnoceniDotazu(): Promise<Vyhodnoceni | null> {
+  if (!vyhodnoceni) {
+    const pokus: Promise<Vyhodnoceni | null> = import('./offlineDotaz').then(
+      (modul) => modul,
+      () => { if (vyhodnoceni === pokus) vyhodnoceni = null; return null; },
+    );
+    vyhodnoceni = pokus;
+  }
+  return vyhodnoceni;
+}
+
+/** Tabulky, které dotaz může potřebovat: hlavní a ty, které se do ní dají vnořit (i přes jeden mezistupeň). */
+function tabulkyDotazu(tabulka: string, vnoreni: Vyhodnoceni['VNORENI']): string[] {
+  const out = new Set<string>([tabulka]);
+  for (let kolo = 0; kolo < 2; kolo++) {
+    Array.from(out).forEach((t) => Object.keys(vnoreni[t] ?? {}).forEach((vztah) => out.add(vnoreni[t][vztah].tabulka)));
+  }
+  return Array.from(out);
+}
+
+/**
+ * Odpověď z KOPIE TABULKY v telefonu (lib/offlineKopie.ts) — dotaz se vyhodnotí místně (lib/offlineDotaz.ts).
+ * Díky tomu má bez signálu data i dotaz, který se se signálem nikdy přesně takhle nepoložil: jiný den, jiný
+ * týden, obrazovka, kterou člověk předtím neotevřel (27. 11. 2026: „napíše to, že to je offline, a neukážou se
+ * mi žádný data"). `null` = kopie není, patří jinému účtu, nebo dotaz neumíme — pak platí starý postup.
+ *
+ * Zápisy z telefonu se do kopie přimíchají PŘED vyhodnocením, takže nová objednávka zapsaná bez signálu
+ * projde stejnými filtry jako ostatní (do jiného týdne se nepřimotá): fronta čekajících celá, už odeslané
+ * jen ty mladší než kopie (starší v ní jsou — a vložený řádek by se zdvojil).
+ */
+export async function odpovedZKopie(tabulka: string, parametry: URLSearchParams): Promise<{ radky: any[]; celkem: number; t: number } | null> {
+  const hlavni = await nactiKopii(tabulka);
+  if (!hlavni) return null;
+  const modul = await nactiVyhodnoceniDotazu();
+  if (!modul) return null;
+  const kopie = new Map<string, KopieTabulky | null>();
+  for (const t of tabulkyDotazu(tabulka, modul.VNORENI)) kopie.set(t, t === tabulka ? hlavni : await nactiKopii(t));
+  const fronta = getQueue();
+  const sUpravami = new Map<string, any[] | null>();
+  const zdroj = (t: string): any[] | null => {
+    if (sUpravami.has(t)) return sUpravami.get(t) ?? null;
+    const k = kopie.get(t);
+    let radky: any[] | null = null;
+    if (k) {
+      const ops = [...nedavneProslyZapisy(t).filter((o) => o.ts > k.t), ...fronta.filter((o) => o.table === t)];
+      radky = ops.length > 0 ? aplikujOperace(k.rows, ops) : k.rows;
+    }
+    sUpravami.set(t, radky);
+    return radky;
+  };
+  const vysledek = modul.vyhodnotDotaz(tabulka, parametry, zdroj);
+  return vysledek ? { radky: vysledek.radky, celkem: vysledek.celkem, t: hlavni.t } : null;
+}
+
+/** Hlavička Content-Range jako od serveru: „0-24/3573"; bez vrácených řádků hvězdička, lomítko a celkový počet. */
+export function contentRangeOffline(offset: number, vraceno: number, celkem: number): string {
+  return vraceno > 0 ? `${offset}-${offset + vraceno - 1}/${celkem}` : `*/${celkem}`;
+}
+
+/**
+ * Odpověď na dotaz, který chce JEDEN řádek jako objekt (`.single()`, hlavička Accept …pgrst.object…).
+ * Dřív se bez signálu vrátilo pole a volající dostal místo řádku seznam. Jiný počet než jeden řádek hlásí
+ * server chybou 406 — stejně tady.
+ */
+function odpovedJedenRadek(radky: any[]): Response {
+  if (radky.length === 1) return jsonResponse(radky[0], 200);
+  return jsonResponse({
+    code: 'PGRST116', details: `The result contains ${radky.length} rows`, hint: null,
+    message: 'JSON object requested, multiple (or no) rows returned',
+  }, 406);
+}
+
+/** Poznačí, že se odpovídá z paměti telefonu (obrazovky to ukážou — lib/zPameti.ts, banner v Layoutu). */
+function oznacZPameti(): void {
   // Dřív jen při `!navigator.onLine`. Při slabém signálu ale telefon hlásí, že
   // je online, a dotaz přesto vyprší (viz fetchWithTimeout) — odpověď z paměti
   // pak šla do Skladu bez jediného varování (15. 10. 2026: „občas se nechce
@@ -191,6 +258,60 @@ async function serveCached(url: URL, rest: RestInfo | null, wantCount: boolean):
   // `dataZPametiOd` poznají, že jejich čísla nejsou čerstvá (lib/zPameti.ts).
   zapisZPameti();
   if (typeof window !== 'undefined') signalOfflineStale();
+}
+
+/**
+ * Odpověď z paměti telefonu, JEN když je z čeho: z kopie tabulky (místně vyhodnocený dotaz), nebo z uložené
+ * odpovědi serveru na přesně tuhle adresu. `null` = telefon o tomhle dotazu nic neví — o tom, co s tím,
+ * rozhoduje volající (serveCached: nouzová odpověď po selhání sítě; jistič: počkat na síť).
+ */
+async function odpovedZPameti(url: URL, rest: RestInfo | null, wantCount: boolean, chceObjekt: boolean): Promise<Response | null> {
+  const cached = await getCachedResponse(url.toString());
+  // Kopie tabulky má přednost, když je čerstvější než uložená odpověď na přesně tuhle adresu (nebo ta není).
+  // Chyba v kopii nesmí odpověď shodit — pak platí starý postup.
+  const zKopie = rest ? await odpovedZKopie(rest.table, url.searchParams).catch(() => null) : null;
+  if (zKopie && (!cached || zKopie.t >= cached.t)) {
+    const offset = Number(url.searchParams.get('offset')) || 0;
+    oznacZPameti();
+    if (chceObjekt) return odpovedJedenRadek(zKopie.radky);
+    return jsonResponse(zKopie.radky, 200, { 'Content-Range': contentRangeOffline(offset, zKopie.radky.length, zKopie.celkem) });
+  }
+  if (!cached) return null;
+  // Uložená odpověď je hotová stránka (server ji ořízl sám) — jen se do ní přimíchají zápisy z telefonu.
+  const radky = finalizeOfflineRows(applyPendingOps(cached.rows, rest?.table ?? ''), url.searchParams, true);
+  const headers: Record<string, string> = {};
+  // Uložená odpověď nese i PŮVODNÍ celkový počet („0-999/1089"). Dřív ho dotaz s počtem přepsal délkou jedné
+  // stránky („0-999/1000") — stránkované načítání (fetchAllRows) pak bez signálu skončilo po první tisícovce
+  // a řádky nad ni (položky objednávek, odpočty závozu) chyběly ve výpočtu skladu.
+  if (wantCount) headers['Content-Range'] = cached.contentRange || `0-${Math.max(radky.length - 1, 0)}/${radky.length}`;
+  else if (cached.contentRange) headers['Content-Range'] = cached.contentRange;
+  oznacZPameti();
+  if (chceObjekt) return odpovedJedenRadek(radky);
+  return jsonResponse(radky, 200, headers);
+}
+
+/**
+ * Odpověď po selhání sítě: z paměti telefonu, a když v ní nic není, nouzově (celá tabulka u dotazu bez filtrů,
+ * jinak prázdný seznam — obrazovka se aspoň vykreslí a pruh nahoře řekne, že data nejsou ze serveru).
+ */
+async function serveCached(url: URL, rest: RestInfo | null, wantCount: boolean, chceObjekt = false): Promise<Response> {
+  const zPameti = await odpovedZPameti(url, rest, wantCount, chceObjekt);
+  if (zPameti) return zPameti;
+  let rows: any[] | null = null;
+  if (rest) {
+    const tblRows = await getTableRows(rest.table);
+    // Celý obsah tabulky vracíme jen pro dotazy bez filtrů (např. číselníky) —
+    // filtrovaný dotaz by jinak dostal nesprávná data.
+    if (tblRows && tblRows.length > 0 && !hasRowFilters(url)) rows = tblRows;
+  }
+  const finalRows = finalizeOfflineRows(applyPendingOps(rows ?? [], rest?.table ?? ''), url.searchParams, false);
+  const headers: Record<string, string> = {};
+  if (wantCount) headers['Content-Range'] = `0-${Math.max(finalRows.length - 1, 0)}/${finalRows.length}`;
+  // Tady víme, že odpověď vznikla offline (fetch selhal) a data jsou buď z
+  // mezipaměti, nebo prázdná — uživatel by si myslel, že v tabulce nic není.
+  // Signalizujeme UI banner (Layout.tsx), aby ukázal, že data nemusí být aktuální.
+  oznacZPameti();
+  if (chceObjekt) return odpovedJedenRadek(finalRows);
   return jsonResponse(finalRows, 200, headers);
 }
 
@@ -236,6 +357,8 @@ function signalOfflineStale(): void {
  * zjevném offline stavu.
  */
 export const OFFLINE_FETCH_TIMEOUT_MS = 10_000;
+/** Strop pro dotazy na přihlášení: obnova tokenu, přihlášení heslem, „kdo je přihlášený". */
+export const OBNOVA_TOKENU_TIMEOUT_MS = 12_000;
 /** Velké stránky (celé tabulky, tisíc řádků) na LTE trvají déle — dostanou víc času. */
 export const VELKY_DOTAZ_TIMEOUT_MS = 25_000;
 export function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, limitMs: number = OFFLINE_FETCH_TIMEOUT_MS): Promise<Response> {
@@ -273,40 +396,167 @@ async function sCekajicimiUpravami(res: Response, ops: QueuedOp[]): Promise<Resp
   }
 }
 
+/**
+ * `fetchWithTimeout`, který navíc hlásí jističi spojení (lib/jisticSpojeni.ts), jak dotaz dopadl: odpověď
+ * serveru (jakákoli) = server je na dosah; chyba sítě nebo vypršení = neodpovídá. Dotaz, který zrušil sám
+ * volající (vlastní `signal`), o spojení nic neříká.
+ */
+export async function fetchSJisticem(input: RequestInfo | URL, init?: RequestInit, limitMs: number = OFFLINE_FETCH_TIMEOUT_MS): Promise<Response> {
+  const zahajeno = Date.now();
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(input, init, limitMs);
+  } catch (chyba) {
+    if (!init?.signal?.aborted) ohlasSelhaniSite(zahajeno);
+    throw chyba;
+  }
+  ohlasOdpovedServeru();
+  return res;
+}
+
+/**
+ * Velký dotaz (bez limitu nebo limit ≥ 500) smí trvat déle než malý — viz VELKY_DOTAZ_TIMEOUT_MS.
+ * Dotaz na JEDEN řádek (`.single()`, nebo podle `id`) je malý, i když limit nemá: čeká na něj start appky
+ * (profil přihlášeného) a na slabém signálu by zbytečně držel 25 vteřin místo 10.
+ */
+export function jeVelkyDotaz(url: URL, init?: RequestInit): boolean {
+  if ((getHeader(init, 'accept') ?? '').includes('vnd.pgrst.object')) return false;
+  if ((url.searchParams.get('id') ?? '').startsWith('eq.')) return false;
+  const limit = url.searchParams.get('limit');
+  return limit === null || Number(limit) >= 500;
+}
+
+/**
+ * Čtení ze serveru: dotaz s limitem na čekání; úspěšnou odpověď uloží do paměti telefonu pro práci bez
+ * signálu. Vrací odpověď serveru tak, jak přišla (i chybovou), nebo vyhodí chybu sítě.
+ */
+async function ctiZeSite(input: RequestInfo | URL, init: RequestInit | undefined, url: URL, rest: RestInfo | null): Promise<Response> {
+  const res = await fetchSJisticem(input, init, jeVelkyDotaz(url, init) ? VELKY_DOTAZ_TIMEOUT_MS : OFFLINE_FETCH_TIMEOUT_MS);
+  if (res.ok && rest) {
+    // Uložení pro offline až POTOM, ne před vrácením odpovědi. Dřív se
+    // každá odpověď (i každá tisícová stránka historie) nejdřív celá
+    // přečetla a rozparsovala a teprve pak ji dostala obrazovka — při
+    // ~15 dotazech na obrazovku to bylo znát hlavně na telefonu.
+    const kopie = res.clone();
+    const cr = res.headers.get('content-range');
+    void kopie.text().then((text) => {
+      if (!text) return;
+      try {
+        const rows = JSON.parse(text);
+        const arr = Array.isArray(rows) ? rows : [rows];
+        if (arr.length > 0 || cr) cacheGetResponse(url.toString(), arr, cr);
+        if (arr.length > 0) upsertTableRows(rest.table, arr);
+      } catch { /* non-JSON body — nothing to cache */ }
+    }).catch(() => { /* offline cache je jen bonus */ });
+  }
+  return res;
+}
+
+type DopadCteni = { res: Response } | { pamet: Response } | { chyba: unknown };
+
+/** `init` s přidaným signálem zrušení (vlastní signál volajícího platí dál). */
+function seZrusenim(init: RequestInit | undefined, zrus: AbortController): RequestInit {
+  const vnejsi = init?.signal;
+  if (vnejsi) {
+    if (vnejsi.aborted) zrus.abort();
+    else vnejsi.addEventListener('abort', () => zrus.abort(), { once: true });
+  }
+  return { ...init, signal: zrus.signal };
+}
+
+/**
+ * Čtení: síť má přednost, ale nečeká se na ni déle, než má smysl (lib/jisticSpojeni.ts).
+ *
+ *  • O výpadku nevíme → čeká se na síť jako vždy. Kdyby mezitím vypršel jiný dotaz (server neodpovídá),
+ *    nemá cenu čekat dál na vlastní limit: je-li z čeho, odpoví se z paměti hned.
+ *  • Výpadek je čerstvý → z paměti hned; na server se ptá jen lehká sonda jističe.
+ *  • Výpadek je starší → síť dostane krátký čas; bez odpovědi z paměti.
+ * `zPameti` vrací `null`, když telefon odpovědět neumí — pak se VŽDY čeká na síť (nehádá se).
+ * Dotaz na server, na který už nikdo nečeká, se ruší — zaseknutý by jen držel spojení.
+ */
+async function sitNeboPamet(zeSite: (zrus: AbortController) => Promise<Response>, zPameti: () => Promise<Response | null>): Promise<DopadCteni> {
+  const cekani = cekaniNaSit();
+  if (cekani === 0) {
+    const hned = await zPameti();
+    if (hned) {
+      pustSondu();
+      return { pamet: hned };
+    }
+  }
+  const zrus = new AbortController();
+  const dopad = zeSite(zrus).then((res): DopadCteni => ({ res }), (chyba): DopadCteni => ({ chyba }));
+  const doklad = cekejNaDokladVypadku();
+  let casovac: ReturnType<typeof setTimeout> | null = null;
+  const zavodnici: Promise<DopadCteni | 'vypadek' | 'ticho'>[] = [dopad, doklad.slib.then(() => 'vypadek' as const)];
+  if (cekani) zavodnici.push(new Promise((hotovo) => { casovac = setTimeout(() => hotovo('ticho'), cekani); }));
+  const prvni = await Promise.race(zavodnici);
+  doklad.zrus();
+  if (casovac) clearTimeout(casovac);
+  if (prvni !== 'vypadek' && prvni !== 'ticho') return prvni;
+  if (prvni === 'ticho') ohlasTicho();
+  const hned = await zPameti();
+  if (!hned) return dopad;
+  zrus.abort();
+  pustSondu();
+  return { pamet: hned };
+}
+
 async function handleGet(input: RequestInfo | URL, init: RequestInit | undefined, url: URL, rest: RestInfo | null): Promise<Response> {
   const prefer = getHeader(init, 'prefer') ?? '';
   const wantCount = prefer.includes('count=exact');
-  try {
-    // Velký dotaz (bez limitu nebo limit ≥ 500) smí trvat déle než malý — viz VELKY_DOTAZ_TIMEOUT_MS.
-    const limit = url.searchParams.get('limit');
-    const velky = limit === null || Number(limit) >= 500;
-    const res = await fetchWithTimeout(input, init, velky ? VELKY_DOTAZ_TIMEOUT_MS : OFFLINE_FETCH_TIMEOUT_MS);
-    if (res && res.ok && rest) {
-      // Uložení pro offline až POTOM, ne před vrácením odpovědi. Dřív se
-      // každá odpověď (i každá tisícová stránka historie) nejdřív celá
-      // přečetla a rozparsovala a teprve pak ji dostala obrazovka — při
-      // ~15 dotazech na obrazovku to bylo znát hlavně na telefonu.
-      const kopie = res.clone();
-      const cr = res.headers.get('content-range');
-      void kopie.text().then((text) => {
-        if (!text) return;
-        try {
-          const rows = JSON.parse(text);
-          const arr = Array.isArray(rows) ? rows : [rows];
-          if (arr.length > 0 || cr) cacheGetResponse(url.toString(), arr, cr);
-          if (arr.length > 0) upsertTableRows(rest.table, arr);
-        } catch { /* non-JSON body — nothing to cache */ }
-      }).catch(() => { /* offline cache je jen bonus */ });
-      // Mezipaměť dostala čistá data serveru; obrazovka k nim navíc dostane úpravy,
-      // které čekají ve frontě (server je zatím nezná).
-      const cekajici = cekajiciUpravy(rest.table);
-      if (cekajici.length > 0) return (await sCekajicimiUpravami(res, cekajici)) ?? res;
-    }
-    return res;
-  } catch {
-    // Offline (nebo síťová chyba) → servírujeme z mezipaměti.
-    return serveCached(url, rest, wantCount);
+  // `.single()` chce jeden řádek jako objekt, ne pole.
+  const chceObjekt = (getHeader(init, 'accept') ?? '').includes('vnd.pgrst.object');
+
+  const dopad = await sitNeboPamet(
+    (zrus) => ctiZeSite(input, seZrusenim(init, zrus), url, rest),
+    () => (rest ? odpovedZPameti(url, rest, wantCount, chceObjekt) : Promise.resolve(null)),
+  );
+  if ('pamet' in dopad) return dopad.pamet;
+  // Offline (nebo síťová chyba) → servírujeme z mezipaměti.
+  if ('chyba' in dopad) return serveCached(url, rest, wantCount, chceObjekt);
+  const res = dopad.res;
+  if (odmitnutProProslyToken(res, init)) return serveCached(url, rest, wantCount, chceObjekt);
+  if (res.ok && rest) {
+    // Mezipaměť dostala čistá data serveru; obrazovka k nim navíc dostane úpravy,
+    // které čekají ve frontě (server je zatím nezná).
+    const cekajici = cekajiciUpravy(rest.table);
+    if (cekajici.length > 0) return (await sCekajicimiUpravami(res, cekajici)) ?? res;
   }
+  return res;
+}
+
+/**
+ * Dotaz jen na POČET (`select(…, { count: 'exact', head: true })`, metoda HEAD). Dřív šel bez signálu rovnou do
+ * chyby — odznaky s počty (nové objednávky, plán lahvování na dnešek) zůstaly prázdné. Teď se počet vezme
+ * z kopie tabulky; když ji telefon nemá nebo dotaz neumíme, chyba sítě zůstane chybou jako dřív.
+ */
+async function handleHead(input: RequestInfo | URL, init: RequestInit | undefined, url: URL, rest: RestInfo): Promise<Response> {
+  const zKopie = async (): Promise<Response | null> => {
+    const k = await odpovedZKopie(rest.table, url.searchParams).catch(() => null);
+    if (!k) return null;
+    oznacZPameti();
+    const offset = Number(url.searchParams.get('offset')) || 0;
+    return new Response(null, { status: 200, headers: { 'Content-Type': 'application/json', 'Content-Range': contentRangeOffline(offset, k.radky.length, k.celkem) } });
+  };
+  const dopad = await sitNeboPamet((zrus) => fetchSJisticem(input, seZrusenim(init, zrus)), zKopie);
+  if ('pamet' in dopad) return dopad.pamet;
+  if ('res' in dopad && !odmitnutProProslyToken(dopad.res, init)) return dopad.res;
+  // Síť selhala, nebo server odmítl prošlý token → počet z kopie; bez ní zůstane chyba chybou.
+  const nahrada = await zKopie();
+  if (nahrada) return nahrada;
+  if ('res' in dopad) return dopad.res;
+  throw dopad.chyba;
+}
+
+/**
+ * Server odmítl dotaz, protože přihlašovací token PROŠEL (401) — a my víme, že jsme poslali prošlý.
+ *
+ * Stává se to, když je telefon dlouho bez signálu (token platí hodinu) a spojení je zrovna tak slabé, že se
+ * token nestihne obnovit, ale dotaz projde (lib/relaceOffline.ts). Pro appku je to totéž jako výpadek: číst
+ * z paměti telefonu, zápis zařadit do fronty. Jiné odmítnutí (platný token, jiná chyba) se nechává být.
+ */
+function odmitnutProProslyToken(res: Response, init: RequestInit | undefined): boolean {
+  return res.status === 401 && tokenVHlavicceVyprsel(getHeader(init, 'authorization'));
 }
 
 /** Úprava nebo smazání (PATCH / DELETE) jako zápis pro frontu a pro paměť prošlých zápisů. */
@@ -370,18 +620,18 @@ async function handleWrite(input: RequestInfo | URL, init: RequestInit, rest: Re
   // z 2. 10. viselo ve frontě s chybou „Could not find the table public.rpc").
   // Selhání sítě se ukáže hned tam, kde se volalo.
   if (rest.table === 'rpc') {
-    return fetchWithTimeout(input, init);
+    return fetchSJisticem(input, init);
   }
 
   // Bezpečnostní pojistka: update/delete bez jakéhokoli filtru se nedá offline
   // bezpečně zopakovat (hrozilo by smazání všech řádků) → nikdy neřadit.
   if ((method === 'PATCH' || method === 'DELETE') && Object.keys(rest.eq).length === 0 && Object.keys(rest.inMatch).length === 0) {
-    return fetchWithTimeout(input, init);
+    return fetchSJisticem(input, init);
   }
   // Totéž, když má zápis filtr, který fronta neumí zopakovat (lt, neq…) —
   // replay jen s eq by zasáhl i řádky, kterých se to týkat nemělo.
   if ((method === 'PATCH' || method === 'DELETE') && rest.jineFiltry) {
-    return fetchWithTimeout(input, init);
+    return fetchSJisticem(input, init);
   }
 
   // Nejdřív zkusíme síť (přeskočíme, když víme, že jsme offline).
@@ -389,7 +639,13 @@ async function handleWrite(input: RequestInfo | URL, init: RequestInit, rest: Re
   const zahajeno = Date.now();
   if (navigator.onLine) {
     try {
-      const res = await fetchWithTimeout(input, init);
+      const res = await fetchSJisticem(input, init);
+      // Prošlý přihlašovací token = jako výpadek: zápis do fronty, odejde po obnově přihlášení. Při odesílání
+      // fronty se ale do ní znovu neřadí — zůstane v ní původní zápis s důvodem.
+      if (odmitnutProProslyToken(res, init)) {
+        if (prehravaSeFronta()) return res;
+        throw new Error('prošlý token');
+      }
       // Prošlý zápis se na chvíli pamatuje — kdyby se obrazovka hned potom
       // přenačítala a síť zrovna neodpovídala, ukáže se ze staré mezipaměti
       // i s ním (viz nedavneProslyZapisy v offline.ts).
@@ -435,10 +691,15 @@ async function offlineFetch(input: RequestInfo | URL, init?: RequestInit, opts?:
   if (url && url.pathname.includes('/functions/v1/') && method !== 'GET') {
     return sledujZapis(fetch(input, init), zneplatniVse);
   }
+  // Dotazy na přihlášení (obnova tokenu, „kdo je přihlášený") nesmí na slabém signálu viset minuty: knihovna
+  // na obnovu nechává čekat všechny dotazy (lib/relaceOffline.ts) a „kdo je přihlášený" si bere každý zápis
+  // do záznamu o změně. Po vypršení limitu to pro knihovnu je obyčejná chyba spojení a zkusí to později.
+  if (url && url.pathname.includes('/auth/v1/') && !opts?.admin) return fetchSJisticem(input, init, OBNOVA_TOKENU_TIMEOUT_MS);
   if (!url || !url.pathname.includes(REST_PREFIX) || opts?.admin) return fetch(input, init);
   const rest = parseRest(url);
 
   if (method === 'GET') return handleGet(input, init, url, rest);
+  if (method === 'HEAD' && rest && rest.table !== 'rpc') return handleHead(input, init, url, rest);
   if ((method === 'POST' || method === 'PATCH' || method === 'DELETE') && rest) {
     // RPC (/rest/v1/rpc/…) může sáhnout do čehokoli.
     const zneplatni = rest.table === 'rpc' ? zneplatniVse : () => zneplatniTabulku(rest.table);
@@ -453,6 +714,16 @@ export const supabase = createClient(url, anonKey, {
   realtime: { params: { eventsPerSecond: 5 } },
   global: { fetch: (input, init) => offlineFetch(input, init, { admin: false }) },
 });
+// Prošlý token bez signálu nesmí zdržet dotazy ani odhlásit (lib/relaceOffline.ts).
+nainstalujRelaciBezSignalu(supabase.auth as unknown as Parameters<typeof nainstalujRelaciBezSignalu>[0], { vypadek: vypadekCerstvy });
+// Dokud server neodpovídá, ptá se ho jistič sám lehkým dotazem (jen hlavička, jeden řádek číselníku) — jde
+// jen o to, jestli odpoví; co odpoví, je jedno (lib/jisticSpojeni.ts).
+nastavSonduSpojeni(() => fetchSJisticem(`${String(url ?? '').replace(/\/$/, '')}${REST_PREFIX}beers?select=id&limit=1`, {
+  method: 'HEAD', headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+}));
+// Kopie dat v telefonu patří přihlášenému účtu — známe ho z uloženého přihlášení dřív, než naběhne obrazovka,
+// takže i první dotazy po spuštění bez signálu mají z čeho odpovědět (lib/offlineKopieSklad.ts).
+nastavUzivateleKopie(idPrihlaseneho(supabase.auth as unknown as { storageKey?: unknown }));
 
 /**
  * Subscribe to realtime changes on one or more tables and trigger a reload.
@@ -488,7 +759,8 @@ export function useRealtime(tables: string[], onChange: () => void) {
     // (lib/sdilenaData.ts) — přenačtení, které má přinést ČERSTVÁ data
     // (návrat do appky, obnovené spojení, minutová pojistka), je musí
     // nejdřív zahodit, jinak by dostalo to, co už v paměti leží.
-    const zahodPamet = () => { tables.forEach(zneplatniTabulku); };
+    // „Pro jistotu", ne skutečná změna — kopii dat v telefonu to stahovat nenutí (lib/zneplatneni.ts).
+    const zahodPamet = () => { tables.forEach((t) => zneplatniTabulku(t, false)); };
     const trigger = () => {
       if (jeSchovana()) { zmeskano = true; return; }
       if (timer) clearTimeout(timer);

@@ -315,7 +315,22 @@ export function popisOperace(op: QueuedOp): string {
   return detaily.length ? `${zaklad}: ${detaily.join(' · ')}` : zaklad;
 }
 
+let prehravaSe = false;
+/** Běží právě odesílání fronty? (supabase.ts: zápis odmítnutý při odesílání fronty se do ní nesmí zařadit znovu.) */
+export function prehravaSeFronta(): boolean {
+  return prehravaSe;
+}
+
 export async function syncQueue(): Promise<{ ok: number; failed: number; remaining: number }> {
+  prehravaSe = true;
+  try {
+    return await odesliFrontu();
+  } finally {
+    prehravaSe = false;
+  }
+}
+
+async function odesliFrontu(): Promise<{ ok: number; failed: number; remaining: number }> {
   // Dynamicky SCHVÁLNĚ: `supabase.ts` si tenhle modul importuje staticky
   // (odesílání jde přes jeho `fetch`), takže statický import zpátky by byl
   // kruh. Build kvůli tomu hlásí „dynamic import will not move module into

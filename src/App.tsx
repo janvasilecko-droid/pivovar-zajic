@@ -54,7 +54,7 @@ import { MandatoryAnnouncementModal } from './components/MandatoryAnnouncementMo
 import { CriticalMaterialAlertModal } from './components/CriticalMaterialAlertModal';
 import { MonthlyCleanupWarning } from './components/MonthlyCleanupWarning';
 import { SetPasswordModal } from './components/SetPasswordModal';
-import { JE_DRUHA_APLIKACE } from './lib/profilAplikace';
+import { JE_DRUHA_APLIKACE, JE_SLADEK } from './lib/profilAplikace';
 import { ZnackaDruheAplikace } from './components/ZnackaDruheAplikace';
 import { NahledBanner } from './components/NahledBanner';
 import { jePrepnutyUcet } from './lib/uctyUlozene';
@@ -173,6 +173,24 @@ export default function App() {
     const cleanup = scheduleNightlyCheck();
     return cleanup;
   }, [session]);
+
+  // 📴 Kopie provozních dat pro práci BEZ SIGNÁLU (objednávky, závoz, stáčení, sklad…). Stahuje se sama na
+  // pozadí, kdykoliv je signál (lib/offlineKopie.ts) — majitel 27. 11. 2026: „offline si to má držet aspoň
+  // objednávky na daný týden, závozy, stáčení, sklad aktuální". Závisí jen na tom, KDO je přihlášený, ne na
+  // každé obnově tokenu. Samostatný AI sládek ji nepotřebuje.
+  const idPrihlaseneho = session?.user?.id;
+  useEffect(() => {
+    if (!idPrihlaseneho || JE_SLADEK) return;
+    // Samostatný kus aplikace (lib/offlineUdrzba.ts) — do startu nepatří. Když se nenačte (bez signálu hned po
+    // spuštění a kus v telefonu chybí), není co stahovat; zkusí se to při příštím spuštění.
+    let zruseno = false;
+    let uklid: (() => void) | null = null;
+    void import('./lib/offlineUdrzba').then(
+      (m) => { if (!zruseno) uklid = m.spustOfflineUdrzbu(); },
+      () => undefined,
+    );
+    return () => { zruseno = true; if (uklid) uklid(); };
+  }, [idPrihlaseneho]);
 
   // subTab: vnitřní záložka v rámci stránky (viz readSubTabFromHistory výše).
   // Běžná navigace (klik na položku menu) subTab nezadává → vždy se vynuluje,

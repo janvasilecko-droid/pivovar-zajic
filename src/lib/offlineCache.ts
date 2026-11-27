@@ -52,6 +52,8 @@ function tx<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore) 
 export type CachedResponse = {
   rows: any[];
   contentRange: string | null;
+  /** Kdy se odpověď uložila (ms); 0 u záznamů z doby, kdy se čas neukládal. */
+  t: number;
 };
 
 export function cacheGetResponse(url: string, rows: any[], contentRange: string | null): Promise<void> {
@@ -60,7 +62,7 @@ export function cacheGetResponse(url: string, rows: any[], contentRange: string 
 
 export function getCachedResponse(url: string): Promise<CachedResponse | null> {
   return tx(RESPONSES_STORE, 'readonly', (s) => s.get(url)).then((v) =>
-    v && Array.isArray(v.rows) ? { rows: v.rows, contentRange: v.contentRange ?? null } : null
+    v && Array.isArray(v.rows) ? { rows: v.rows, contentRange: v.contentRange ?? null, t: typeof v.t === 'number' ? v.t : 0 } : null
   );
 }
 

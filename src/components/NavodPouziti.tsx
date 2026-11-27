@@ -713,6 +713,14 @@ const ODDILY: Oddil[] = [
     kCemu: 'Ve sklepě a na cestě aplikace funguje dál.',
     body: [
       {
+        co: 'Data vidíš i bez signálu',
+        jak: 'Aplikace si se signálem sama stahuje do telefonu objednávky, závozy, stáčení, sklad a sklep. Bez signálu — i druhý den — je ukáže z telefonu a nahoře napíše, z kdy jsou („data z: dnes 10:42“). Jdou otevřít všechny obrazovky, i ty, které jsi předtím neotevřel. Po aktualizaci a na novém telefonu otevři aplikaci jednou se signálem a nech ji chvíli otevřenou, ať se data stáhnou. Zprávy z WhatsAppu bez signálu nejsou.',
+      },
+      {
+        co: 'Slabý signál (telefon „má čárku“, ale nic se nenačítá)',
+        jak: 'Aplikace na server nečeká u každé obrazovky znovu: jakmile jednou neodpoví, bere data rovnou z telefonu a na pozadí to zkouší dál. Až server odpoví, obrazovka se sama přenačte a čekající zápisy odejdou.',
+      },
+      {
         co: 'Zápis do fronty',
         jak: 'Bez signálu se zápis uloží do telefonu a hláška to řekne nahlas. Odešle se, až se signál chytne.',
       },
