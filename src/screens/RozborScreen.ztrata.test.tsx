@@ -3,15 +3,12 @@
 // rozdíl oproti inventuře, ať je vidět ztráta, ale nepočítat je, počítá se jen co je reálně na skladě."
 // Data i jména jsou vymyšlená (repozitář je veřejný). Dnes je v testu čtvrtek 15. 10. 2026 (týden od 12. 10.).
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 
 const h = vi.hoisted(() => ({
   plan: {} as any,
-  /** Uložené počty týdenní inventury (dotaz přes .in) a týdenní kontroly měsíce (dotaz přes .gte/.lte). */
+  /** Uložené počty Úpravy skladu (dotaz přes .in) — jen pro řádek „inv." a pruh s rozepsanými počty. */
   ulozene: [] as any[],
-  kontroly: [] as any[],
-  /** Odpověď na dotaz kontrol podle prvního dne měsíce; `pockej` ji zdrží, dokud ji test nepustí. */
-  kontrolyPodleMesice: {} as Record<string, { data: any[]; pockej?: Promise<void> }>,
   objednavky: { data: { objednavky: [] as any[], polozky: [] as any[] }, chyba: false },
   setPage: vi.fn(),
 }));
@@ -22,19 +19,10 @@ vi.mock('../lib/pohybyPredvyber', () => ({ predvyberPohyby: vi.fn() }));
 vi.mock('../lib/supabase', async (puvodni) => {
   const skutecny = await puvodni<typeof import('../lib/supabase')>();
   const from = () => {
-    let rezim: 'in' | 'mesic' = 'in';
-    let od = '';
     const q: any = {
       select: () => q,
-      in: () => { rezim = 'in'; return q; },
-      gte: (_sloupec: string, hodnota: string) => { rezim = 'mesic'; od = hodnota; return q; },
-      lte: () => q,
-      then: (ok: (r: unknown) => unknown) => {
-        if (rezim === 'in') return Promise.resolve({ data: h.ulozene, error: null }).then(ok);
-        const zvlast = h.kontrolyPodleMesice[od];
-        const odpoved = { data: zvlast ? zvlast.data : h.kontroly, error: null };
-        return (zvlast?.pockej ?? Promise.resolve()).then(() => odpoved).then(ok);
-      },
+      in: () => q,
+      then: (ok: (r: unknown) => unknown) => Promise.resolve({ data: h.ulozene, error: null }).then(ok),
     };
     return q;
   };
@@ -45,6 +33,7 @@ vi.mock('../lib/businessDate', async (puvodni) => {
   return { ...skutecny, businessDateISO: (d?: Date) => (d ? skutecny.businessDateISO(d) : '2026-10-15') };
 });
 
+import { buildMovements } from '../lib/stockLedger';
 import RozborScreen from './RozborScreen';
 import { klicOdberatele } from '../lib/rozborObdobi';
 
@@ -55,8 +44,6 @@ beforeEach(() => {
   localStorage.clear();
   h.setPage.mockReset();
   h.ulozene = [];
-  h.kontroly = [];
-  h.kontrolyPodleMesice = {};
   h.objednavky = { data: { objednavky: [], polozky: [] }, chyba: false };
   h.plan = {
     data: { beers: PIVA, packages: OBALY, kegging: [], bottling: [], fasovani: [], prodejna: [] },
@@ -69,7 +56,7 @@ const radky = () => screen.queryAllByTestId('radek-rozboru').map((r) => (r.textC
 const mesic = () => fireEvent.click(screen.getByRole('button', { name: 'Měsíc' }));
 const koncept = (pondeli: string, mapa: Record<string, string>) => localStorage.setItem(`tydenni_napocitano_${pondeli}`, JSON.stringify(mapa));
 
-describe('Rozbor — neuložené počty týdenní inventury', () => {
+describe('Rozbor — neuložené počty Úpravy skladu', () => {
   it('rozepsaná nula za TENTO týden: řádek „inv. 0 (rozepsáno)" a pruh s tlačítkem do Úpravy skladu', async () => {
     koncept('2026-10-12', { os__l1: '0' });
     await otevri();
@@ -104,62 +91,68 @@ describe('Rozbor — neuložené počty týdenní inventury', () => {
   });
 });
 
-describe('Rozbor — rozdíl oproti inventuře bokem (měsíc)', () => {
-  const kontrola = (tyden_do: string, beer_id: string, package_id: string, rozdil: number, vyreseno: string | null = 'ponechano') =>
-    ({ tyden_od: tyden_do, tyden_do, beer_id, package_id, rozdil, vyreseno });
+describe('Rozbor — rozdíl oproti inventuře bokem (měsíc), živě z knihy', () => {
+  const rad = (entry_date: string, beer_id: string, package_id: string, quantity: number, extra: Record<string, unknown> = {}) =>
+    ({ entry_date, beer_id, package_id, quantity, ...extra });
+  const zaklad = (den: string, beer_id: string, package_id: string, quantity: number) => rad(den, beer_id, package_id, quantity, { note: 'Počáteční stav' });
+  const uprava = (den: string, beer_id: string, package_id: string, quantity: number) =>
+    rad(den, beer_id, package_id, quantity, { note: `Týdenní inventura týdne ${den} (konec dne)`, created_at: `${den}T08:00:00Z` });
+  const pohyby = (zdroje: Parameters<typeof buildMovements>[0]) => { h.plan.pohyby = buildMovements(zdroje); };
 
   it('v měsíčním rozboru je blok se součtem ztrát po položkách a upozorněním, že se nepočítá', async () => {
-    h.kontroly = [
-      kontrola('2026-10-04', 'os', 'l1', -23), kontrola('2026-10-11', 'os', 'l1', -4),
-      kontrola('2026-10-11', 'sv', 'k50', 2), kontrola('2026-10-11', 'sv', 'l1', -1, 'staceni'),
-    ];
+    pohyby({
+      inventoryRows: [
+        zaklad('2026-10-01', 'os', 'l1', 80), zaklad('2026-10-01', 'sv', 'k50', 10),
+        uprava('2026-10-04', 'os', 'l1', 57),   // evidence 80 → −23
+        uprava('2026-10-11', 'os', 'l1', 44),   // evidence 57 → −13
+        uprava('2026-10-11', 'sv', 'k50', 12),  // evidence 10 → +2
+      ],
+    });
     await otevri();
     expect(screen.queryByTestId('rozbor-ztrata-bokem')).toBeNull(); // v týdnu ho není
     mesic();
     const blok = await screen.findByTestId('rozbor-ztrata-bokem');
     expect(blok.textContent).toMatch(/Rozdíl oproti inventuře — říjen 2026/);
     expect(blok.textContent).toMatch(/Jen bokem: do stavu skladu ani do čísel nahoře se nepočítá/);
-    expect(screen.getByTestId('rozbor-ztrata-soucet').textContent).toBe('ztráta −27 ks');
+    expect(screen.getByTestId('rozbor-ztrata-soucet').textContent).toBe('ztráta −36 ks');
     expect(blok.textContent).toMatch(/přebytek \+2 ks/);
     // Název a číslo jsou dva sloupce řádku — mezi nimi v textu DOM mezera není.
     const polozky = within(blok).getAllByRole('listitem').map((li) => [...li.children].map((c) => (c.textContent ?? '').replace(/\s+/g, ' ').trim()).join(' | '));
-    expect(polozky).toEqual(['Osma 1l | −27 ks · 2 týdny', '12° Světlá KEG 50l | +2 ks · 1 týden']);
-    // Po návratu na týden blok zmizí, i když jsou kontroly měsíce už načtené.
+    expect(polozky).toEqual(['Osma 1l | −36 ks · 2× počítáno', '12° Světlá KEG 50l | +2 ks · 1× počítáno']);
+    // Po návratu na týden blok zmizí.
     fireEvent.click(screen.getByRole('button', { name: 'Týden' }));
     expect(screen.queryByTestId('rozbor-ztrata-bokem')).toBeNull();
   });
 
-  it('měsíc bez uložené kontroly to řekne; měsíc, kde všechno sedělo, taky', async () => {
+  it('zpětně dopsané fasování za dny před počítáním ztrátu zmenší (číslo se mění, stav po počítání ne)', async () => {
+    const zdroje = {
+      inventoryRows: [zaklad('2026-10-01', 'os', 'l1', 80), uprava('2026-10-08', 'os', 'l1', 57)],
+    };
+    pohyby(zdroje);
     await otevri();
     mesic();
-    expect((await screen.findByTestId('rozbor-ztrata-bokem')).textContent).toMatch(/není uložená žádná Úprava skladu/);
-    h.kontroly = [kontrola('2026-10-11', 'os', 'l1', 0, null)];
-    fireEvent.click(screen.getByRole('button', { name: 'Týden' }));
+    expect((await screen.findByTestId('rozbor-ztrata-soucet')).textContent).toBe('ztráta −23 ks');
+    // Stejná obrazovka znovu, jen s dopsaným fasováním za 5. 10. (zapsaným až po počítání).
+    cleanup();
+    pohyby({ ...zdroje, fasovaniRows: [rad('2026-10-05', 'os', 'l1', 10, { created_at: '2026-10-09T10:00:00Z' })] });
+    await otevri();
     mesic();
-    expect((await screen.findByTestId('rozbor-ztrata-bokem')).textContent).toMatch(/Za 1 uložených kontrol všechno sedělo/);
+    expect((await screen.findByTestId('rozbor-ztrata-soucet')).textContent).toBe('ztráta −13 ks');
   });
 
-  it('pomalá odpověď pro měsíc, který už není vidět, nepřepíše řádky toho správného', async () => {
-    let pust!: () => void;
-    const zdrzena = new Promise<void>((ok) => { pust = ok; });
-    // Dnes je 15. 10. 2026: říjen se načte zdrženě, září hned.
-    h.kontrolyPodleMesice = {
-      '2026-10-01': { data: [kontrola('2026-10-11', 'sv', 'k50', 2)], pockej: zdrzena },
-      '2026-09-01': { data: [kontrola('2026-09-13', 'os', 'l1', -6)] },
-    };
+  it('měsíc bez počítání to řekne; měsíc, kde všechno sedělo, taky', async () => {
     await otevri();
-    mesic(); // říjen: dotaz čeká
-    fireEvent.click(screen.getByRole('button', { name: 'Předchozí měsíc' })); // září: odpoví hned
-    const blok = await screen.findByTestId('rozbor-ztrata-bokem');
-    expect(blok.textContent).toMatch(/září 2026/);
-    expect(screen.getByTestId('rozbor-ztrata-soucet').textContent).toBe('ztráta −6 ks');
-    await act(async () => { pust(); }); // teď dorazí zdržená odpověď pro říjen
-    expect(screen.getByTestId('rozbor-ztrata-bokem').textContent).toMatch(/září 2026/);
-    expect(screen.getByTestId('rozbor-ztrata-soucet').textContent).toBe('ztráta −6 ks');
+    mesic();
+    expect((await screen.findByTestId('rozbor-ztrata-bokem')).textContent).toMatch(/nebyla žádná Úprava skladu ani inventura/);
+    cleanup();
+    pohyby({ inventoryRows: [zaklad('2026-10-01', 'os', 'l1', 80), uprava('2026-10-11', 'os', 'l1', 80)] });
+    await otevri();
+    mesic();
+    expect((await screen.findByTestId('rozbor-ztrata-bokem')).textContent).toMatch(/Za 1 počítání všechno sedělo/);
   });
 
   it('blok se neukáže, když je vybraný jeden odběratel (rozdíl oproti inventuře patří celému skladu)', async () => {
-    h.kontroly = [kontrola('2026-10-11', 'os', 'l1', -4)];
+    pohyby({ inventoryRows: [zaklad('2026-10-01', 'os', 'l1', 80), uprava('2026-10-11', 'os', 'l1', 76)] });
     h.objednavky = {
       data: {
         objednavky: [{ id: 'o1', place_name: 'Hospoda U Lípy', delivery_date: '2026-10-14', order_date: '2026-10-14', status: 'nova' }],

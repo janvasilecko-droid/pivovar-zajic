@@ -189,6 +189,19 @@ function jeTydenniStav(note: string | null | undefined): boolean {
 }
 
 /**
+ * Je to ÚPRAVA SKLADU — týdenní počítání (záložka „Úprava skladu" v Inventuře)? Měsíční inventura ani počáteční
+ * stav to nejsou. Majitel 27. 11. 2026: po zadání se v Pohybech musí objevit „úprava skladu — číslo, rozdíl".
+ */
+export function jeUpravaSkladu(note: string | null | undefined): boolean {
+  return jeTydenniStav(note);
+}
+
+/** Je to POČÍTÁNÍ (Úprava skladu, fyzická nebo schválená inventura), ne počáteční základ? */
+export function jePocitani(note: string | null | undefined): boolean {
+  return jeNapocitanyStav(note) || jeTydenniStav(note);
+}
+
+/**
  * Značka v poznámce výdeje (fasování, prodejna): „kusy už jsou v napočítaném stavu skladu".
  * Z provozu 23. 10. 2026: lahve byly napočítané jako 0 (už odešly) a fasování se zapsalo
  * minutu po uložení počítání — sklad by je odečetl podruhé (−20, −20, −10). Takový zápis

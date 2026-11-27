@@ -281,3 +281,90 @@ describe('Pohyby — kdo fasoval a proč se odepsalo', () => {
     expect(tabulkaPoDnech(rr.dny, 'b12', 'k30')[0].komu).toEqual([{ jmeno: 'Fasování personál', mnozstvi: -1 }]);
   });
 });
+
+// ── Úprava skladu v Pohybech (majitel 27. 11. 2026) ─────────────────────────────────────────────
+// „Když se zadá Úprava skladu, tak se tam objeví úprava skladu — číslo, rozdíl (pokud se bude dofasovávat zpětně,
+// to číslo se může měnit, zmenšovat), ale stav skladu je daný úpravou skladu a od té doby se počítá s tímhle číslem,
+// dokud se neudělá zase úprava skladu; pokud se neudělá, počítá se s aktuálním číslem."
+// Vymyšlená data: pivo b8 v lahvích 1 l (l1), listopad 2026.
+describe('Úprava skladu v Pohybech — číslo, rozdíl a stav od ní', () => {
+  const B = 'b8';
+  const P = 'l1';
+  const UPRAVA = { entry_date: '2026-11-20', beer_id: B, package_id: P, quantity: 30, note: 'Týdenní inventura týdne 2026-11-16 (konec dne)', created_at: '2026-11-20T08:00:00Z' };
+  const zaklad = {
+    inventoryRows: [
+      { entry_date: '2026-11-01', beer_id: B, package_id: P, quantity: 60, note: 'Počáteční stav' },
+      UPRAVA,
+    ],
+    fasovaniRows: [{ entry_date: '2026-11-10', beer_id: B, package_id: P, quantity: 10, who: 'Eva' }],
+    bottlingRows: [{ entry_date: '2026-11-12', beer_id: B, package_id: P, quantity: 20 }],
+    zavozDeductionRows: [{ deduct_date: '2026-11-21', beer_id: B, package_id: P, quantity: 5, order_id: 'o9' }],
+  };
+  const radekUpravy = (r: ReturnType<typeof sestavPohybyObdobi>) => r.dny.flatMap((d) => d.radky).find((x) => x.druh === 'inventura')!;
+  const filtr = { od: '2026-11-16', doDne: '2026-11-27', beerId: B, packageId: P };
+
+  it('řádek se jmenuje Úprava skladu a nese číslo, rozdíl proti evidenci a stav po ní; vnitřní poznámka se neukazuje', () => {
+    const r = radekUpravy(sestavPohybyObdobi(buildMovements(zaklad), filtr));
+    expect(r.popis).toBe('Úprava skladu');
+    expect(r.uprava).toBe(true);
+    expect(r.mnozstvi).toBe(30); // napočítáno
+    expect(r.podleEvidence).toBe(70); // 60 − 10 + 20
+    expect(r.rozdil).toBe(-40);
+    expect(r.stavPo).toBe(30);
+    expect(r.poznamka).toBe('');
+  });
+
+  it('zpětně dofasovaný výdej PŘED počítáním rozdíl zmenší, stav po Úpravě zůstává napočítané číslo', () => {
+    const zpetne = buildMovements({
+      ...zaklad,
+      // Zapsáno až po počítání, ale za den před ním — dohánění papírů.
+      fasovaniRows: [...zaklad.fasovaniRows, { entry_date: '2026-11-15', beer_id: B, package_id: P, quantity: 15, who: 'Eva', created_at: '2026-11-21T10:00:00Z' }],
+    });
+    const vysledek = sestavPohybyObdobi(zpetne, filtr);
+    const r = radekUpravy(vysledek);
+    expect(r.podleEvidence).toBe(55);
+    expect(r.rozdil).toBe(-25);
+    expect(r.stavPo).toBe(30);
+    expect(vysledek.dny.find((d) => d.datum === '2026-11-20')!.vecer[0].mnozstvi).toBe(30);
+  });
+
+  it('od Úpravy se počítá s napočítaným číslem dál; bez další Úpravy platí aktuální číslo', () => {
+    const vysledek = sestavPohybyObdobi(buildMovements(zaklad), filtr);
+    const vecer = (datum: string) => vysledek.dny.find((d) => d.datum === datum)!.vecer[0].mnozstvi;
+    expect(vecer('2026-11-20')).toBe(30);
+    expect(vecer('2026-11-21')).toBe(25); // 30 − 5 závoz
+    expect(vecer('2026-11-27')).toBe(25); // nic dalšího se nestalo
+  });
+
+  it('další Úprava skladu nastaví nový základ a rozdíl se počítá proti stavu před ní', () => {
+    const druha = { entry_date: '2026-11-27', beer_id: B, package_id: P, quantity: 40, note: 'Týdenní inventura týdne 2026-11-23 (konec dne)', created_at: '2026-11-27T08:00:00Z' };
+    const vysledek = sestavPohybyObdobi(buildMovements({ ...zaklad, inventoryRows: [...zaklad.inventoryRows, druha] }), filtr);
+    const upravy = vysledek.dny.flatMap((d) => d.radky).filter((x) => x.druh === 'inventura');
+    expect(upravy.map((x) => [x.datum, x.mnozstvi, x.podleEvidence, x.rozdil])).toEqual([
+      ['2026-11-20', 30, 70, -40],
+      ['2026-11-27', 40, 25, 15],
+    ]);
+    expect(vysledek.dny.find((d) => d.datum === '2026-11-27')!.vecer[0].mnozstvi).toBe(40);
+  });
+
+  it('měsíční inventura zůstává „Inventura" a nese svou poznámku', () => {
+    const mesicni = buildMovements({
+      inventoryRows: [
+        { entry_date: '2026-11-01', beer_id: B, package_id: P, quantity: 60, note: 'Počáteční stav' },
+        { entry_date: '2026-11-20', beer_id: B, package_id: P, quantity: 50, note: 'Schválená inventura' },
+      ],
+    });
+    const r = radekUpravy(sestavPohybyObdobi(mesicni, filtr));
+    expect(r.popis).toBe('Inventura');
+    expect(r.uprava).toBe(false);
+    expect(r.poznamka).toBe('Schválená inventura');
+    expect(r.rozdil).toBe(-10);
+  });
+
+  it('souhrn i tabulka po dnech vědí, že šlo o Úpravu skladu', () => {
+    const vysledek = sestavPohybyObdobi(buildMovements(zaklad), filtr);
+    expect(vysledek.souhrn[0]).toMatchObject({ inventura: true, inventuraUprava: true, inventuraStav: 30, srovnani: -40 });
+    const den = tabulkaPoDnech(vysledek.dny, B, P).find((d) => d.datum === '2026-11-20')!;
+    expect(den).toMatchObject({ inventura: 30, inventuraUprava: true });
+  });
+});

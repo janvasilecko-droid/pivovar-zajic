@@ -11,7 +11,7 @@
 // Stav večer se NEsčítá z vyfiltrovaných řádků — bere se ze skladové knihy
 // (stockAsOf) nad VŠEMI pohyby. Filtr druhu pohybu tak schová řádky, ale
 // nezmění čísla: stav je vždycky ten samý jako ve Skladu.
-import { MOVEMENT_LABELS, stockAsOf, stockAtStartOfDay, stockKey, type Movement, type MovementKind } from './stockLedger';
+import { MOVEMENT_LABELS, jeUpravaSkladu, stockAsOf, stockAtStartOfDay, stockKey, type Movement, type MovementKind } from './stockLedger';
 
 /** Skupiny druhů pohybu pro filtr — dvanáct druhů je na telefon moc. */
 export const SKUPINY_POHYBU: { id: string; label: string; druhy: MovementKind[] }[] = [
@@ -60,6 +60,14 @@ export type RadekPohybu = {
    * tam údaj, že by mělo být 45").
    */
   podleEvidence?: number;
+  /**
+   * U inventury / Úpravy skladu: napočítáno − podle evidence. ŽIVĚ z knihy: když se zpětně dopíše výdej za dny
+   * před počítáním, evidence klesne a rozdíl se zmenší — stav po počítání je ale pořád napočítané číslo
+   * (majitel 27. 11. 2026).
+   */
+  rozdil?: number;
+  /** Úprava skladu (týdenní počítání), ne měsíční inventura. */
+  uprava?: boolean;
   orderId: string | null;
 };
 
@@ -93,6 +101,8 @@ export type PohybyObdobi = {
     /** Poslední inventura v období — datum a napočítaný stav. */
     inventuraDatum: string | null;
     inventuraStav: number | null;
+    /** Poslední počítání v období byla Úprava skladu (týdenní), ne měsíční inventura. */
+    inventuraUprava: boolean;
   }[];
 };
 
@@ -123,6 +133,8 @@ function dnyObdobi(od: string, doDne: string): string[] {
  * objednávky Mutěnice").
  */
 export function popisPohybu(m: Pick<Movement, 'kind' | 'note' | 'orderId' | 'ztrata'>): string {
+  // Týdenní počítání se v appce jmenuje „Úprava skladu" (záložka v Inventuře); „Inventura" je měsíční.
+  if (m.kind === 'inventura') return jeUpravaSkladu(m.note) ? 'Úprava skladu' : MOVEMENT_LABELS.inventura;
   if (m.kind !== 'dorovnani') return MOVEMENT_LABELS[m.kind];
   const duvod = (m.note ?? '').trim();
   if (duvod.startsWith('Zrušená objednávka')) return 'Vráceno na sklad — zrušená objednávka';
@@ -273,20 +285,25 @@ export function sestavPohybyObdobi(
     const stavPo = stavyPoPohybu(datum, vsechnyDne);
     const radky = vsechnyDne
       .filter((m) => !povoleneDruhy || povoleneDruhy.has(m.kind))
-      .map<RadekPohybu>((m) => ({
-        datum,
-        druh: m.kind,
-        popis: popisPohybu(m),
-        beer_id: m.beer_id,
-        package_id: m.package_id,
-        mnozstvi: m.qty,
-        // Odběratel u závozu; u fasování personálu jméno, u odpisu důvod (Movement.kdo).
-        kdo: (m.orderId && jmenoOdberatele(m.orderId)) || m.kdo || '',
-        poznamka: (m.note ?? '').trim(),
-        orderId: m.orderId ?? null,
-        stavPo: stavPo.po.get(m) ?? 0,
-        ...(m.kind === 'inventura' ? { podleEvidence: stavPo.pred.get(m) ?? 0 } : {}),
-      }));
+      .map<RadekPohybu>((m) => {
+        const uprava = m.kind === 'inventura' && jeUpravaSkladu(m.note);
+        const pred = m.kind === 'inventura' ? (stavPo.pred.get(m) ?? 0) : null;
+        return {
+          datum,
+          druh: m.kind,
+          popis: popisPohybu(m),
+          beer_id: m.beer_id,
+          package_id: m.package_id,
+          mnozstvi: m.qty,
+          // Odběratel u závozu; u fasování personálu jméno, u odpisu důvod (Movement.kdo).
+          kdo: (m.orderId && jmenoOdberatele(m.orderId)) || m.kdo || '',
+          // Poznámka týdenního počítání („Týdenní inventura týdne …") je vnitřní značka — řádek se jmenuje Úprava skladu.
+          poznamka: uprava ? '' : (m.note ?? '').trim(),
+          orderId: m.orderId ?? null,
+          stavPo: stavPo.po.get(m) ?? 0,
+          ...(pred !== null ? { podleEvidence: pred, rozdil: m.qty - pred, uprava } : {}),
+        };
+      });
     predchoziVecer = stockAsOfDne(datum);
     return { datum, radky, vecer: stavy(predchoziVecer), ted: false };
   });
@@ -302,29 +319,29 @@ export function sestavPohybyObdobi(
   }
 
   const konecMapa = stockAsOfDne(doDne);
-  const agreg = new Map<string, { prijem: number; vydej: number; inventura: boolean; inventuraDatum: string | null; inventuraStav: number | null }>();
+  const agreg = new Map<string, { prijem: number; vydej: number; inventura: boolean; inventuraDatum: string | null; inventuraStav: number | null; inventuraUprava: boolean }>();
   vObdobi.forEach((m) => {
     const k = stockKey(m.beer_id, m.package_id);
     let a = agreg.get(k);
     if (!a) {
-      a = { prijem: 0, vydej: 0, inventura: false, inventuraDatum: null, inventuraStav: null };
+      a = { prijem: 0, vydej: 0, inventura: false, inventuraDatum: null, inventuraStav: null, inventuraUprava: false };
       agreg.set(k, a);
     }
     if (m.kind === 'inventura') {
       a.inventura = true;
-      if (!a.inventuraDatum || m.date >= a.inventuraDatum) { a.inventuraDatum = m.date; a.inventuraStav = m.qty; }
+      if (!a.inventuraDatum || m.date >= a.inventuraDatum) { a.inventuraDatum = m.date; a.inventuraStav = m.qty; a.inventuraUprava = jeUpravaSkladu(m.note); }
       return;
     }
     if (m.qty > 0) a.prijem += m.qty; else a.vydej -= m.qty;
   });
   const souhrn = serazeneKlice.map((k) => {
     const { beer_id, package_id } = rozloz(k);
-    const a = agreg.get(k) ?? { prijem: 0, vydej: 0, inventura: false, inventuraDatum: null, inventuraStav: null };
+    const a = agreg.get(k) ?? { prijem: 0, vydej: 0, inventura: false, inventuraDatum: null, inventuraStav: null, inventuraUprava: false };
     const rano = ranoMapa.get(k)?.qty ?? 0;
     const konec = konecMapa.get(k)?.qty ?? 0;
     // Stejný rozdíl jako rozdilSkladu, z čísel spočítaných výš jedním průchodem.
     // Znovu volat knihu na každý klíč by u 24 měsíců přepočet nestihl.
-    return { beer_id, package_id, rano, prijem: a.prijem, vydej: a.vydej, inventura: a.inventura, konec, srovnani: konec - (rano + a.prijem - a.vydej), inventuraDatum: a.inventuraDatum, inventuraStav: a.inventuraStav };
+    return { beer_id, package_id, rano, prijem: a.prijem, vydej: a.vydej, inventura: a.inventura, konec, srovnani: konec - (rano + a.prijem - a.vydej), inventuraDatum: a.inventuraDatum, inventuraStav: a.inventuraStav, inventuraUprava: a.inventuraUprava };
   });
 
   return { rano: stavy(ranoMapa), dny, souhrn };
@@ -387,8 +404,10 @@ export function sloupceSPohybem(bunky: BunkyRozboru[]): SloupecRozboru[] {
 export type RadekDne = {
   datum: string;
   bunky: BunkyRozboru;
-  /** Napočítaný stav, když ten den byla inventura té položky. */
+  /** Napočítaný stav, když ten den byla inventura / Úprava skladu té položky. */
   inventura: number | null;
+  /** Ten den to byla Úprava skladu (týdenní počítání), ne měsíční inventura. */
+  inventuraUprava: boolean;
   /** Stav na konci dne ze skladové knihy. */
   stav: number | null;
   /** Poslední den s pohybem, který platí „teď". */
@@ -408,11 +427,12 @@ export function tabulkaPoDnech(dny: DenPohybu[], beerId: string, packageId: stri
     if (radky.length === 0) continue;
     const bunky = prazdneBunky();
     let inventura: number | null = null;
+    let inventuraUprava = false;
     const komu = new Map<string, number>();
     for (const r of radky) {
       const sloupec = sloupecPohybu(r.druh);
       if (sloupec) bunky[sloupec] += r.mnozstvi;
-      else inventura = r.mnozstvi;
+      else { inventura = r.mnozstvi; inventuraUprava = r.uprava === true; }
       if (sloupec && sloupec !== 'stoceno') {
         // Závoz: jméno odběratele. Fasování a odpis: „Fasování personál · Eva", „Odpis · výhra v tombole".
         const jmeno = !r.kdo ? r.popis : r.druh === 'zavoz' ? r.kdo : `${r.popis} · ${r.kdo}`;
@@ -423,6 +443,7 @@ export function tabulkaPoDnech(dny: DenPohybu[], beerId: string, packageId: stri
       datum: d.datum,
       bunky,
       inventura,
+      inventuraUprava,
       stav: d.vecer.find((v) => v.beer_id === beerId && v.package_id === packageId)?.mnozstvi ?? null,
       ted: d.ted,
       komu: [...komu].map(([jmeno, mnozstvi]) => ({ jmeno, mnozstvi })),
