@@ -123,7 +123,8 @@ export function zkontrolujRedirects(txt) {
 }
 
 /**
- * Zkontroluje sw.js: bez připojení a bez uložené kopie se místo holého „Offline“ vrací stránka (odpovedOffline).
+ * Zkontroluje sw.js: bez připojení a bez uložené kopie se místo holého „Offline“ vrací stránka (odpovedOffline)
+ * a uložená stránka se navigaci podává bez příznaku přesměrování, i na adrese s parametrem.
  * @param {string} js
  * @returns {string[]}
  */
@@ -132,8 +133,16 @@ export function zkontrolujSw(js) {
   if (!js.includes('const STRANKA_OFFLINE = `')) {
     problemy.push('sw.js nemá stránku „Bez připojení“ (STRANKA_OFFLINE) — spuštění z ikony bez signálu a bez uložené kopie by ukázalo holé „Offline“.');
   }
-  if (!/matchInInstalledCache\('\.\/index\.html'\)[\s\S]{0,400}return fallback \|\| odpovedOffline\(\);/.test(js)) {
+  if (!/strankaZCache\('\.\/index\.html'\)[\s\S]{0,400}return fallback \|\| odpovedOffline\(\);/.test(js)) {
     problemy.push('Navigace v sw.js po neúspěchu sítě i uložené kopie nevrací odpovedOffline() — místo stránky by se ukázalo holé „Offline“.');
+  }
+  // 27. 11. 2026: hosting přesměrovává /index.html na /, uložená stránka nese příznak „vznikla přesměrováním"
+  // a takovou prohlížeč při otevření stránky odmítne. Navigace proto musí brát stránku přes strankaZCache,
+  // která odpověď přebalí (bezPresmerovani) a zkusí i adresu bez parametrů.
+  if (!/const cached = await strankaZCache\(req\);/.test(js)
+    || !/async function strankaZCache\(req\) \{[\s\S]{0,400}ignoreSearch: true[\s\S]{0,200}return bezPresmerovani\(hit\);/.test(js)
+    || !/async function bezPresmerovani\(res\) \{[\s\S]{0,200}res\.redirected[\s\S]{0,200}new Response\(/.test(js)) {
+    problemy.push('Navigace v sw.js nebere stránku přes strankaZCache/bezPresmerovani — bez signálu by adresa s parametrem (/?page=…) skončila chybou prohlížeče místo aplikace.');
   }
   return problemy;
 }

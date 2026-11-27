@@ -27,6 +27,11 @@ Zkouška: se signálem otevřít jen Plochu, pak signál vypnout a projít obraz
    paměti. Obrazovka, která se ptá postupně, čekala minutu nebo se neukázala vůbec; Rozvoz navíc před načtením
    čekal na zápis „minulé závozy = zavezeno".
 
+7. **Start bez signálu na adrese s parametrem** (`/?page=sklad` — odkaz z upozornění, záložka) skončil chybou
+   prohlížeče. Hosting přesměrovává `/index.html` na `/`, uložená stránka si nese příznak „vznikla
+   přesměrováním" a takovou prohlížeč jako stránku odmítne. Start z ikony (`/`) fungoval. Změřeno na živém
+   webu 27. 11. 2026; místní zkoušky to neukázaly, protože zkušební server nepřesměrovává.
+
 ## Jak to funguje teď
 
 ### 1. Kopie provozních tabulek v telefonu
@@ -75,6 +80,9 @@ Build doplní do `sw.js` seznam všech kusů aplikace (`KUSY`, `scripts/shell-do
 knihovny pro PDF a Excel). Service worker je uloží při instalaci — tedy dřív, než se nová verze nabídne
 k aktualizaci. Co se od minulé verze nezměnilo, jen zkopíruje ze staré paměti. Co nedoběhlo, doplní při
 aktivaci a když si o to stránka řekne (zpráva `DOPLN_OFFLINE`, `offlineObrazovky.ts`).
+
+Otevření stránky bez signálu: přesná adresa, jinak táž cesta bez parametrů (aplikace je jedna stránka), a
+odpověď se vždy podá bez příznaku přesměrování (`strankaZCache`, `bezPresmerovani` v `sw.js`).
 
 ### 5. Přihlášení vydrží bez signálu (`relaceOffline.ts`, `auth.tsx`)
 
@@ -145,6 +153,10 @@ přeposílá jen `GET`/`HEAD` a všechno ostatní zahodí):
 | server visí, appka znovu spuštěná | ~0,2 s |
 | server se vrátí | do ~6 s čerstvá data, pruh zmizí |
 | nasazení nové verze → aktualizace → bez signálu | stáhly se jen změněné soubory (3 ze 130), všechny obrazovky jdou otevřít |
+
+Zkoušet je potřeba i **živý web** (stačí přihlašovací obrazovka, bez účtu): otevřít se signálem, počkat na
+service worker, vypnout síť a otevřít `/` i `/?page=dashboard`. Místní zkušební server se od hostingu liší
+(nepřesměrovává `/index.html`), takže tuhle chybu neukáže.
 
 Když majitel hlásí „bez signálu nevidím data": zeptat se, co píše pruh nahoře („Kopie dat v telefonu: …" —
 jak stará; nebo „zatím není kopie dat") a jestli appku po poslední aktualizaci otevřel se signálem.
