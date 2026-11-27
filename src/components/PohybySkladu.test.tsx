@@ -64,8 +64,8 @@ describe('PohybySkladu', () => {
     render(<PohybySkladu />);
     await waitFor(() => expect(screen.getByText(/Úprava skladu — co se napočítalo/)).toBeTruthy());
     expect(screen.getByText(/napočítáno/)).toBeTruthy();
-    expect(screen.getByText(/appka čekala/)).toBeTruthy();
-    expect(screen.getByText(/rozdíl -1/)).toBeTruthy();
+    expect(screen.getByText(/při zadání appka čekala/)).toBeTruthy();
+    expect(screen.getByText(/rozdíl při zadání -1/)).toBeTruthy();
   });
 
   it('filtr piva schová ostatní piva', async () => {

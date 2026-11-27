@@ -228,7 +228,7 @@ export default function PohybySkladu() {
               <div className="rounded-xl border-2 border-neutral-300 bg-white p-2.5 space-y-2">
                 <div className="text-sm font-black text-neutral-950">
                   {nazevPiva.get(s1.beer_id) || '?'} · {nazevObalu.get(s1.package_id) || '?'}
-                  {s1.inventura && <span className="ml-1 text-udaj font-bold text-sky-800">(inventura v období)</span>}
+                  {s1.inventura && <span className="ml-1 text-udaj font-bold text-sky-800">({s1.inventuraUprava ? 'Úprava skladu' : 'inventura'} v období)</span>}
                 </div>
                 <div className="grid grid-cols-4 gap-1.5 text-center">
                   <div className="rounded bg-neutral-100 p-1.5">
@@ -254,7 +254,9 @@ export default function PohybySkladu() {
                 {s1.srovnani !== 0 && (
                   <div className="rounded border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-bold text-sky-950">
                     {s1.inventura
-                      ? <>Inventura{s1.inventuraDatum ? ` ${denPopis(s1.inventuraDatum).slice(3)}` : ''}{s1.inventuraStav != null ? ` napočítala ${s1.inventuraStav}` : ''}, podle evidence by mělo být <b className="tabular-nums">{s1.konec - s1.srovnani}</b> — srovnala stav o <b className="tabular-nums">{s1.srovnani > 0 ? '+' : ''}{s1.srovnani}</b>.</>
+                      ? (s1.inventuraUprava
+                        ? <>Úprava skladu{s1.inventuraDatum ? ` ${denPopis(s1.inventuraDatum).slice(3)}` : ''}{s1.inventuraStav != null ? `: napočítáno ${s1.inventuraStav}` : ''}; rozdíl proti evidenci v období <b className="tabular-nums">{s1.srovnani > 0 ? '+' : ''}{s1.srovnani}</b>. Stav skladu je daný napočítaným číslem a počítá se od něj dál.</>
+                        : <>Inventura{s1.inventuraDatum ? ` ${denPopis(s1.inventuraDatum).slice(3)}` : ''}{s1.inventuraStav != null ? ` napočítala ${s1.inventuraStav}` : ''}, podle evidence by mělo být <b className="tabular-nums">{s1.konec - s1.srovnani}</b> — srovnala stav o <b className="tabular-nums">{s1.srovnani > 0 ? '+' : ''}{s1.srovnani}</b>.</>)
                       : <>Pohyby se stavem nesouhlasí o <b className="tabular-nums">{s1.srovnani > 0 ? '+' : ''}{s1.srovnani}</b> — pošli screenshot, prověřím.</>}
                     {' '}{s1.rano} {s1.prijem ? `+ ${s1.prijem}` : ''} {s1.vydej ? `− ${s1.vydej}` : ''} {s1.srovnani > 0 ? '+' : '−'} {Math.abs(s1.srovnani)} = {s1.konec}
                   </div>
@@ -279,7 +281,7 @@ export default function PohybySkladu() {
                   <tr key={`${s.beer_id}-${s.package_id}`} className="border-t border-neutral-200">
                     <td className="px-2 py-1.5 font-black text-neutral-900">
                       {nazevKlice(s.beer_id, s.package_id)}
-                      {s.inventura && <span className="ml-1 text-udaj font-bold text-sky-800">(inventura{s.srovnani ? ` srovnala ${s.srovnani > 0 ? '+' : ''}${s.srovnani}` : ''})</span>}
+                      {s.inventura && <span className="ml-1 text-udaj font-bold text-sky-800">({s.inventuraUprava ? 'Úprava skladu' : 'inventura'}{s.srovnani ? ` srovnala ${s.srovnani > 0 ? '+' : ''}${s.srovnani}` : ''})</span>}
                     </td>
                     <td className="px-2 py-1.5 text-right tabular-nums">{s.rano}</td>
                     {sloupce.map((c) => (
@@ -317,7 +319,7 @@ export default function PohybySkladu() {
                       <tr key={d.datum} className={`border-t border-neutral-200 ${i % 2 ? 'bg-neutral-50' : ''}`}>
                         <td className="px-2 py-1.5 font-black text-neutral-900 whitespace-nowrap">
                           {denPopis(d.datum)}
-                          {d.inventura !== null && <span className="ml-1 text-udaj font-bold text-sky-800">inventura = {d.inventura}</span>}
+                          {d.inventura !== null && <span className="ml-1 text-udaj font-bold text-sky-800">{d.inventuraUprava ? 'Úprava skladu' : 'inventura'} = {d.inventura}</span>}
                           {/* Komu se vydalo — odběratel u závozu (16. 10. 2026: „přidej, kdo odebíral") */}
                           {d.komu.length > 0 && (
                             <div className="text-udaj font-black text-violet-800 whitespace-normal" data-testid="komu">
@@ -375,7 +377,7 @@ export default function PohybySkladu() {
                         // 30. 9. 2026: „zeleně označ plusové položky (naštočeno),
                         // červeně odfasováno, odešlo…" — celý řádek v barvě,
                         // ne jen číslo, ať je příjem a výdej vidět na první pohled.
-                        <tr key={j} className={`border-t border-neutral-100 first:border-t-0 align-top border-l-4 ${
+                        <tr key={j} data-testid={r.druh === 'inventura' ? 'radek-pocitani' : undefined} className={`border-t border-neutral-100 first:border-t-0 align-top border-l-4 ${
                           r.druh === 'inventura' ? 'bg-sky-50 border-l-sky-500' : r.mnozstvi > 0 ? 'bg-emerald-50 border-l-emerald-500' : 'bg-rose-50 border-l-rose-500'
                         }`}>
                           <td className={`px-3 py-1.5 w-16 text-right font-black tabular-nums whitespace-nowrap ${
@@ -386,24 +388,22 @@ export default function PohybySkladu() {
                           <td className="px-2 py-1.5">
                             <div className="font-black text-neutral-900">{r.popis}{r.kdo && <span className="font-bold text-neutral-700"> · {r.kdo}</span>}</div>
                             {!(beerId && packageId) && <div className="text-udaj font-semibold text-neutral-600">{nazevKlice(r.beer_id, r.package_id)}</div>}
+                            {/* 27. 11. 2026: „objeví se úprava skladu — číslo, rozdíl (zpětným dofasováním se rozdíl zmenšuje), ale stav
+                                skladu je daný úpravou a od ní se počítá dál." Číslo je vlevo (= N), rozdíl je živě z knihy. */}
+                            {r.druh === 'inventura' && r.rozdil !== undefined && (
+                              <div data-testid="rozdil-pocitani" className={`text-udaj font-black tabular-nums ${r.rozdil < 0 ? 'text-rose-700' : r.rozdil > 0 ? 'text-sky-800' : 'text-emerald-800'}`}>
+                                {r.rozdil === 0 ? 'sedělo' : `rozdíl ${r.rozdil > 0 ? '+' : '−'}${Math.abs(r.rozdil)}`}
+                                <span className="font-semibold text-neutral-600"> · podle evidence bylo {r.podleEvidence}</span>
+                              </div>
+                            )}
                             {r.poznamka && <div className="text-udaj font-semibold italic text-neutral-500">pozn.: {r.poznamka}</div>}
                             {dvojity && <div className="text-udaj font-black text-amber-900 bg-amber-100 border border-amber-400 rounded px-1.5 py-0.5 mt-0.5 inline-block">⚠️ stejný zápis tento den víckrát — zkontroluj, jestli není dvakrát</div>}
                           </td>
                           {/* Stav po tomhle pohybu (1. 10. 2026: „ať jde po každém
                               odečtení vidět aktuální stav"). */}
                           <td className="px-2 py-1.5 w-20 text-right align-top whitespace-nowrap">
-                            {r.druh === 'inventura' && r.podleEvidence != null && r.podleEvidence !== r.mnozstvi && (
-                              <>
-                                <div className="text-udaj font-bold text-neutral-500">evidence</div>
-                                <div className="text-sm font-black tabular-nums text-sky-800">{r.podleEvidence}</div>
-                              </>
-                            )}
-                            {r.druh !== 'inventura' && (
-                              <>
-                                <div className="text-udaj font-bold text-neutral-500">na skladě</div>
-                                <div className={`text-sm font-black tabular-nums ${r.stavPo < 0 ? 'text-rose-700' : 'text-neutral-950'}`}>{r.stavPo}</div>
-                              </>
-                            )}
+                            <div className="text-udaj font-bold text-neutral-500">na skladě</div>
+                            <div className={`text-sm font-black tabular-nums ${r.stavPo < 0 ? 'text-rose-700' : r.druh === 'inventura' ? 'text-sky-800' : 'text-neutral-950'}`}>{r.stavPo}</div>
                           </td>
                         </tr>
                         );
@@ -551,10 +551,10 @@ export default function PohybySkladu() {
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5 font-bold text-neutral-800 tabular-nums">
                     <span>napočítáno <b className="text-sky-900">{x.napocitano}</b>{x.rozepsano && <i className="font-bold text-amber-800"> (rozepsáno, neuloženo)</i>}</span>
-                    {x.ocekavano !== null && <span>appka čekala <b>{x.ocekavano}</b></span>}
+                    {x.ocekavano !== null && <span>při zadání appka čekala <b>{x.ocekavano}</b></span>}
                     {x.ocekavano !== null && (
                       <span className={x.rozdil === 0 ? 'text-emerald-800' : 'text-rose-800'}>
-                        {x.rozdil === 0 ? 'sedělo' : `rozdíl ${x.rozdil > 0 ? '+' : ''}${x.rozdil}`}
+                        {x.rozdil === 0 ? 'sedělo' : `rozdíl při zadání ${x.rozdil > 0 ? '+' : ''}${x.rozdil}`}
                       </span>
                     )}
                     <span>sklad teď <b className={x.ted < 0 ? 'text-rose-700' : ''}>{x.ted}</b>{x.ted !== x.napocitano && <span className="text-neutral-600"> (od počítání {x.ted - x.napocitano > 0 ? '+' : ''}{x.ted - x.napocitano})</span>}</span>

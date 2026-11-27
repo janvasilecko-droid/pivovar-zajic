@@ -15,7 +15,7 @@
 // a výběr odběratele. Týden bez odběratele zůstal jak byl — počítá se z plánu
 // stáčení (stočit, mínus ve skladu, inventura). Měsíc a odběratel se počítají
 // přímo z objednávek (lib/rozborObdobi.ts).
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { beerBg, beerName, supabase, useRealtime } from '../lib/supabase';
 import { businessDateISO, posunMesic } from '../lib/businessDate';
@@ -29,7 +29,7 @@ import { nazevMesice } from '../lib/inventoryFix';
 import { konecMesice } from '../lib/stockLedger';
 import { nactiJson } from '../lib/uloziste';
 import { predvyberPohyby } from '../lib/pohybyPredvyber';
-import { ztrataOprotiInventure, type ZaznamKontroly } from '../lib/ztrataOprotiInventure';
+import { ztrataOprotiInventure } from '../lib/ztrataOprotiInventure';
 import RozborZtrataBokem from '../components/RozborZtrataBokem';
 import { Spinner, EmptyState } from '../components/ui';
 import type { Page } from '../components/Layout';
@@ -76,24 +76,13 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page, targetSec
       });
   };
   useEffect(() => { nactiInventuru(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [pondeli]);
-  // 📉 Týdenní kontroly zvoleného měsíce — jen pro blok „Rozdíl oproti inventuře" bokem (jen v měsíčním rozboru).
-  const [kontroly, setKontroly] = useState<ZaznamKontroly[] | null>(null);
-  // Pomalejší odpověď pro měsíc, který už není vidět (člověk mezitím přelistoval), by přepsala ty správné řádky.
-  const kontrolyMesic = useRef(mesic);
-  const nactiKontroly = () => {
-    const pro = mesic;
-    kontrolyMesic.current = pro;
-    supabase.from('tydenni_inventura').select('tyden_od,tyden_do,beer_id,package_id,rozdil,vyreseno')
-      .gte('tyden_do', `${pro}-01`).lte('tyden_do', konecMesice(pro))
-      .then(({ data: radky, error }) => { if (!error && kontrolyMesic.current === pro) setKontroly((radky as ZaznamKontroly[]) ?? []); });
-  };
-  useEffect(() => {
-    if (rezim !== 'mesic') return;
-    setKontroly(null);
-    nactiKontroly();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rezim, mesic]);
-  useRealtime(['tydenni_inventura'], () => { nactiInventuru(); if (rezim === 'mesic') nactiKontroly(); });
+  useRealtime(['tydenni_inventura'], () => { nactiInventuru(); });
+  // 📉 „Rozdíl oproti inventuře" za měsíc, jen bokem (jen v měsíčním rozboru). Počítá se ŽIVĚ ze skladové knihy — stejné
+  // číslo jako u řádku „Úprava skladu" v Pohybech — takže se po zpětně dopsaném fasování zmenší (27. 11. 2026).
+  const ztrata = useMemo(
+    () => (rezim === 'mesic' && data && pohyby ? ztrataOprotiInventure(pohyby, mesic, data.beers, data.packages) : null),
+    [rezim, mesic, data, pohyby],
+  );
   if (chyba && !data) return <EmptyState varianta="chyba" text="Rozbor se nepodařilo načíst." />;
   if (!data) return <Spinner />;
   const pivoPodleId = new Map(data.beers.map((b) => [b.id, b]));
@@ -297,8 +286,8 @@ export default function RozborScreen({ setPage }: { setPage: (p: Page, targetSec
       <p className="text-sm font-bold text-neutral-700">{uvod}</p>
       {seznam}
       {/* 📉 Rozdíl oproti inventuře za měsíc — jen bokem, do čísel se nepočítá (26. 11. 2026). */}
-      {rezim === 'mesic' && odberatel === null && kontroly && (
-        <RozborZtrataBokem mesicText={nazevMesice(mesic)} vysledek={ztrataOprotiInventure(kontroly, mesic, data.beers, data.packages)} />
+      {rezim === 'mesic' && odberatel === null && ztrata && (
+        <RozborZtrataBokem mesicText={nazevMesice(mesic)} vysledek={ztrata} />
       )}
     </div>
   );

@@ -4,12 +4,13 @@ import type { ZtrataMesice } from '../lib/ztrataOprotiInventure';
 // 📉 „Rozdíl oproti inventuře" na konci měsíce — jen BOKEM (lib/ztrataOprotiInventure.ts).
 // Majitel 26. 11. 2026: „…napsat bokem na konci měsíce rozdíl oproti inventuře, ať je vidět ztráta, ale
 // nepočítat je, počítá se jen co je reálně na skladě." Nic z tohohle bloku nevstupuje do stavu skladu ani do
-// čísel v Rozboru — jsou to jen součty rozdílů, které odhalila týdenní počítání.
+// čísel v Rozboru — jsou to jen součty rozdílů, které odhalila počítání (Úprava skladu, inventura). Počítají se
+// živě (27. 11. 2026: „pokud se bude dofasovávat zpětně, to číslo se může zmenšovat").
 
 const kusu = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n)} ks`;
 
 export default function RozborZtrataBokem({ mesicText, vysledek }: { mesicText: string; vysledek: ZtrataMesice }) {
-  const { radky, ztrata, prebytek, kontrol } = vysledek;
+  const { radky, ztrata, prebytek, pocitani } = vysledek;
   return (
     <section
       data-testid="rozbor-ztrata-bokem"
@@ -22,12 +23,13 @@ export default function RozborZtrataBokem({ mesicText, vysledek }: { mesicText: 
       </div>
       <p className="text-xs font-bold text-neutral-700">
         Jen bokem: do stavu skladu ani do čísel nahoře se nepočítá — počítá se jen to, co je napočítané. Součet rozdílů, které
-        odhalila Úprava skladu (napočítáno proti tomu, co appka čekala).
+        odhalila Úprava skladu (napočítáno proti tomu, co podle evidence mělo být). Mění se podle evidence: když se zpětně
+        dopíše fasování za dny před počítáním, rozdíl se zmenší.
       </p>
-      {kontrol === 0 ? (
-        <p className="text-xs font-black text-neutral-800">V tomhle měsíci není uložená žádná Úprava skladu.</p>
+      {pocitani === 0 ? (
+        <p className="text-xs font-black text-neutral-800">V tomhle měsíci nebyla žádná Úprava skladu ani inventura.</p>
       ) : radky.length === 0 ? (
-        <p className="text-xs font-black text-emerald-800">Za {kontrol} uložených kontrol všechno sedělo — žádný rozdíl.</p>
+        <p className="text-xs font-black text-emerald-800">Za {pocitani} počítání všechno sedělo — žádný rozdíl.</p>
       ) : (
         <>
           <p className="text-sm font-black tabular-nums">
@@ -40,7 +42,7 @@ export default function RozborZtrataBokem({ mesicText, vysledek }: { mesicText: 
                 <span className="min-w-0 break-words">{r.beer_name} {r.package_label}</span>
                 <span className={`shrink-0 tabular-nums font-black ${r.rozdil < 0 ? 'text-rose-700' : 'text-neutral-700'}`}>
                   {kusu(r.rozdil)}
-                  <span className="font-semibold text-neutral-500"> · {r.tydnu === 1 ? '1 týden' : r.tydnu < 5 ? `${r.tydnu} týdny` : `${r.tydnu} týdnů`}</span>
+                  {r.pocitani > 0 && <span className="font-semibold text-neutral-500"> · {r.pocitani}× počítáno</span>}
                 </span>
               </li>
             ))}
