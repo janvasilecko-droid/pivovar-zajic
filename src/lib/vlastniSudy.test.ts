@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  bezSuduOdberatele, doSuduOdberatele, poznamkaSVlastnimSudem, POZNAMKA_VLASTNI_SUD, textRikaVlastniSud, vlastniSudyOdberatele,
+  bezSuduOdberatele, doSuduOdberatele, jeMimoNaseObaly, maVlastniObaly, poznamkaSVlastnimSudem, POZNAMKA_VLASTNI_SUD, textRikaVlastniSud,
+  vlastniSudyOdberatele,
 } from './vlastniSudy';
 
 // 6. 10. 2026: „Duck and Dog a Michal Fojtovice počítej zvlášť, mimo zásoby
@@ -147,5 +148,35 @@ describe('poznamkaSVlastnimSudem', () => {
   it('doplněná poznámka sama splňuje pravidlo', () => {
     expect(textRikaVlastniSud(POZNAMKA_VLASTNI_SUD)).toBe(true);
     expect(textRikaVlastniSud(poznamkaSVlastnimSudem('vratný sud', 'do jejich sudu'))).toBe(true);
+  });
+});
+
+// 27. 11. 2026: „DaD nepočítat do malých sudů, má svoje sudy, ani do počtu stočených sudů, myšleno jako počet obalů,
+// jen se počítá objem, ale ne obaly." Úzké pravidlo: DaD zůstává normálním zákazníkem ve skladu a plánu (20. 10.).
+describe('odběratel, jehož sudy nejsou naše obaly (Duck and Dog)', () => {
+  it('Duck and Dog v různých zápisech; podobná jména ne', () => {
+    for (const j of ['Duck and Dog', 'duck  and dog', 'DUCK AND DOG', 'Duck & Dog', ' Duck and Dog ', 'Duck and Dog Praha']) {
+      expect(jeMimoNaseObaly(j), j).toBe(true);
+    }
+    for (const j of ['Duck and Dogs', 'Dog', 'Duck', 'Hospoda U Psa', 'Madrid', '', null, undefined]) {
+      expect(jeMimoNaseObaly(j), String(j)).toBe(false);
+    }
+  });
+
+  it('maVlastniObaly: DaD, odběratelé se seznamu vlastních sudů a objednávka „do jejich sudu“; ostatní ne', () => {
+    expect(maVlastniObaly('Duck and Dog')).toBe(true);
+    expect(maVlastniObaly('Michal Fojtovice')).toBe(true);
+    expect(maVlastniObaly('MARTIN')).toBe(true);
+    expect(maVlastniObaly('Hospoda', 'do jejich sudu')).toBe(true);
+    expect(maVlastniObaly('Hospoda')).toBe(false);
+    expect(maVlastniObaly('Hospoda', 'prázdné sudy vyzvednout')).toBe(false);
+    expect(maVlastniObaly(null)).toBe(false);
+  });
+
+  it('plán a sklad se NEMĚNÍ: pro DaD pořád platí „normální zákazník s našimi sudy" (20. 10. 2026)', () => {
+    expect(vlastniSudyOdberatele('Duck and Dog')).toBeNull();
+    expect(doSuduOdberatele('Duck and Dog', { kind: 'keg', volume_l: 50 })).toBe(false);
+    const polozky = [{ package_id: 'k50', id: 1 }];
+    expect(bezSuduOdberatele('Duck and Dog', polozky, [{ id: 'k50', kind: 'keg', volume_l: 50 }])).toEqual(polozky);
   });
 });

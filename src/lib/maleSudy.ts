@@ -11,8 +11,17 @@
 // dovozu, a co se do počtu nevejde, se označí jako „nad počet". Obal, pro
 // který nikdo počet nezadal, se nehlídá — appka by jinak hlásila nedostatek
 // všude, kde se jen nic nevyplnilo.
+//
+// Dvě výjimky, kterými se objednávka do čísel NEPOČÍTÁ (27. 11. 2026):
+//  • odběratel, který nebere naše obaly (lib/vlastniSudy.ts maVlastniObaly: Duck and Dog, Michal Fojtovice,
+//    Martin, „do jejich sudu“) — „DaD nepočítat do malých sudů, má svoje sudy“;
+//  • předem objednaná objednávka na POZDĚJŠÍ týden (lib/predemDny.ts, např. „Na 18. 12.“ zadaná 27. 11.) —
+//    „ať mi tam 3 týdny nevisí, že chybí, a pak to nedělá bordel v číslech“. Počítá se od pondělí týdne, ve
+//    kterém se vozí (tehdy chodí i upozornění z lib/predemObjednane.ts); do té doby je jen vidět zvlášť
+//    (`pozdeji` ve výsledku) a nic neubírá ani nehlásí.
 import { jeVyrizena } from './stavyObjednavek';
-import { vlastniSudyOdberatele } from './vlastniSudy';
+import { maVlastniObaly } from './vlastniSudy';
+import { jePredemObjednana } from './predemDny';
 import { computeDeliveryDateISO } from './denZavozu';
 import { stockAsOf, type Movement } from './stockLedger';
 import { businessHour } from './businessDate';
@@ -185,6 +194,23 @@ export type SouhrnMalychSudu = {
   odvezenoZ?: OdvezenoZObjednavky[];
 };
 
+/**
+ * Malý sud z předem objednané objednávky na POZDĚJŠÍ týden (27. 11. 2026: „na 18. 12. 20l — aby se hlídalo, že
+ * ta 20l je, ale ať mi tam 3 týdny nevisí, že chybí“). Do čísel se zatím nepočítá; počítá se od `pocitaSeOd`.
+ */
+export type PozdejiPolozka = {
+  order_id: string;
+  item_id: string;
+  place_name: string | null;
+  /** Den závozu (YYYY-MM-DD). */
+  delivery_date: string;
+  /** Pondělí týdne závozu (YYYY-MM-DD) — od něj se objednávka počítá a chodí upozornění. */
+  pocitaSeOd: string;
+  package_id: string;
+  beer_id: string | null;
+  quantity: number;
+};
+
 export type VysledekMalychSudu = {
   /** Jen obaly s naklikaným počtem. */
   souhrn: SouhrnMalychSudu[];
@@ -192,7 +218,25 @@ export type VysledekMalychSudu = {
   nadPoPolozce: Map<string, number>;
   /** Každá hlídaná položka: kolik kusů má sud a kolik ne (zelená/oranžová/červená); `zeSkladu` = kolik pokryly započítané plné sudy skladem. */
   poPolozce: Map<string, { kryto: number; chybi: number; zeSkladu?: number }>;
+  /** Hlídané malé sudy z předem objednaných objednávek na pozdější týden — zatím mimo čísla, od data (nejbližší první). */
+  pozdeji: PozdejiPolozka[];
 };
+
+/** Den objednání (YYYY-MM-DD): order_date, jinak den vzniku. */
+function denObjednani(o: ObjednavkaProSudy): string {
+  return (o.order_date ?? o.created_at ?? '').slice(0, 10);
+}
+
+/**
+ * Od kdy se objednávka počítá do malých sudů, JEN když je to předem objednaná objednávka (lib/predemDny.ts)
+ * na pozdější týden než ten dnešní — pak pondělí týdne závozu. Jinak null (počítá se hned).
+ */
+export function pocitaSeOd(o: ObjednavkaProSudy, dnes: string): string | null {
+  const zavoz = (o.delivery_date ?? '').slice(0, 10);
+  if (!zavoz || !jePredemObjednana(denObjednani(o), zavoz)) return null;
+  const pondeli = pondeliTydne(zavoz);
+  return pondeli > pondeliTydne(dnes) ? pondeli : null;
+}
 
 /**
  * Rozdělí malé sudy po otevřených objednávkách od nejbližšího dovozu
@@ -243,16 +287,21 @@ export function hlidejMaleSudy(
   // lib/vlastniSudy.ts) se stáčí do svých sudů: z prázdných malých sudů
   // pivovaru nebere nic (6. 10. 2026: „to samý Martin malý sudy"). Stejně
   // tak objednávka, která to říká v poznámce („do jejich sudu", 14. 10. 2026).
-  const otevrene = objednavky.filter((o) => jeOtevrena(o) && (!dnes || chystaSeOd(o, dnes)) && !volby.odepsane?.has(o.id)
-    && !vlastniSudyOdberatele(o.place_name, o.note));
+  // Duck and Dog (27. 11. 2026: „má svoje sudy“) se do malých sudů nepočítá taky — viz maVlastniObaly.
+  const kOtevrene = objednavky.filter((o) => jeOtevrena(o) && (!dnes || chystaSeOd(o, dnes)) && !volby.odepsane?.has(o.id)
+    && !maVlastniObaly(o.place_name, o.note));
+  // Předem objednané na pozdější týden zatím mimo čísla: nic neberou z počtu a nic nehlásí.
+  const pozdejiObjednavky = dnes ? kOtevrene.filter((o) => pocitaSeOd(o, dnes) !== null) : [];
+  const pozdejiId = new Set(pozdejiObjednavky.map((o) => o.id));
+  const otevrene = kOtevrene.filter((o) => !pozdejiId.has(o.id));
   const poradi = poradiObjednavek(otevrene);
 
   // Odjeté = ne storno, ne otevřené (zavezené, odepsané, vyřízené, po
-  // termínu) a ne do vlastních sudů odběratele.
+  // termínu), ne čekající na pozdější týden a ne do vlastních sudů odběratele.
   const otevreneId = new Set(otevrene.map((o) => o.id));
   const zadano = volby.zadano ?? {};
-  const odjete = objednavky.filter((o) => o.status !== 'storno' && !otevreneId.has(o.id)
-    && !vlastniSudyOdberatele(o.place_name, o.note));
+  const odjete = objednavky.filter((o) => o.status !== 'storno' && !otevreneId.has(o.id) && !pozdejiId.has(o.id)
+    && !maVlastniObaly(o.place_name, o.note));
   const odjetaPodleId = new Map(odjete.map((o) => [o.id, o]));
   const poradiOdjetych = poradiObjednavek(odjete);
   const odpoctyPolozek = new Map<string, OdpocetProSudy[]>();
@@ -362,7 +411,24 @@ export function hlidejMaleSudy(
       odvezenoZ: [...(odvezenoZ[package_id]?.values() ?? [])],
     };
   });
-  return { souhrn, nadPoPolozce, poPolozce };
+  const pozdejiPodleId = new Map(pozdejiObjednavky.map((o) => [o.id, o]));
+  const pozdeji: PozdejiPolozka[] = polozky
+    .filter((p) => p.package_id && zasoba[p.package_id] != null && Number(p.quantity) > 0 && pozdejiPodleId.has(p.order_id))
+    .map((p) => {
+      const o = pozdejiPodleId.get(p.order_id)!;
+      return {
+        order_id: o.id,
+        item_id: p.id,
+        place_name: o.place_name ?? null,
+        delivery_date: (o.delivery_date ?? '').slice(0, 10),
+        pocitaSeOd: pocitaSeOd(o, dnes!) ?? '',
+        package_id: p.package_id!,
+        beer_id: p.beer_id ?? null,
+        quantity: Number(p.quantity),
+      };
+    })
+    .sort((a, b) => a.delivery_date.localeCompare(b.delivery_date) || a.order_id.localeCompare(b.order_id) || a.item_id.localeCompare(b.item_id));
+  return { souhrn, nadPoPolozce, poPolozce, pozdeji };
 }
 
 /** Pořadí objednávek od nejbližšího dovozu (bez data na konec), pak podle vzniku. */

@@ -13,7 +13,7 @@ import { useAuth } from '../lib/auth';
 import { canUserEdit, getUserPermissions } from '../lib/permissions';
 import { Spinner } from './ui';
 import { jeMalySud, type ObalProSudy } from '../lib/maleSudy';
-import { popisOdvezenych } from '../lib/maleSudyPopis';
+import { popisOdvezenych, popisPozdeji } from '../lib/maleSudyPopis';
 import { useHlidaniMalychSudu, useMaleSudy, type VolbyUlozeni } from '../lib/useMaleSudy';
 import { chyba } from '../lib/toast';
 import { nactiJson, ulozJson } from '../lib/uloziste';
@@ -134,7 +134,7 @@ export function MaleSudyPanel({ packages, canEdit, kdo, prijemce, dnes }: {
   dnes?: string;
 }) {
   const { zasoba, zadanoKdy, zapocitatPlne, umiZapocitatPlne, nacteno, chybiMigrace, chybaNacteni, ulozit, nastavZapocitatPlne } = useMaleSudy();
-  const { souhrn, jmenaPiv, nacteno: hlidaniNacteno, chybaNacteni: bezObjednavek } = useHlidaniMalychSudu(zasoba, undefined, zapocitatPlne, zadanoKdy);
+  const { souhrn, pozdeji, jmenaPiv, nacteno: hlidaniNacteno, chybaNacteni: bezObjednavek } = useHlidaniMalychSudu(zasoba, undefined, zapocitatPlne, zadanoKdy);
   const male = packages
     .filter(jeMalySud)
     .sort((a, b) => Number(b.volume_l) - Number(a.volume_l));
@@ -201,7 +201,8 @@ export function MaleSudyPanel({ packages, canEdit, kdo, prijemce, dnes }: {
       <p className="text-sm text-neutral-600">
         Naklikej, kolik máš prázdných malých sudů — velké číslo je to, co zadáš, a ubývá o sudy objednávek, které od té doby odjely. Pod ním je
         „K dispozici": prázdné minus sudy, které berou otevřené objednávky (např. pro Radka), tedy kolik se ještě dá stočit pro dalšího. Co
-        objednávky přečerpají, označí červeně.
+        objednávky přečerpají, označí červeně. Objednávky Duck and Dog (mají svoje sudy) ani předem objednané na pozdější týden se do čísel
+        nepočítají — ty pozdější jsou vidět pod obalem a počítají se od pondělí týdne, ve kterém se vozí.
       </p>
       {male.length === 0 && <div className="card p-4 text-sm text-neutral-600">V obalech není žádný malý sud (KEG pod 30 l).</div>}
       {male.length > 0 && <OdeslatRadkovi text={textSms} prijemce={prijemce ?? null} />}
@@ -297,6 +298,19 @@ export function MaleSudyPanel({ packages, canEdit, kdo, prijemce, dnes }: {
                 </span>
               </div>
             )}
+            {/* Předem objednané na pozdější týden (27. 11. 2026): „na 18. 12. 20l — aby se hlídalo, že ta 20l je, ale ať mi tam
+                3 týdny nevisí, že chybí.“ Zatím mimo čísla (nic neubírají ani nehlásí), počítají se od pondělí týdne závozu —
+                tehdy chodí i upozornění „Předem objednané“. */}
+            {hlida && (() => {
+              const radky = popisPozdeji(pozdeji.filter((x) => x.package_id === pk.id));
+              if (radky.length === 0) return null;
+              return (
+                <div data-testid="male-sudy-pozdeji" className="rounded border border-neutral-300 bg-neutral-50 px-3 py-2 text-xs font-semibold text-neutral-800 space-y-0.5">
+                  <div className="font-black uppercase tracking-wide text-neutral-600">Hlídá se — zatím se nepočítá</div>
+                  {radky.map((r) => <div key={r}>{r}</div>)}
+                </div>
+              );
+            })()}
             {/* Plné sudy skladem: otázka, jestli je započítat (6. 10. 2026:
                 „když ne, nepočítej je, když jo, tak je počítej"). Bez odpovědi
                 se nepočítají — číslo nahoře jsou prázdné sudy. */}

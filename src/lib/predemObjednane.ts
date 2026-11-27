@@ -11,12 +11,10 @@
 import { datumProDenVTydnu, dayKeyFromISO } from './keggingPlan';
 import { DAYS } from './shared';
 import { jeVyrizena } from './stavyObjednavek';
+import { jePredemObjednana, PREDSTIH_DNI } from './predemDny';
 
-/**
- * Od kolika dní předem je objednávka „předem“. Běžná objednávka v pátek na příští středu (5 dní)
- * se nepočítá — ta je v týdenním rytmu a plán stáčení ji ukazuje stejně jako ostatní.
- */
-export const PREDSTIH_DNI = 7;
+// Pravidlo „předem“ (kolik dní) žije v lib/predemDny.ts — používá ho i hlídání malých sudů.
+export { PREDSTIH_DNI };
 
 export type PredemObjednana = {
   id: string;
@@ -38,9 +36,6 @@ type Objednavka = {
 };
 type Polozka = { order_id: string; beer_id: string | null; package_id: string | null; quantity: number };
 
-const DEN_MS = 86_400_000;
-const utc = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
-
 /**
  * Objednávky na tento týden (pondělí až neděle týdne, do kterého spadá `dnes`), které přišly nejméně
  * `PREDSTIH_DNI` dní před dnem závozu a ještě nejsou zavezené ani stornované. Podle data závozu, pak
@@ -57,10 +52,8 @@ export function predemObjednane(
   const vysledek: PredemObjednana[] = [];
   for (const o of objednavky) {
     const datum = (o.delivery_date ?? '').slice(0, 10);
-    const zadano = (o.order_date ?? '').slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(datum) || !/^\d{4}-\d{2}-\d{2}$/.test(zadano)) continue;
     if (datum < pondeli || datum > nedele) continue;
-    if ((utc(datum) - utc(zadano)) / DEN_MS < PREDSTIH_DNI) continue;
+    if (!jePredemObjednana(o.order_date, datum)) continue;
     if (o.status === 'storno' || o.is_delivered || jeVyrizena(o.status)) continue;
     vysledek.push({
       id: o.id,

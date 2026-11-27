@@ -420,6 +420,6 @@ export function useHlidaniMalychSudu(
     ? hlidejMaleSudy(zasoba, data.o, data.p, silaPodleId, dnes, {
       odepsane: dnesni.odepsane, skladem: dnesni.skladem, zapocitatPlne, zadano: zadanoKdy, odpocty: data.odpocty, plnePriZadani,
     })
-    : { souhrn: [], nadPoPolozce: new Map<string, number>(), poPolozce: new Map<string, { kryto: number; chybi: number }>() };
+    : { souhrn: [], nadPoPolozce: new Map<string, number>(), poPolozce: new Map<string, { kryto: number; chybi: number }>(), pozdeji: [] };
   return { ...vysledek, nacteno: !!data || selhalo, chybaNacteni: selhalo && !data, jmenaPiv: data?.jmenaPiv ?? new Map() };
 }

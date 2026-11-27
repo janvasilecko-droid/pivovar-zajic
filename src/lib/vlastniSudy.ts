@@ -96,6 +96,34 @@ export function vlastniSudyOdberatele(placeName: string | null | undefined, pozn
   return textRikaVlastniSud(poznamka) ? 'vse' : null;
 }
 
+/**
+ * Odběratelé, jejichž sudy NEJSOU obaly pivovaru: pivovar jim jen plní pivo do jejich sudů, takže se
+ * jejich kusy nepočítají jako naše obaly (nebere se z prázdných malých sudů, nepočítají se do počtu sudů
+ * ve statistice), ale OBJEM piva se počítá normálně. Jména jsou bez diakritiky, malými písmeny.
+ *
+ * Majitel 27. 11. 2026: „DaD nepočítat do malých sudů, má svoje sudy, ani do počtu stočených sudů, myšleno
+ * jako počet obalů, jen se počítá objem, ale ne obaly.“ Je to ÚZKÉ pravidlo: DaD zůstává normálním zákazníkem
+ * ve skladu a v plánu stáčení (rozhodnutí 20. 10. 2026) — jeho pivo se z tanku bere, jeho sudy ne.
+ */
+const MAJI_VLASTNI_OBALY = ['duck and dog'];
+
+/** Patří odběratel do seznamu těch, jejichž sudy nejsou obaly pivovaru (zatím Duck and Dog)? */
+export function jeMimoNaseObaly(placeName: string | null | undefined): boolean {
+  // „Duck & Dog“ = „Duck and Dog“; jen celá slova („Duck and Dogs“ a podobné ne).
+  const n = ` ${norm(placeName).replace(/&/g, ' and ').replace(/\s+/g, ' ').trim()} `;
+  return MAJI_VLASTNI_OBALY.some((j) => n.includes(` ${j} `));
+}
+
+/**
+ * Nebere odběratel naše obaly? Platí pro odběratele se SEZNAMU vlastních sudů (Michal Fojtovice, Martin u malých),
+ * pro objednávku s poznámkou „do jejich sudu“ i pro ty, jejichž sudy nejsou naše obaly (Duck and Dog).
+ * Používá se tam, kde se počítají OBALY — hlídání malých sudů (prázdné sudy pivovaru) —
+ * ne tam, kde se počítá sklad nebo plán stáčení (ty řídí `vlastniSudyOdberatele`).
+ */
+export function maVlastniObaly(placeName: string | null | undefined, poznamka?: string | null): boolean {
+  return !!vlastniSudyOdberatele(placeName, poznamka) || jeMimoNaseObaly(placeName);
+}
+
 /** Stáčí se tahle položka do sudu odběratele (ne do sudu pivovaru)? */
 export function doSuduOdberatele(placeName: string | null | undefined, obal: ObalSudu | undefined, poznamka?: string | null): boolean {
   const vlastni = vlastniSudyOdberatele(placeName, poznamka);
