@@ -45,8 +45,16 @@ const DIST = join(KOREN, 'dist');
  * samostatného kusu. Žádná knihovna ani celá obrazovka do startu nespadla,
  * proto se strop zvedá rozmyšleně na 265 kB — ať se při příští drobné změně
  * neřeší desetiny kilobajtu.
+ *
+ * 27. 11. 2026: práce bez signálu (docs/offline.md). Před ní 262,0 kB, s ní
+ * napoprvé 270,5 kB. Co ke startu nepatří, šlo ven do samostatných kusů —
+ * stahování kopie tabulek a vyhodnocení dotazů (lib/offlineUdrzba.ts,
+ * lib/offlineDotaz.ts; −4,6 kB) — a hlídá to test v supabase.kopie.test.ts.
+ * Zbylých ~4 kB být ve startu musí: rozhodují už o PRVNÍM dotazu (jistič
+ * spojení, přihlášení bez signálu, čtení kopie z telefonu). Naměřeno 265,9 kB,
+ * strop se proto zvedá na 270 kB.
  */
-const STROP_KB = 265;
+const STROP_KB = 270;
 
 if (!existsSync(join(DIST, 'index.html'))) {
   console.error('Chybí dist/index.html — nejdřív `npm run build`.');

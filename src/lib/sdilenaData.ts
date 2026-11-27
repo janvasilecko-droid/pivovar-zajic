@@ -21,7 +21,7 @@
  * na jednom místě (SLOUPCE).
  */
 import { fetchAllRows, supabase } from './supabase';
-import { NADRAZENE, verzeTabulky, zneplatniVse } from './zneplatneni';
+import { NADRAZENE, ohlasZmenuTabulky, verzeTabulky, zneplatniVse } from './zneplatneni';
 import { tydenniDoSkladu } from './tydenniInventura';
 import { businessDateISO } from './businessDate';
 import { TYDENNI_INVENTURA_DO_SKLADU } from './skryteModuly';
@@ -61,9 +61,9 @@ function spustHlidani() {
 
   // Po návratu do appky / obnovení sítě mohlo cokoli utéct.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') zneplatniVse();
+    if (document.visibilityState === 'visible') zneplatniVse(false);
   });
-  window.addEventListener('online', zneplatniVse);
+  window.addEventListener('online', () => zneplatniVse(false));
 
   // Vlastní kanál, aby paměť zneplatnila i změna tabulky, kterou zrovna
   // žádná otevřená obrazovka nesleduje.
@@ -72,11 +72,14 @@ function spustHlidani() {
     (Object.keys(SLOUPCE) as SdilenaTabulka[]).forEach((t) => {
       kanal.on('postgres_changes' as any, { event: '*', schema: 'public', table: t }, () => {
         pamet.delete(t);
+        // Skutečná změna od někoho jiného — kopie dat v telefonu si tabulku stáhne znovu (lib/offlineKopie.ts).
+        ohlasZmenuTabulky(t);
       });
     });
     Object.entries(NADRAZENE).forEach(([vnorena, nadrazene]) => {
       kanal.on('postgres_changes' as any, { event: '*', schema: 'public', table: vnorena }, () => {
         nadrazene.forEach((t) => pamet.delete(t as SdilenaTabulka));
+        ohlasZmenuTabulky(vnorena);
       });
     });
     let prvniPripojeni = true;

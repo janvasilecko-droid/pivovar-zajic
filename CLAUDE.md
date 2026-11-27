@@ -71,6 +71,23 @@
   aplikaci otevírá (`src/lib/zarizeni.ts`); dosavadní zápis „Android (Capacitor)“ byl nespolehlivý, `window.Capacitor` existuje i v prohlížeči.
 - CI po sestavení pouští `npm run zkontroluj-css-podlaha` (čte `dist/`, od 25. 11. i `_redirects` s `/apk`, `instalace.html` a `sw.js`).
 
+## Práce bez signálu (offline)
+- Majitel 27. 11. 2026: „furt to nefunguje offline, offline si to má držet aspoň objednávky na daný týden, závozy,
+  stáčení, sklad aktuální“ a „napíše to, že to je offline, a neukážou se mi žádný data“. Jak to funguje, změřené
+  příčiny, omezení a jak to zkoušet: `docs/offline.md`.
+- Telefon drží **kopii celých provozních tabulek** (`TABULKY_KOPIE` v `src/lib/offlineKopie.ts`) a dotazy nad ní
+  vyhodnocuje sám (`src/lib/offlineDotaz.ts`). Když obrazovka, která má jít bez signálu, začne číst novou tabulku,
+  patří do `TABULKY_KOPIE`. Nikdy tam nedávat zprávy z WhatsAppu, záznamy chyb a přihlášení ani `app_secrets`.
+- **Nehádat.** Dotaz, který `offlineDotaz.ts` neumí (nový operátor, vnoření, neznámý sloupec), vrací `null` a platí
+  starý postup. Podporu rozšiřuj jen s testem; nikdy „přibližnou“ odpovědí.
+- Slabý signál řeší jistič (`src/lib/jisticSpojeni.ts`): jen pro čtení a jen když telefon odpovědět umí. Na zápisy
+  nesahá — ty zkoušejí server vždy a pak jdou do fronty.
+- Kusy aplikace ukládá service worker při instalaci verze (`KUSY` v `public/sw.js`, doplňuje build). Při zásahu do
+  `sw.js` zvedni `SW_VERSION`.
+- Po aktualizaci (a na novém telefonu) musí appka jednou naběhnout **se signálem** a chvíli zůstat otevřená, jinak
+  nemá kopii. Když majitel hlásí „bez signálu nevidím data“, zeptej se, co píše pruh nahoře („Kopie dat v telefonu:
+  …“ nebo „zatím není kopie dat“) — nehádat.
+
 ## Pivovarská bible (odborná knihovna + AI sládek)
 - AI je **Claude (Anthropic API), ne Gemini** — rozhodnutí majitele 30. 10. 2026
   („chci aby to bylo napojené na Claude", „ne gemini"). Klíč ANTHROPIC_API_KEY

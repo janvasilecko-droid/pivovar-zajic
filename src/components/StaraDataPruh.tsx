@@ -10,6 +10,7 @@
 // a hned po návratu signálu. Jakmile přijdou čerstvá data, zmizí.
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, RefreshCw, WifiOff } from 'lucide-react';
+import { UDALOST_SPOJENI_ZPET } from '../lib/jisticSpojeni';
 
 /** Jak často se data zkusí načíst sama, dokud jsou z paměti telefonu. */
 export const OBNOVA_STARYCH_DAT_MS = 20_000;
@@ -46,9 +47,12 @@ export default function StaraDataPruh({
     }, OBNOVA_STARYCH_DAT_MS);
     const naPripojeni = () => { void znovu.current(); };
     window.addEventListener('online', naPripojeni);
+    // Slabý signál: telefon byl „online" celou dobu, návrat serveru pozná jistič spojení (lib/jisticSpojeni.ts).
+    window.addEventListener(UDALOST_SPOJENI_ZPET, naPripojeni);
     return () => {
       clearInterval(casovac);
       window.removeEventListener('online', naPripojeni);
+      window.removeEventListener(UDALOST_SPOJENI_ZPET, naPripojeni);
     };
   }, [videt]);
 

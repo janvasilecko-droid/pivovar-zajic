@@ -37,7 +37,7 @@ vi.mock('./supabase', () => {
   };
 });
 
-import { enqueue, getQueue, queueLength, clearQueue, removeOp, syncQueue, getLastSyncFailures, popisOperace } from './offline';
+import { enqueue, getQueue, queueLength, clearQueue, removeOp, syncQueue, getLastSyncFailures, popisOperace, prehravaSeFronta } from './offline';
 
 beforeEach(() => {
   localStorage.clear();
@@ -69,6 +69,20 @@ describe('fronta', () => {
 });
 
 describe('přehrání fronty', () => {
+  it('po dobu odesílání to o sobě ví (odmítnutý zápis se nesmí zařadit znovu) — i když odesílání spadne', async () => {
+    expect(prehravaSeFronta()).toBe(false);
+    enqueue({ table: 'orders', op: 'insert', row: { id: 'o1' } });
+    let behem: boolean | null = null;
+    odpoved = () => { behem = prehravaSeFronta(); return { error: null }; };
+    await syncQueue();
+    expect(behem).toBe(true);
+    expect(prehravaSeFronta()).toBe(false);
+    enqueue({ table: 'orders', op: 'insert', row: { id: 'o2' } });
+    odpoved = () => { throw new Error('síť spadla uprostřed'); };
+    await syncQueue();
+    expect(prehravaSeFronta()).toBe(false);
+  });
+
   it('odešle zápisy v pořadí a frontu vyprázdní', async () => {
     enqueue({ table: 'orders', op: 'insert', row: { id: 'o1' } });
     enqueue({ table: 'order_items', op: 'insert', row: { id: 'i1', order_id: 'o1' } });

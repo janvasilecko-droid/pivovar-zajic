@@ -24,14 +24,45 @@ export const NADRAZENE: Record<string, string[]> = {
   tydenni_inventura: ['inventory'],
 };
 
-/** Data tabulky se změnila (vlastní zápis, cizí zápis přes realtime…). */
-export function zneplatniTabulku(tabulka: string): void {
+/**
+ * Kdo chce vědět HNED, že se tabulka změnila (kopie pro práci bez signálu — lib/offlineKopie.ts — si ji stáhne
+ * znovu). `null` = nevíme která, tedy všechny. Posluchač nesmí nic shodit: zneplatnění se volá uprostřed zápisů.
+ *
+ * Posluchači se dozvědí jen o SKUTEČNÝCH změnách (vlastní zápis, cizí zápis přes realtime). Zneplatnění „pro
+ * jistotu" (minutová pojistka obrazovek, návrat do appky, obnovené spojení) jim nechodí — kopie by se jinak
+ * stahovala každou minutu znovu, i když se nic nezměnilo, a zbytečně jedla mobilní data.
+ */
+type Posluchac = (tabulka: string | null) => void;
+const posluchaci = new Set<Posluchac>();
+
+/** Přihlásí posluchače změn; vrací funkci, která ho odhlásí. */
+export function priZneplatneni(posluchac: Posluchac): () => void {
+  posluchaci.add(posluchac);
+  return () => { posluchaci.delete(posluchac); };
+}
+
+function oznam(tabulka: string | null): void {
+  posluchaci.forEach((p) => { try { p(tabulka); } catch { /* posluchač nesmí rozbít zápis */ } });
+}
+
+/**
+ * Data tabulky se změnila (vlastní zápis, cizí zápis přes realtime…). `zmena = false`: jen pro jistotu —
+ * paměť se zahodí, ale posluchačům změn se nic neříká.
+ */
+export function zneplatniTabulku(tabulka: string, zmena: boolean = true): void {
   for (const t of [tabulka, ...(NADRAZENE[tabulka] ?? [])]) {
     verze.set(t, (verze.get(t) ?? 0) + 1);
   }
+  if (zmena) oznam(tabulka);
 }
 
-/** Nevíme, co se změnilo (RPC, edge funkce, návrat do appky…) — všechno. */
-export function zneplatniVse(): void {
+/** Nevíme, co se změnilo (RPC, edge funkce, návrat do appky…) — všechno. `zmena` jako u `zneplatniTabulku`. */
+export function zneplatniVse(zmena: boolean = true): void {
   verzeVseho++;
+  if (zmena) oznam(null);
+}
+
+/** Tabulka se změnila a paměť si už zahodil ten, kdo to zjistil — jen dát vědět posluchačům. */
+export function ohlasZmenuTabulky(tabulka: string): void {
+  oznam(tabulka);
 }

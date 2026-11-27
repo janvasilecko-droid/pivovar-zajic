@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import StaraDataPruh, { OBNOVA_STARYCH_DAT_MS } from './StaraDataPruh';
+import { UDALOST_SPOJENI_ZPET } from '../lib/jisticSpojeni';
 
 afterEach(() => { vi.useRealTimers(); });
 
@@ -116,5 +117,19 @@ describe('StaraDataPruh', () => {
     vi.advanceTimersByTime(OBNOVA_STARYCH_DAT_MS);
     expect(stara).not.toHaveBeenCalled();
     expect(nova).toHaveBeenCalledTimes(1);
+  });
+
+  it('zkusí to hned, jak se spojení vrátí — ať to ohlásí telefon, nebo jistič spojení (slabý signál)', () => {
+    const onZnovu = vi.fn();
+    const { rerender } = render(<StaraDataPruh zPameti onZnovu={onZnovu} />);
+    window.dispatchEvent(new Event('online'));
+    expect(onZnovu).toHaveBeenCalledTimes(1);
+    window.dispatchEvent(new Event(UDALOST_SPOJENI_ZPET));
+    expect(onZnovu).toHaveBeenCalledTimes(2);
+    // Jakmile jsou data čerstvá (pruh zmizí), už neposlouchá.
+    rerender(<StaraDataPruh onZnovu={onZnovu} />);
+    window.dispatchEvent(new Event('online'));
+    window.dispatchEvent(new Event(UDALOST_SPOJENI_ZPET));
+    expect(onZnovu).toHaveBeenCalledTimes(2);
   });
 });

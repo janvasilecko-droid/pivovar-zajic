@@ -7,6 +7,9 @@ import { useAuth } from '../lib/auth';
 import { potvrd } from '../lib/toast';
 import { Modal } from './ui';
 import { supabase, Beer, Package, Place } from '../lib/supabase';
+import { popisCasuKopie, vetaOKopii } from '../lib/offlineKopieSklad';
+import { useStavKopie } from '../lib/useStavKopie';
+import { UDALOST_SPOJENI_ZPET } from '../lib/jisticSpojeni';
 
 // Načte se až při otevření — viz komentář u <EditOrderModal /> níž.
 const EditOrderModal = lazy(() => import('./EditOrderModal').then((m) => ({ default: m.EditOrderModal })));
@@ -625,21 +628,26 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       if (!mounted) return;
       setPending(queueLength());
       const offQ = onQueueChange((n) => setPending(n));
+      // Spojení je zpátky: obrazovky si načtou čerstvá data a zápisy z fronty odejdou na server.
+      const poNavratuSpojeni = () => {
+        window.dispatchEvent(new CustomEvent('pivovar:online-refetch'));
+        if (queueLength() > 0) {
+          setSyncing(true);
+          syncQueue().then((r) => {
+            setSyncing(false);
+            setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`);
+            window.dispatchEvent(new CustomEvent('pivovar:online-refetch'));
+            setTimeout(() => setSyncMsg(null), 4000);
+          });
+        }
+      };
       const offC = onConnectivityChange((o) => {
         setOnline(o);
-        if (o) {
-          window.dispatchEvent(new CustomEvent('pivovar:online-refetch'));
-          if (queueLength() > 0) {
-            setSyncing(true);
-            syncQueue().then((r) => {
-              setSyncing(false);
-              setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`);
-              window.dispatchEvent(new CustomEvent('pivovar:online-refetch'));
-              setTimeout(() => setSyncMsg(null), 4000);
-            });
-          }
-        }
+        if (o) poNavratuSpojeni();
       });
+      // Slabý signál: telefon byl celou dobu „online", jen server neodpovídal — žádná událost `online` nepřijde.
+      // Návrat pozná jistič spojení podle první odpovědi serveru (lib/jisticSpojeni.ts).
+      window.addEventListener(UDALOST_SPOJENI_ZPET, poNavratuSpojeni);
       if (navigator.onLine && queueLength() > 0) {
         setSyncing(true);
         syncQueue().then((r) => {
@@ -649,7 +657,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
           setTimeout(() => setSyncMsg(null), 4000);
         });
       }
-      return () => { offQ(); offC(); };
+      return () => { offQ(); offC(); window.removeEventListener(UDALOST_SPOJENI_ZPET, poNavratuSpojeni); };
     })();
     return () => { mounted = false; };
   }, []);
@@ -664,6 +672,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
     setSyncMsg(r.remaining === 0 ? `Synchronizováno ${r.ok} změn` : `OK ${r.ok}, selhalo ${r.failed}`);
     setTimeout(() => setSyncMsg(null), 4000);
   }
+
+  // 📴 Jak stará je kopie dat pro práci bez signálu — do pruhu „offline" (lib/offlineKopie.ts).
+  const stavOfflineKopie = useStavKopie();
+  const casKopie = popisCasuKopie(stavOfflineKopie.uplneT ?? stavOfflineKopie.posledniT);
 
   // Banner "offline → zastaralá data": supabase.ts dispatches 'pivovar:offline-stale'
   // vždy, když GET odpověď byla vyrobena z mezipaměti/prázdná kvůli offline stavu.
@@ -773,8 +785,10 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
       {showStaleBanner && (
         <div className="fixed top-4 right-4 z-toast max-w-xs sm:max-w-sm flex items-center gap-2 rounded bg-amber-50 border-2 border-amber-300 text-amber-950 shadow-xl px-3.5 py-2.5 animate-fade-in">
           <span className="text-base shrink-0"><AlertTriangle className="ikona-text" /></span>
-          <p className="text-udaj font-bold leading-snug flex-1">
+          <p className="text-udaj font-bold leading-snug flex-1" data-testid="pruh-z-pameti">
             Server neodpovídá (offline nebo slabý signál) — zobrazená data nemusí být aktuální (z paměti telefonu).
+            {/* Jak stará jsou: kopie se stahuje sama se signálem (lib/offlineKopie.ts, 27. 11. 2026). */}
+            {' '}{vetaOKopii(stavOfflineKopie)}
           </p>
           <button
             onClick={() => setShowStaleBanner(false)}
@@ -984,6 +998,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               {!online ? (
                 <>
                   <span><WifiOff className="ikona-text" /> Jste offline</span>
+                  {casKopie && <span className="opacity-90" data-testid="offline-cas-kopie">· data z: {casKopie}</span>}
                   {pending > 0 && <span className="opacity-90">— {pending} zápisů čeká v telefonu</span>}
                 </>
               ) : (

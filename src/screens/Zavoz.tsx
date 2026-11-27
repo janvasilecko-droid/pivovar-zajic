@@ -31,6 +31,7 @@ import { nactiSdilenouTabulku } from '../lib/sdilenaData';
 import { ZavozVolba } from '../components/zavoz/ZavozVolba';
 import { datumProDenObjednavky } from '../lib/keggingPlan';
 import { uloz } from '../lib/uloziste';
+import { oznacMinuleZavezene } from '../lib/minuleZavezeno';
 import { useOdskrtavani } from '../lib/useOdskrtavani';
 import { denProRozvoz } from '../lib/nalozitNaZavoz';
 import { cilNavigace, maViceMist, mistoObjednavky } from '../lib/mistaZavozu';
@@ -145,18 +146,9 @@ export default function Zavoz({ setPage, nakladka = false, denNakladky }: {
 
   async function load(silent = false) {
     if (!silent && !orders.length) setLoading(true);
-    // ✅ Závoz v minulosti = zavezeno (29. 9. 2026: „vše ber jako zavezeno —
-    // pokud není zavezeno, je buď smazáno, nebo ve Vrácení"). Totéž dělá
-    // databáze každou noc (migrace 20261231190000); appka jednou denně hned,
-    // ať se nečeká na migraci. Chyba (třeba bez práv) nic neblokuje.
+    // Závoz v minulosti = zavezeno. Běží na pozadí a načtení seznamu na něj nečeká (lib/minuleZavezeno.ts).
     const dnes = businessDateISO();
-    let uzDnes = false;
-    try { uzDnes = localStorage.getItem('pivovar_minule_zavezeno') === dnes; } catch { /* nic */ }
-    if (!uzDnes) {
-      const { error } = await supabase.from('orders').update({ is_delivered: true })
-        .eq('is_delivered', false).neq('status', 'storno').lt('delivery_date', dnes);
-      if (!error) uloz('pivovar_minule_zavezeno', dnes);
-    }
+    oznacMinuleZavezene(dnes, () => { void load(true); });
     const [{ data: o }, { data: p }, { data: b }, { data: pl }, sklad, { data: vsechnyPolozky }] = await Promise.all([
       fetchAllRows('orders', '*').neq('status', 'storno').order('order_date', { ascending: false }),
       supabase.from('packages').select('*'),
