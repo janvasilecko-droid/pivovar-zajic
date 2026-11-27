@@ -2,23 +2,23 @@
  "format": "pivovar-zaloha-manifest",
  "v": 1,
  "sada": "bible",
- "datum": "2026-11-26T11:09:21.514Z",
+ "datum": "2026-11-27T11:02:03.344Z",
  "tabulky": {
   "migrace_aplikovane": {
-   "radku": 15,
-   "sha256": "5e45bd567e57c42cccde932809e3d35d397fb54a89564de0b8ac55a8d9bd5e21"
+   "radku": 16,
+   "sha256": "a1ba235fee92afa5705d8a503596fc651049a76ac63c48830164b412d9b197f9"
   },
   "bible_nastaveni": {
    "radku": 12,
-   "sha256": "496da7de68e99e2b49c4816fcdf25f5dfada7a6c3fb7167f49ba9f0b0d5fe612"
+   "sha256": "9843af39eabed327729226b91904312cc33c76ce53086c24a5b524d6b6f187e3"
   },
   "bible_dokumenty": {
    "radku": 6,
    "sha256": "92bca7bfc74d7e6ad118ea4a07c959bb29255cb0b7631079703c1e2d07432a31"
   },
   "ai_naklady": {
-   "radku": 81,
-   "sha256": "2b11aa4e574f1cd3ca0d827bab4c87473967abcf6dba7794d9dc5a3f1a91febd"
+   "radku": 87,
+   "sha256": "ae307258791dc26a37185344bcce76b2f350ee77eada0d353590c7b997dfae1f"
   },
   "bible_zkusenosti": {
    "radku": 0,
