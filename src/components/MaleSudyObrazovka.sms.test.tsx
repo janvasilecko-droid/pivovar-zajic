@@ -26,7 +26,7 @@ vi.mock('../lib/useMaleSudy', () => ({
   }),
   useHlidaniMalychSudu: () => ({
     souhrn: [{ package_id: 's20', mame: 7, objednano: 5, nad: 0, zapocitanoPlnych: 0, plneSkladem: {}, zadano: 7, odvezeno: 0, odvezenoZ: [] }],
-    nacteno: true, jmenaPiv: new Map(),
+    pozdeji: [], nacteno: true, jmenaPiv: new Map(),
   }),
 }));
 vi.mock('../lib/auth', () => ({ useAuth: () => ({ profile: null, user: null }) }));

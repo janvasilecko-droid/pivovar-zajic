@@ -1,7 +1,7 @@
 // 🛢️ Malé sudy — texty pro záložku (odkud je číslo prázdných). Zvlášť od
 // lib/maleSudy.ts, ať se načtou až se záložkou, ne se startem appky.
 import { ZKRATKY_DNU } from './tydenDnu';
-import type { SouhrnMalychSudu } from './maleSudy';
+import type { PozdejiPolozka, SouhrnMalychSudu } from './maleSudy';
 
 /** „čt 29. 10." z YYYY-MM-DD (přes UTC, ať se den neposune). */
 export function kratkyDen(iso: string | null | undefined): string {
@@ -26,4 +26,21 @@ export function popisOdvezenych(s: SouhrnMalychSudu, denZadani?: string | null):
   const seznam = objednavky.slice(0, MAX).join(', ') + (dalsich > 0 ? ` a další ${dalsich}` : '');
   const kdy = kratkyDen(denZadani);
   return `Naklikáno ${s.zadano ?? s.mame + s.odvezeno}${kdy ? ` (${kdy})` : ''}, od té doby odjelo ${s.odvezeno}${seznam ? `: ${seznam}` : ''}.`;
+}
+
+/**
+ * Řádky bloku „Hlídá se — zatím se nepočítá“ u jednoho obalu (předem objednané na pozdější týden, lib/maleSudy.ts
+ * `pozdeji`): „p. Pařitek 1× (pá 18. 12.) — počítá se od po 14. 12.“ Jedna objednávka = jeden řádek (víc piv téhož
+ * obalu se sečte), nejbližší závoz první.
+ */
+export function popisPozdeji(polozky: readonly PozdejiPolozka[]): string[] {
+  const poObjednavkach = new Map<string, { misto: string; kusu: number; zavoz: string; od: string }>();
+  for (const p of polozky) {
+    const r = poObjednavkach.get(p.order_id) ?? { misto: p.place_name?.trim() || 'objednávka', kusu: 0, zavoz: p.delivery_date, od: p.pocitaSeOd };
+    r.kusu += p.quantity;
+    poObjednavkach.set(p.order_id, r);
+  }
+  return [...poObjednavkach.values()]
+    .sort((a, b) => a.zavoz.localeCompare(b.zavoz) || a.misto.localeCompare(b.misto, 'cs'))
+    .map((r) => `${r.misto} ${r.kusu}× (${kratkyDen(r.zavoz)}) — počítá se od ${kratkyDen(r.od)}`);
 }

@@ -8,14 +8,14 @@ import { render, screen, fireEvent } from '@testing-library/react';
 const ulozit = vi.fn(async (..._a: unknown[]) => null);
 let zasoba: Record<string, number> = {};
 let stavPoctu = { nacteno: true, chybaNacteni: false };
-let hlidani: { souhrn: unknown[]; nacteno: boolean; chybaNacteni?: boolean } = { souhrn: [], nacteno: true };
+let hlidani: { souhrn: unknown[]; nacteno: boolean; chybaNacteni?: boolean; pozdeji?: unknown[] } = { souhrn: [], nacteno: true };
 vi.mock('../lib/useMaleSudy', () => ({
   useMaleSudy: () => ({
     zasoba, zadanoKdy: { s10: { cas: '2026-10-27T08:43:11Z', den: '2026-10-27' } },
     zapocitatPlne: new Set(), umiZapocitatPlne: true, ...stavPoctu, chybiMigrace: false,
     ulozit, nastavZapocitatPlne: vi.fn(async () => null),
   }),
-  useHlidaniMalychSudu: () => ({ ...hlidani, jmenaPiv: new Map() }),
+  useHlidaniMalychSudu: () => ({ pozdeji: [], ...hlidani, jmenaPiv: new Map() }),
 }));
 vi.mock('../lib/auth', () => ({ useAuth: () => ({ profile: null, user: null }) }));
 
@@ -317,5 +317,39 @@ describe('Malé sudy: „Odeslat Radkovi" — SMS s počtem malých sudů', () =
   it('bez malých obalů se tlačítko nenabízí', () => {
     render(<MaleSudyPanel packages={[]} canEdit prijemce={RADEK} dnes="2026-11-24" />);
     expect(screen.queryByTestId('odeslat-radkovi')).toBeNull();
+  });
+});
+
+// 27. 11. 2026: „na 18. 12. 20l — aby se hlídalo, že ta 20l je, ale ať mi tam 3 týdny nevisí, že chybí.“
+describe('Malé sudy: předem objednané na pozdější týden jsou vidět zvlášť, mimo čísla', () => {
+  const PARITEK = { order_id: 'P', item_id: 'p1', place_name: 'p. Pařitek', delivery_date: '2026-12-18', pocitaSeOd: '2026-12-14', package_id: 's20', beer_id: 'b12', quantity: 1 };
+
+  it('pod obalem je blok „Hlídá se — zatím se nepočítá“ s odběratelem, dnem závozu a začátkem počítání', () => {
+    hlidani = { ...hlidani, pozdeji: [PARITEK] };
+    render(<MaleSudyPanel packages={[S20]} canEdit />);
+    const blok = screen.getByTestId('male-sudy-pozdeji');
+    expect(blok.textContent).toMatch(/Hlídá se — zatím se nepočítá/);
+    expect(blok.textContent).toMatch(/p\. Pařitek 1× \(pá 18\. 12\.\) — počítá se od po 14\. 12\./);
+  });
+
+  it('čísla se kvůli němu nemění: pořád 7 prázdných, K dispozici 2, nic červeně', () => {
+    hlidani = { ...hlidani, pozdeji: [PARITEK] };
+    render(<MaleSudyPanel packages={[S20]} canEdit />);
+    expect((screen.getByLabelText('Počet prázdných 20l') as HTMLInputElement).value).toBe('7');
+    expect(screen.getByText(/v otevřených objednávkách 5/)).toBeTruthy();
+    expect(screen.queryByText(/víc, než máš/)).toBeNull();
+  });
+
+  it('blok je jen u obalu, kterého se týká; bez pozdějších objednávek není vůbec', () => {
+    hlidani = { ...hlidani, pozdeji: [PARITEK] };
+    zasoba = { s20: 7, s10: 2 };
+    hlidani.souhrn = [...hlidani.souhrn, { package_id: 's10', mame: 2, objednano: 0, nad: 0, zapocitanoPlnych: 0, plneSkladem: {}, zadano: 2, odvezeno: 0, odvezenoZ: [] }];
+    render(<MaleSudyPanel packages={[S20, S10]} canEdit />);
+    expect(screen.getAllByTestId('male-sudy-pozdeji')).toHaveLength(1);
+  });
+
+  it('bez pozdějších objednávek se blok nekreslí', () => {
+    render(<MaleSudyPanel packages={[S20]} canEdit />);
+    expect(screen.queryByTestId('male-sudy-pozdeji')).toBeNull();
   });
 });

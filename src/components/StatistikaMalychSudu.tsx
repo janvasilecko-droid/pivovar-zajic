@@ -41,7 +41,7 @@ export default function StatistikaMalychSudu({ orders, orderItems, obaly, piva, 
         )}
       </div>
 
-      {s.kusu === 0 ? (
+      {s.kusu === 0 && s.litru === 0 ? (
         <EmptyState text="V tomhle období nejsou v objednávkách žádné malé sudy (20, 15, 10 l)." />
       ) : (
         <>
@@ -109,7 +109,10 @@ export default function StatistikaMalychSudu({ orders, orderItems, obaly, piva, 
                 <li key={o.odberatel} className="rounded-xl border border-neutral-200 p-2.5">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="font-display font-black text-neutral-900 break-words">{o.odberatel}</span>
-                    <span className="text-sm font-black tabular-nums text-amber-900 shrink-0">{cz(o.kusu)} ks · {cz(o.litru)} l</span>
+                    {/* Vlastní sudy odběratele nejsou naše obaly: počítá se jen objem (27. 11. 2026). */}
+                    <span className="text-sm font-black tabular-nums text-amber-900 shrink-0" data-testid={o.vlastniObaly ? 'sudy-vlastni' : undefined}>
+                      {o.vlastniObaly ? `vlastní sudy · ${cz(o.litru)} l` : `${cz(o.kusu)} ks · ${cz(o.litru)} l`}
+                    </span>
                   </div>
                   <ul className="mt-1 space-y-0.5">
                     {o.radky.map((r) => (
@@ -123,6 +126,12 @@ export default function StatistikaMalychSudu({ orders, orderItems, obaly, piva, 
                 </li>
               ))}
             </ul>
+            {s.poOdberatelich.some((o) => o.vlastniObaly) && (
+              <p data-testid="sudy-vlastni-poznamka" className="mt-3 text-xs font-semibold text-neutral-700">
+                Odběratelé s vlastními sudy (např. Duck and Dog) mají u jména jen „vlastní sudy · litry“: jejich pivo se počítá do
+                litrů, ale jejich sudy ne — nejsou naše obaly, takže nejsou ani v počtech sudů výš.
+              </p>
+            )}
           </section>
         </>
       )}

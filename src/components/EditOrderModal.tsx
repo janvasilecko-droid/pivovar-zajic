@@ -15,7 +15,7 @@ import { TapReservationModal } from './TapReservationModal';
 import { QuickQtySelect } from './QuickQtySelect';
 import { IkonaVycep } from '../components/ikony';
 import { najdiZdvojene, slucZdvojene, popisZdvojeni } from '../lib/zdvojenePolozky';
-import { vlastniSudyOdberatele } from '../lib/vlastniSudy';
+import { maVlastniObaly } from '../lib/vlastniSudy';
 
 type Order = {
   id: string; order_date: string; place_id: string | null; place_name: string | null;
@@ -66,8 +66,8 @@ export function EditOrderModal({ order, items, beers, packages, places, onClose,
   // Odběratel s vlastními sudy malé sudy pivovaru nebere — ani původně
   // (v souhrnu jeho objednávka není), ani teď (lib/vlastniSudy.ts).
   // Vlastní je i objednávka s poznámkou „do jejich sudu" (lib/vlastniSudy.ts).
-  const puvodneVlastni = !!vlastniSudyOdberatele(order.place_name, order.note);
-  const vlastniSudy = !!vlastniSudyOdberatele(placeName, note);
+  const puvodneVlastni = maVlastniObaly(order.place_name, order.note);
+  const vlastniSudy = maVlastniObaly(placeName, note);
   const neHlidat = vlastniSudy;
   // Objednávka, která odjela dřív, než se počet obalu zadal (i v minulých
   // týdnech, kdy se počet nezadal vůbec — pak od pondělí tohoto týdne), v počtu
