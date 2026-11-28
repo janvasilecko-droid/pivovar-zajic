@@ -9,12 +9,13 @@ import { initDensity } from './lib/density';
 import { initEfekty } from './lib/efekty';
 import { initTheme } from './lib/theme';
 import { reportAppVersion } from './lib/appVersionTracker';
-import { checkVersion, forceRefresh, startVersionCheck } from './lib/versionCheck';
+import { checkVersion, forceRefresh, startVersionCheck, textVysledkuObnovy } from './lib/versionCheck';
 import { renderFatalError } from './lib/safeDom';
 import { nahlasChybu, zapniHlaseniChyb, zalogujANahlas } from './lib/chybyHlaseni';
 import { zapniFrontuTanku } from './lib/tankFrontaBeh';
 import { zapniPosunNadKlavesnici } from './lib/nadKlavesnici';
-import { lazyStranka } from './lib/lazyStranka';
+import { jeChybaNacteniKusu, lazyStranka } from './lib/lazyStranka';
+import { zaregistrujServiceWorker } from './lib/registraceSw';
 import { JE_SLADEK } from './lib/profilAplikace';
 import { upozorniNaStarySystem } from './lib/upozorneniStarehoTelefonu';
 
@@ -42,10 +43,22 @@ if (!JE_SLADEK) zapniFrontuTanku();
 // kterého se píše, pod ní často zůstane schované (viz lib/nadKlavesnici.ts).
 zapniPosunNadKlavesnici();
 
-class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: any }> {
+/**
+ * Automatická oprava po chybě načtení kusu: načíst aplikaci celou znovu. `forceRefresh` to bez spojení
+ * neudělá (nesmazal by uloženou kopii, ze které appka bez signálu běží) — pak se pojistka proti smyčce
+ * vrátí, ať to jde zkusit znovu, až bude signál.
+ */
+async function opravNactenimZnovu(reloadKey: string): Promise<void> {
+  const vysledek = await forceRefresh().catch(() => 'bez-spojeni' as const);
+  if (vysledek !== 'obnovuji') {
+    try { sessionStorage.removeItem(reloadKey); } catch { /* soukromý režim */ }
+  }
+}
+
+class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: any; nejde: string | null }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
-    this.state = { error: null };
+    this.state = { error: null, nejde: null };
   }
   static getDerivedStateFromError(error: any) {
     return { error };
@@ -57,13 +70,12 @@ class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, 
     // přivezlo poslední nasazení.
     nahlasChybu('boundary', error);
     // Auto-recovery pro stale chunk errory (po deployi)
-    const msg = String(error?.message || error || '');
-    if (msg.includes('dynamically imported module') || msg.includes('Failed to fetch')) {
+    if (jeChybaNacteniKusu(error)) {
       const reloadKey = '__chunk_reload';
       if (!sessionStorage.getItem(reloadKey)) {
         sessionStorage.setItem(reloadKey, '1');
         console.warn('[auto-recovery] Stale chunk in ErrorBoundary, reloading…');
-        void forceRefresh();
+        void opravNactenimZnovu(reloadKey);
         return;
       }
       sessionStorage.removeItem(reloadKey);
@@ -76,7 +88,7 @@ class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, 
     window.removeEventListener('popstate', this.handleReset);
   }
   handleReset = () => {
-    if (this.state.error) this.setState({ error: null });
+    if (this.state.error) this.setState({ error: null, nejde: null });
   };
   render() {
     if (this.state.error) {
@@ -94,7 +106,7 @@ class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, 
           </p>
           <button
             style={{ padding: '14px 22px', minHeight: 48, background: '#047857', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
-            onClick={() => this.setState({ error: null })}
+            onClick={() => this.setState({ error: null, nejde: null })}
           >
             Zkusit znovu
           </button>
@@ -106,10 +118,13 @@ class DebugErrorBoundary extends React.Component<{ children: React.ReactNode }, 
             <div style={{ marginTop: 12 }}>
               <button
                 style={{ padding: '10px 18px', minHeight: 44, background: '#b45309', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}
-                onClick={() => { void forceRefresh(); }}
+                onClick={() => { void forceRefresh().then((v) => this.setState({ nejde: textVysledkuObnovy(v) })); }}
               >
                 <RefreshCw className="ikona-text" /> Načíst aplikaci úplně znovu
               </button>
+              {this.state.nejde && (
+                <p style={{ fontSize: 14, color: '#7c2d12', margin: '10px 0 0 0', maxWidth: 460, lineHeight: 1.5 }}>{this.state.nejde}</p>
+              )}
               <pre style={{ fontFamily: 'monospace', fontSize: 12, padding: 12, marginTop: 12, background: '#fff', border: '1px solid #e7e5e4', borderRadius: 8, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
                 {String(this.state.error?.stack || this.state.error)}
               </pre>
@@ -132,13 +147,15 @@ window.addEventListener('unhandledrejection', (e) => {
   // s cachem se pokusí načíst starý soubor → „Failed to fetch dynamically
   // imported module". Jednou automaticky reloadneme; při opakovaném selhání
   // zobrazíme chybu uživateli (aby nevznikla nekonečná smyčka).
-  const msg = String(e.reason?.message || e.reason || '');
-  if (msg.includes('dynamically imported module') || msg.includes('Failed to fetch')) {
+  //
+  // ⚠️ Jen na chybu načtení KUSU. Dřív stačilo jakékoliv „Failed to fetch" — tedy každý dotaz, který neprošel
+  // sítí. Bez signálu si tak appka sama smazala uloženou kopii a nešla spustit, dokud se signál nevrátil.
+  if (jeChybaNacteniKusu(e.reason)) {
     const reloadKey = '__chunk_reload';
     if (!sessionStorage.getItem(reloadKey)) {
       sessionStorage.setItem(reloadKey, '1');
       console.warn('[auto-recovery] Stale chunk detected, reloading…');
-      void forceRefresh();
+      void opravNactenimZnovu(reloadKey);
       return;
     }
     // Druhý pokus selhal — propadne do renderFatalError níže
@@ -201,7 +218,5 @@ try {
 
 // Service worker (offline/PWA) funguje jen na http(s), ne přes file://
 if ('serviceWorker' in navigator && location.protocol !== 'file:' && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  });
+  zaregistrujServiceWorker(() => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
 }

@@ -82,11 +82,16 @@
   starý postup. Podporu rozšiřuj jen s testem; nikdy „přibližnou“ odpovědí.
 - Slabý signál řeší jistič (`src/lib/jisticSpojeni.ts`): jen pro čtení a jen když telefon odpovědět umí. Na zápisy
   nesahá — ty zkoušejí server vždy a pak jdou do fronty.
-- Kusy aplikace ukládá service worker při instalaci verze (`KUSY` v `public/sw.js`, doplňuje build). Při zásahu do
-  `sw.js` zvedni `SW_VERSION`.
+- Kusy aplikace ukládá service worker při instalaci verze (`KUSY` v `public/sw.js`, seznam doplňuje build). Při
+  zásahu do `sw.js` zvedni `SW_VERSION`.
+- **Aktualizace nesmí rozbít práci bez signálu** (změřeno 28. 11. 2026, `docs/offline.md`): nová verze se zapne, až
+  když je v telefonu celá (neúplná instalace selže a starší běží dál), a tlačítko „Aktualizovat" ji jen přepne
+  (`aktualizuj` v `src/lib/versionCheck.ts`) — nic nemaže. Událost `activate` v `sw.js` nesmí čekat na síť. Rušit
+  service worker a mazat jeho cache smí jen `forceRefresh`, která napřed ověřuje, že server odpovídá. Zkoušet se
+  musí skutečné tlačítko při přechodu ze starší verze se serverem jako hosting, ne jen zpráva `SKIP_WAITING`.
 - Po aktualizaci (a na novém telefonu) musí appka jednou naběhnout **se signálem** a chvíli zůstat otevřená, jinak
   nemá kopii. Když majitel hlásí „bez signálu nevidím data“, zeptej se, co píše pruh nahoře („Kopie dat v telefonu:
-  …“ nebo „zatím není kopie dat“) — nehádat.
+  …“ nebo „zatím není kopie dat“) a co ukazuje Nastavení → Ostatní → „Práce bez signálu“ (data, obrazovky) — nehádat.
 
 ## Pivovarská bible (odborná knihovna + AI sládek)
 - AI je **Claude (Anthropic API), ne Gemini** — rozhodnutí majitele 30. 10. 2026

@@ -4,6 +4,7 @@ import { AlertCircle, AlertTriangle, Bell, BellOff, BookOpen, Brush, CloudDownlo
 import { NavodPouziti } from '../components/NavodPouziti';
 import { InstalaceKroky } from '../components/InstalaceKroky';
 import { SladekAplikaceKarta } from '../components/SladekAplikaceKarta';
+import { PripravenostBezSignalu } from '../components/PripravenostBezSignalu';
 import { bibleRole } from '../lib/bibleOpravneni';
 import { adresaDruheAplikace, JE_DRUHA_APLIKACE } from '../lib/profilAplikace';
 import { jeNahled, nastavNahled } from '../lib/nahledUzivatele';
@@ -24,7 +25,7 @@ import { getNotificationPermission, requestNotificationPermission, getNotificati
 import { jePrihlasen, jePushPodporovan, odhlasPush, prihlasPush, stavPushu, VAPID_KLIC } from '../lib/pushOdber';
 import { authenticatedFunctionHeaders } from '../lib/functionAuth';
 import { APP_VERSION, APP_VERSION_DATE } from '../lib/version';
-import { forceRefresh } from '../lib/versionCheck';
+import { forceRefresh, textVysledkuObnovy } from '../lib/versionCheck';
 import { isAdminEmail } from '../lib/config';
 import { fetchWhatsAppSenders, addWhatsAppSender, removeWhatsAppSender, type WhatsAppSender } from '../lib/whatsappApi';
 import { oznam, uspech, chyba as toastChyba } from '../lib/toast';
@@ -432,6 +433,9 @@ export default function AppSettingsScreen({ setPage }: { setPage?: (p: any, sec?
               </div>
             )}
           </div>
+
+          {/* Je telefon připravený na práci bez signálu? (data + obrazovky) */}
+          <PripravenostBezSignalu />
 
           {/* Přepínání účtů — jen pro správce */}
           {isAdmin && <PrepinacUctu />}
@@ -1013,7 +1017,7 @@ function AdminVersionSyncSection() {
 
       <div className="mt-3">
         <button
-          onClick={forceRefresh}
+          onClick={() => { void forceRefresh().then((v) => { const veta = textVysledkuObnovy(v); if (veta) oznam(veta); }); }}
           className="w-full py-3 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 hover:text-amber-800 font-black text-xs border border-amber-300 transition flex items-center justify-center gap-1.5"
         >
           <RefreshCw className="ikona-text" /> Vynutit stažení nejnovější verze aplikace (vyčistit cache)
