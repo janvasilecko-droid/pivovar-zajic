@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { KLIC_STAVU_OBRAZOVEK, UDALOST_OBRAZOVEK, doplnObrazovky, spustDoplnovaniObrazovek, stavObrazovek } from './offlineObrazovky';
 import { UDALOST_SPOJENI_ZPET } from './jisticSpojeni';
+import { APP_VERSION } from './version';
 
 type Posluchac = (e: MessageEvent) => void;
 function atrapaSw(sController = true) {
@@ -92,5 +93,14 @@ describe('spustDoplnovaniObrazovek', () => {
     expect(stavObrazovek()).toBeNull();
     localStorage.setItem(KLIC_STAVU_OBRAZOVEK, '{nesmysl');
     expect(stavObrazovek()).toBeNull();
+  });
+
+  it('stav zapsaný jinou verzí aplikace neplatí — po aktualizaci má nová verze jiné soubory', () => {
+    localStorage.setItem(KLIC_STAVU_OBRAZOVEK, JSON.stringify({ ulozeno: 128, celkem: 128, t: 1, verze: '0.1' }));
+    expect(stavObrazovek()).toBeNull();
+    localStorage.setItem(KLIC_STAVU_OBRAZOVEK, JSON.stringify({ ulozeno: 128, celkem: 128, t: 1 }));   // starší zápis bez verze
+    expect(stavObrazovek()).toBeNull();
+    localStorage.setItem(KLIC_STAVU_OBRAZOVEK, JSON.stringify({ ulozeno: 128, celkem: 128, t: 1, verze: APP_VERSION }));
+    expect(stavObrazovek()).toEqual({ ulozeno: 128, celkem: 128, t: 1 });
   });
 });

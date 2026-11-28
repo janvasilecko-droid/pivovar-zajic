@@ -1,9 +1,10 @@
 // Minimal offline-first service worker for the Minipivovar PWA.
 // Cache version is fetched from version.json at install time so that
 // every deploy automatically invalidates the old cache.
-// SW_VERSION: 2.444 — změň při zásahu do tohohle souboru, ať si prohlížeč
-// stáhne nový service worker (27. 11. 2026: start bez signálu i na adrese s parametrem, viz strankaZCache;
-// 27. 11. 2026: všechny obrazovky se ukládají hned při instalaci, viz KUSY;
+// SW_VERSION: 2.445 — změň při zásahu do tohohle souboru, ať si prohlížeč
+// stáhne nový service worker (28. 11. 2026: verze se zapne, až když je celá, a aktivace nečeká na síť — viz KUSY;
+// 27. 11. 2026: start bez signálu i na adrese s parametrem, viz strankaZCache;
+// 27. 11. 2026: všechny obrazovky se ukládají do telefonu předem, viz KUSY;
 // 25. 11. 2026: stránka „bez připojení“ místo holého „Offline“; 19. 9. 2026: přejmenované ikony, viz PRECACHE).
 const CACHE_PREFIX = 'pivovar-';
 const CACHE_META = `${CACHE_PREFIX}meta`;
@@ -26,9 +27,19 @@ const SHELL = [];
 // a do paměti telefonu se dostaly právě jen tak. Obrazovka, kterou člověk se signálem neotevřel (a po KAŽDÉ
 // aktualizaci znovu žádná), se bez signálu vůbec nenačetla: Sklad zůstal jako šedé obdélníky.
 //
-// Teď se všechny kusy uloží hned při instalaci service workeru (tedy dřív, než se nová verze nabídne
-// k aktualizaci). Co se od minulé verze nezměnilo, se jen zkopíruje ze staré paměti — nestahuje se znovu.
+// Teď se všechny kusy uloží už PŘI INSTALACI verze — nová verze se tak smí zapnout, až když je v telefonu celá
+// (jádro i obrazovky). Co se od minulé verze nezměnilo, se jen zkopíruje ze staré paměti — nestahuje se znovu.
 // Mimo zůstávají tři těžké knihovny (PDF a Excel, ~860 kB): ty se uloží, až když je někdo poprvé použije.
+//
+// ⚠️ Pravidla, ze kterých se nesmí slevit (28. 11. 2026, změřeno v prohlížeči — docs/offline.md):
+//  • Nová verze nesmí nahradit fungující starší, dokud není CELÁ. Když se při instalaci nestáhne všechno
+//    (slabý signál), instalace selže, starší verze běží dál a prohlížeč to zkusí znovu — už stažené zůstává.
+//    Jen když v telefonu žádná starší verze není (první instalace), nainstaluje se i neúplná a zbytek se
+//    doplní na pozadí (doplnNaPozadi): service worker bez jádra aspoň ukáže stránku „Bez připojení".
+//  • `activate` NESMÍ čekat na síť: dokud aktivace neskončí, prohlížeč nepustí otevření stránky. Dřív tu čekala
+//    na nové stažení jádra a při serveru, který neodpovídal, zůstala appka po aktualizaci až 5 minut bílá.
+//  • Stahování při instalaci hlídá hlidacTicha: server, který neodpovídá, nesmí instalaci držet donekonečna —
+//    na jejím konci závisí i zrušení registrace (tlačítko „Vynutit stažení nejnovější verze").
 const KUSY = [];
 
 // Písma jsou v precache schválně: bez nich appka offline spadne na systémové
@@ -46,15 +57,23 @@ const PRECACHE = [
   ...SHELL,
 ];
 
+// Nejdéle 8 s: bez limitu by server, který neodpovídá (slabý signál), držel instalaci i aktivaci verze, dokud
+// to prohlížeč sám nevzdá — a na ně čeká tlačítko „Aktualizovat" i otevření stránky (viz komentář u KUSY).
+const LIMIT_VERZE_MS = 8000;
+
 async function getCacheVersion() {
+  const zrus = typeof AbortController === 'function' ? new AbortController() : null;
+  const casovac = zrus ? setTimeout(() => { try { zrus.abort(); } catch {} }, LIMIT_VERZE_MS) : null;
   try {
     // Cache-busting: unikátní URL, aby se nikdy nevracela stará verze z cache
-    const resp = await fetch('./version.json?t=' + Date.now(), { cache: 'no-cache' });
+    const resp = await fetch('./version.json?t=' + Date.now(), zrus ? { cache: 'no-cache', signal: zrus.signal } : { cache: 'no-cache' });
     if (resp.ok) {
       const info = await resp.json();
       if (info && info.version) return CACHE_PREFIX + info.version;
     }
-  } catch {}
+  } catch {} finally {
+    if (casovac) clearTimeout(casovac);
+  }
   // Fallback: use a timestamp so dev builds still get a unique cache
   return CACHE_PREFIX + Date.now().toString(36);
 }
@@ -145,46 +164,167 @@ async function ensurePrecached(c) {
   );
 }
 
+/** Kolik kusů aplikace (KUSY) už cache `c` drží — pravdivý stav pro stránku (i když doplňování nedoběhlo). */
+async function stavKusu(c) {
+  const hotove = new Set((await c.keys()).map((r) => r.url));
+  let ulozeno = 0;
+  for (const k of KUSY) if (hotove.has(new URL(k, self.registration.scope).href)) ulozeno++;
+  return { ulozeno, celkem: KUSY.length };
+}
+
+// Hlídač stahování na pozadí: když se po dobu TICHO_TIKU × TIK_HLIDACE_MS (minutu) nedokončí jediný soubor,
+// běh se vzdá a rozdělaná stahování zruší. Server, který neodpovídá (slabý signál), by jinak držel doplňování
+// „rozběhnuté" donekonečna — a další pokus po návratu signálu by se k němu jen přidal a nic by nestáhl.
+// Počítá se podle dokončených souborů, ne podle času jednoho stahování: pomalé spojení, na kterém soubory
+// přibývají, se nepřeruší.
+const TIK_HLIDACE_MS = 5000;
+const TICHO_TIKU = 12;
+
+function hlidacTicha() {
+  const zrus = typeof AbortController === 'function' ? new AbortController() : null;
+  let tiku = 0;
+  let skoncil = false;
+  let casovac = null;
+  let vzdej = null;
+  const hlidac = {
+    signal: zrus ? zrus.signal : undefined,
+    vzdano: new Promise((r) => { vzdej = r; }),
+    vzdal: false,
+    pokrok() { tiku = 0; },
+    konec() { skoncil = true; if (casovac) clearTimeout(casovac); },
+  };
+  const tik = () => {
+    if (skoncil) return;
+    tiku++;
+    if (tiku >= TICHO_TIKU) {
+      skoncil = true;
+      hlidac.vzdal = true;
+      if (zrus) { try { zrus.abort(); } catch {} }
+      vzdej();
+      return;
+    }
+    casovac = setTimeout(tik, TIK_HLIDACE_MS);
+  };
+  casovac = setTimeout(tik, TIK_HLIDACE_MS);
+  return hlidac;
+}
+
 /**
- * Doplní do cache `c` všechny kusy aplikace (KUSY), které v ní ještě nejsou. Vrací { ulozeno, celkem }.
+ * Doplní do cache jménem `CACHE` kusy aplikace (KUSY), které v ní ještě nejsou.
  *
  * Kus má v názvu otisk obsahu, takže stejný název = stejný obsah: co už v cache je, to se přeskočí, a co leží
- * v cache STARŠÍ verze, se jen zkopíruje (po aktualizaci se tak stahují jen změněné kusy). Zbytek se stáhne,
- * nejvýš po šesti naráz — na slabém signálu by sto souběžných stahování jen zahltilo spojení. Selhání jednoho
- * kusu nic neshodí; doplní se příště (při aktivaci, nebo když si o to řekne stránka — zpráva DOPLN_OFFLINE).
+ * v cache STARŠÍ verze, se jen zkopíruje (po aktualizaci se tak stahují jen změněné kusy).
+ *
+ * `hlidac = null`: JEN kopírování z telefonu, na síť se nesáhne — tak to volá instalace a aktivace, které na
+ * síť čekat nesmějí (viz komentář u KUSY).
+ * S hlídačem (doplnNaPozadi): zbytek se stáhne, nejvýš po šesti naráz — na slabém signálu by sto souběžných
+ * stahování jen zahltilo spojení. Selhání jednoho kusu nic neshodí; doplní se příště.
  */
-async function doplnKusy(c) {
+async function doplnKusy(CACHE, hlidac) {
+  const c = await caches.open(CACHE);
   const hotove = new Set((await c.keys()).map((r) => r.url));
   const chybi = KUSY.map((k) => new URL(k, self.registration.scope).href).filter((u) => !hotove.has(u));
+  if (chybi.length === 0) return;
   let stare = [];
-  if (chybi.length > 0) {
-    try {
-      const klice = await caches.keys();
-      const jmena = klice.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_META);
-      stare = await Promise.all(jmena.map((k) => caches.open(k)));
-    } catch {}
-  }
-  let ulozeno = KUSY.length - chybi.length;
+  try {
+    const klice = await caches.keys();
+    const jmena = klice.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE_META && k !== CACHE);
+    stare = await Promise.all(jmena.map((k) => caches.open(k)));
+  } catch {}
   const fronta = chybi.slice();
   const pracuj = async () => {
     for (;;) {
+      if (hlidac && hlidac.vzdal) return;
       const url = fronta.shift();
       if (!url) return;
       try {
         let res = null;
         for (const stara of stare) {
-          if (stara === c) continue;
           res = await stara.match(url, { ignoreVary: true });
           if (res) break;
         }
-        if (!res) res = await stahniSOpakovanim(url);
+        if (!res && hlidac) res = await stahniSOpakovanim(url, hlidac.signal);
         // Oba zdroje dávají jen úspěšné odpovědi (stará paměť i stahniSOpakovanim) — chyba se nikdy neuloží.
-        if (res) { await c.put(url, res); ulozeno++; }
+        if (res) {
+          await c.put(url, res);
+          if (hlidac) hlidac.pokrok();
+        }
       } catch {}
     }
   };
-  await Promise.all([pracuj(), pracuj(), pracuj(), pracuj(), pracuj(), pracuj()]);
-  return { ulozeno, celkem: KUSY.length };
+  const prace = Promise.all([pracuj(), pracuj(), pracuj(), pracuj(), pracuj(), pracuj()]);
+  await (hlidac ? Promise.race([prace, hlidac.vzdano]) : prace);
+}
+
+/**
+ * Doplní soubory jádra aplikace (PRECACHE), které v cache `c` chybějí — pojistka pro instalaci, která na
+ * slabém signálu nestáhla všechno. Co v cache je, se znovu nestahuje.
+ */
+async function doplnJadro(c, hlidac) {
+  const hotove = new Set((await c.keys()).map((r) => r.url));
+  const prace = Promise.all(
+    PRECACHE.map(async (url) => {
+      if (hotove.has(new URL(url, self.registration.scope).href)) return;
+      try {
+        const res = await fetch(url, hlidac.signal ? { cache: 'no-cache', signal: hlidac.signal } : { cache: 'no-cache' });
+        if (res && res.ok) {
+          await c.put(url, res);
+          hlidac.pokrok();
+        }
+      } catch {}
+    })
+  );
+  await Promise.race([prace, hlidac.vzdano]);
+}
+
+// 📥 Doplnění všeho, co v telefonu z nainstalované verze chybí (jádro i obrazovky) — NA POZADÍ, mimo události
+// install a activate. Verze nainstalovaná přes starší má všechno už z instalace; tohle je pro první instalaci
+// na slabém signálu a pro soubory, které z paměti telefonu zmizely. Běží nejvýš jedno naráz: další žádost
+// (stránka po spuštění, návrat signálu) se k běžícímu jen přidá a dostane stejný výsledek.
+// Vrací { ulozeno, celkem } — kolik obrazovek v telefonu opravdu je.
+let doplnovani = null;
+
+function doplnNaPozadi() {
+  if (!doplnovani) {
+    doplnovani = (async () => {
+      const hlidac = hlidacTicha();
+      let c = null;
+      const prace = (async () => {
+        const CACHE = await getInstalledCache();
+        c = await caches.open(CACHE);
+        await doplnJadro(c, hlidac);
+        if (!hlidac.vzdal) await doplnKusy(CACHE, hlidac);
+      })().catch(() => {});
+      await Promise.race([prace, hlidac.vzdano]);
+      hlidac.konec();
+      try {
+        if (c) return await stavKusu(c);
+      } catch {}
+      return { ulozeno: 0, celkem: KUSY.length };
+    })();
+    const uklid = () => { doplnovani = null; };
+    doplnovani.then(uklid, uklid);
+  }
+  return doplnovani;
+}
+
+/** Má cache `c` to, bez čeho appka bez signálu vůbec nenaběhne — stránku a vstupní skript se stylem? */
+async function jadroJeCele(c) {
+  for (const url of ['./'].concat(SHELL)) {
+    if (!(await c.match(url, { ignoreVary: true }))) return false;
+  }
+  return true;
+}
+
+/** Je v telefonu jiná (starší) verze, ze které appka umí naběhnout? */
+async function jeTuStarsiVerze(CACHE) {
+  try {
+    for (const k of await caches.keys()) {
+      if (!k.startsWith(CACHE_PREFIX) || k === CACHE_META || k === CACHE) continue;
+      if (await (await caches.open(k)).match('./', { ignoreVary: true })) return true;
+    }
+  } catch {}
+  return false;
 }
 
 self.addEventListener('install', (e) => {
@@ -196,8 +336,22 @@ self.addEventListener('install', (e) => {
       self.__pivovarCache = CACHE;
       const c = await caches.open(CACHE);
       await ensurePrecached(c);
-      // Obrazovky a knihovny — ať je nová verze kompletní dřív, než se nabídne k aktualizaci.
-      await doplnKusy(c);
+      // Obrazovky: nezměněné se zkopírují ze starší verze v telefonu, zbytek se stáhne. Hlídač ticha to vzdá,
+      // když server minutu nic nepošle — instalace nesmí viset donekonečna.
+      const hlidac = hlidacTicha();
+      try { await doplnKusy(CACHE, hlidac); } catch {}
+      hlidac.konec();
+      // 🛑 Nová verze nesmí nahradit FUNGUJÍCÍ starší, dokud není v telefonu celá (viz komentář u KUSY).
+      // Po aktivaci by se starší verze smazala a bez signálu by chyběly obrazovky — nebo by appka nenaběhla
+      // vůbec. Instalace proto selže; co se stihlo stáhnout, v telefonu zůstává a příští pokus jen doplní zbytek.
+      // Ověřuje se přes cache otevřenou znovu PODLE JMÉNA: aktivace jiné verze ji mezitím mohla smazat (dvě
+      // nasazení těsně po sobě) a starý odkaz `c` by dál ukazoval na soubory, které pod tím jménem už nejsou —
+      // verze by se pak zapnula s prázdnou pamětí.
+      const overena = await caches.open(CACHE);
+      const cela = (await jadroJeCele(overena)) && (await stavKusu(overena)).ulozeno >= KUSY.length;
+      if (!cela && (await jeTuStarsiVerze(CACHE))) {
+        throw new Error('Nová verze se nestáhla celá — v telefonu zůstává starší verze.');
+      }
       await rememberInstalledCache(CACHE);
     })()
   );
@@ -208,29 +362,26 @@ self.addEventListener('activate', (e) => {
     (async () => {
       const CACHE = await getInstalledCache();
       installedVersion = CACHE;
-      // Nejdřív doplnit, co při instalaci nedoběhlo (slabý signál) — DOKUD ještě existují staré cache, ze
-      // kterých se dají nezměněné kusy zkopírovat. Teprve pak staré cache smazat.
-      try { await doplnKusy(await caches.open(CACHE)); } catch {}
+      // Co by v nové verzi z obrazovek chybělo (první instalace na slabém signálu), zkopírovat ze starší verze,
+      // DOKUD ještě její cache existuje. Bez sítě — na síť aktivace čekat nesmí (viz komentář u KUSY).
+      try { await doplnKusy(CACHE, null); } catch {}
       const keys = await caches.keys();
       await Promise.all(
         keys
           .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE && key !== CACHE_META)
           .map((key) => caches.delete(key)),
       );
-      // Pojistka: pri souběžnem nasazeni/registraci vic service workeru
-      // najednou se muze stat, ze install() teto instance byl prerusen dřív,
-      // než stihl dopsat cely precache (viz komentář u ensurePrecached výše).
-      // Activate ma jistotu, ze uz je to TA aktivni instance, takže tady je
-      // bezpečné (a levné — c.put přeskočí uz existující shodne URL) precache
-      // znovu doplnit, pokud něco chybí.
-      const c = await caches.open(CACHE);
-      await ensurePrecached(c);
       const clients = await self.clients.matchAll();
       for (const client of clients) {
         client.postMessage({ type: 'SW_ACTIVATED', version: CACHE });
       }
       await self.clients.claim();
-    })()
+    })().then(() => {
+      // Pojistka pro verzi nainstalovanou neúplnou (první instalace na slabém signálu, souběžná registrace víc
+      // service workerů při častých nasazeních): co chybí — jádro i obrazovky — se doplní TEĎ na pozadí.
+      // Dřív se na to tady čekalo a visící server tím zablokoval start appky až na 5 minut.
+      void doplnNaPozadi();
+    })
   );
 });
 
@@ -238,13 +389,13 @@ self.addEventListener('activate', (e) => {
 // akcí uživatele; samotná instalace nikdy nereloaduje rozpracovanou aplikaci.
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
-  // Stránka si říká: „doplň, co z obrazovek v telefonu chybí, a řekni mi stav" (po startu a po návratu signálu
+  // Stránka si říká: „doplň, co v telefonu chybí, a řekni mi stav" (po startu a po návratu signálu
   // — src/lib/offlineObrazovky.ts). Když nic nechybí, nic se nestahuje.
   if (event.data && event.data.type === 'DOPLN_OFFLINE') {
     event.waitUntil((async () => {
       let stav = { ulozeno: 0, celkem: KUSY.length };
       try {
-        stav = await doplnKusy(await caches.open(await getInstalledCache()));
+        stav = await doplnNaPozadi();
       } catch {}
       const zprava = { type: 'OFFLINE_STAV', ulozeno: stav.ulozeno, celkem: stav.celkem };
       try {
@@ -310,10 +461,12 @@ const JE_OTISK = /\/assets\/.+-[A-Za-z0-9_-]{8,}\.(js|css|woff2?|png|jpe?g|svg|w
  * a jediný neúspěšný soubor rozhoduje o tom, jestli je appka použitelná.
  * Vrací `null`, když se to nepovedlo ani napodruhé.
  */
-async function stahniSOpakovanim(req) {
+async function stahniSOpakovanim(req, signal) {
   for (let pokus = 0; pokus < 2; pokus++) {
+    // `signal` dává jen stahování na pozadí (hlídač ticha): když to vzdá, už se nezkouší znovu.
+    if (signal && signal.aborted) return null;
     try {
-      const res = await fetch(req);
+      const res = await (signal ? fetch(req, { signal }) : fetch(req));
       if (res && res.status === 200) return res;
     } catch {}
     if (pokus === 0) await new Promise((r) => setTimeout(r, 400));
@@ -506,7 +659,9 @@ self.addEventListener('fetch', (e) => {
       (async () => {
         try {
           const res = await fetch(req);
-          if (res && res.status === 200) {
+          // Adresa s parametrem (`version.json?t=…` — kontrola verze každou minutu) se neukládá: je pokaždé
+          // jiná, nikdy by se nenašla a v cache by jen přibývala položka za položkou.
+          if (res && res.status === 200 && !url.search) {
             const CACHE = await getInstalledCache();
             const clone = res.clone();
             caches.open(CACHE).then((c) => c.put(req, clone)).catch(() => {});

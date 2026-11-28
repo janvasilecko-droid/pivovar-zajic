@@ -135,7 +135,7 @@ const ODDILY: Oddil[] = [
       },
       {
         co: 'Verze',
-        jak: `Teď máš v${APP_VERSION} z ${APP_VERSION_DATE}. Když vyjde nová, appka se ozve sama a nabídne „Aktualizovat"; jde ji vynutit i v Nastavení tlačítkem „Vynutit stažení nejnovější verze".`,
+        jak: `Teď máš v${APP_VERSION} z ${APP_VERSION_DATE}. Když vyjde nová, appka se ozve sama a nabídne „Aktualizovat"; jde ji vynutit i v Nastavení tlačítkem „Vynutit stažení nejnovější verze". Nová verze se napřed celá stáhne do telefonu a tlačítko na ni jen přepne. Když appka napíše, že to teď nejde (ještě se stahuje, nebo není signál), nic se neztratilo — běží dál a zkusíš to za chvíli.`,
       },
       {
         co: 'Kde jsou data',
@@ -714,7 +714,7 @@ const ODDILY: Oddil[] = [
     body: [
       {
         co: 'Data vidíš i bez signálu',
-        jak: 'Aplikace si se signálem sama stahuje do telefonu objednávky, závozy, stáčení, sklad a sklep. Bez signálu — i druhý den — je ukáže z telefonu a nahoře napíše, z kdy jsou („data z: dnes 10:42“). Jdou otevřít všechny obrazovky, i ty, které jsi předtím neotevřel. Po aktualizaci a na novém telefonu otevři aplikaci jednou se signálem a nech ji chvíli otevřenou, ať se data stáhnou. Zprávy z WhatsAppu bez signálu nejsou.',
+        jak: 'Aplikace si se signálem sama stahuje do telefonu objednávky, závozy, stáčení, sklad a sklep. Bez signálu — i druhý den — je ukáže z telefonu a nahoře napíše, z kdy jsou („data z: dnes 10:42“). Jdou otevřít všechny obrazovky, i ty, které jsi předtím neotevřel. Po aktualizaci a na novém telefonu otevři aplikaci jednou se signálem a nech ji chvíli otevřenou, ať se data stáhnou. Jestli už telefon všechno má, ukáže Nastavení → Ostatní → „Práce bez signálu“. Zprávy z WhatsAppu bez signálu nejsou.',
       },
       {
         co: 'Slabý signál (telefon „má čárku“, ale nic se nenačítá)',

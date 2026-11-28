@@ -36,6 +36,20 @@ function jeStaryKousek(e: unknown): boolean {
   );
 }
 
+/**
+ * Je to chyba načtení KUSU aplikace (typicky starý kus po nasazení) — a ne jakékoliv selhání sítě?
+ *
+ * Podle tohohle se rozhoduje „automatická oprava" v main.tsx, která maže uloženou kopii aplikace a načítá
+ * ji celou znovu. Holé „Failed to fetch" sem NEPATŘÍ: tak se hlásí každý dotaz, který neprošel sítí, a appka
+ * si kvůli němu dřív sama smazala všechno, z čeho bez signálu běží (28. 11. 2026, docs/offline.md).
+ * Chrome: „Failed to fetch dynamically imported module", Firefox: „error loading dynamically imported
+ * module", Safari: „Importing a module script failed".
+ */
+export function jeChybaNacteniKusu(e: unknown): boolean {
+  const zprava = String((e as Error)?.message ?? e ?? '');
+  return zprava.includes('dynamically imported module') || zprava.includes('Importing a module script failed');
+}
+
 function pockej(ms: number): Promise<void> {
   return new Promise((hotovo) => setTimeout(hotovo, ms));
 }

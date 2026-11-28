@@ -46,7 +46,7 @@ import { getNastaveniRychlychOdpoctu, saveNastaveniRychlychOdpoctu, RYCHLE_ODPOC
 import { zajistiUpozorneniOdpoctu } from '../lib/odpoctyPush';
 import { zavibruj } from '../lib/haptika';
 import { getKegTimerState, formatDurationMs, getCountdowns, saveCountdowns, countdownRemainingMs, toggleCountdown, resetCountdown, startAllCountdowns, pauseAllCountdowns, COUNTDOWN_CHANGED_EVENT, type CountdownTimer, getStopwatchState, saveStopwatchState, stopwatchElapsedMs, STOPWATCH_CHANGED_EVENT, type StopwatchState } from '../lib/stopwatchTimers';
-import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
+import { onNewVersion, aktualizuj, textVysledkuObnovy, type VersionInfo } from '../lib/versionCheck';
 import { zavrenaVerzeListy, VERZE_LISTA_EVENT } from '../lib/verzeLista';
 import { vyhodnotGesto, rychlostPosunu, jeVeVodorovnemPasku, stavPodrzeni } from '../lib/gestaPlochy';
 import { maSeZobrazit, oznacZobrazenou } from '../lib/napovedy';
@@ -2111,7 +2111,7 @@ export default function HomeScreen({ setPage }: { setPage: (p: Page, targetSecti
                 <button
                   type="button"
                   className="hs-tile hs-tile-alert vlastni-vyska"
-                  onClick={() => { void forceRefresh(); }}
+                  onClick={() => { void aktualizuj().then((v) => { const veta = textVysledkuObnovy(v); if (veta) oznam(veta); }); }}
                   title={`Nová verze v${newVersionInfo.version} (${newVersionInfo.date}) — klikni pro aktualizaci`}
                 >
                   <div className="hs-tile-icon-box">

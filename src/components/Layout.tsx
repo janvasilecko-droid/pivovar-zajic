@@ -23,7 +23,7 @@ import { getDensity, DensityMode } from '../lib/density';
 import { QuickSearchModal } from './QuickSearchModal';
 import { BugReportModal } from './BugReportModal';
 
-import { onNewVersion, forceRefresh, type VersionInfo } from '../lib/versionCheck';
+import { onNewVersion, aktualizuj, textVysledkuObnovy, type VersionInfo, type VysledekObnovy } from '../lib/versionCheck';
 import { businessDateISO } from '../lib/businessDate';
 import { jeVlastniObjednavka } from '../lib/mojeObjednavky';
 import { nastavObrazovkuProChyby, zalogujANahlas } from '../lib/chybyHlaseni';
@@ -260,6 +260,19 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
   // neklepne na Aktualizovat (viz níže).
   const [novaVerze, setNovaVerze] = useState<VersionInfo | null>(null);
   useEffect(() => onNewVersion((info) => setNovaVerze(info)), []);
+  // Odezva tlačítka Aktualizovat. Přepne se na novou verzi, až když je v telefonu stažená celá (lib/versionCheck.ts
+  // → aktualizuj); když se ještě stahuje nebo to teď nejde, lišta to řekne — tlačítko bez odezvy vypadá jako rozbité.
+  const [aktualizace, setAktualizace] = useState<'klid' | 'bezi' | 'stahuji' | Exclude<VysledekObnovy, 'obnovuji'>>('klid');
+  const probihaAktualizace = aktualizace === 'bezi' || aktualizace === 'stahuji';
+  const spustAktualizaci = () => {
+    if (probihaAktualizace) return;
+    setAktualizace('bezi');
+    void aktualizuj(() => setAktualizace('stahuji')).then(
+      (vysledek) => { if (vysledek !== 'obnovuji') setAktualizace(vysledek); },
+      () => setAktualizace('klid'),
+    );
+  };
+  const hlaskaAktualizace = aktualizace === 'bez-spojeni' || aktualizace === 'stahuje-se' ? textVysledkuObnovy(aktualizace) : null;
   // Předchozí navštívená obrazovka — dlouhý stisk na spodní liště se na ni
   // vrátí. Přeskakování mezi dvěma místy (třeba Závoz ↔ Objednávky) je
   // v provozu nejčastější pohyb a přes menu je to pokaždé tři klepnutí.
@@ -818,12 +831,18 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
             <p className="text-base sm:text-lg font-black leading-snug text-center">
               Je tu nová verze v{novaVerze.version}. Klepni na Aktualizovat, rozepsaná práce zůstane na svém místě.
             </p>
+            {hlaskaAktualizace && (
+              <p className="text-base font-bold leading-snug text-center" data-testid="aktualizace-nejde">
+                {hlaskaAktualizace}
+              </p>
+            )}
             <button
               type="button"
-              onClick={() => { void forceRefresh(); }}
-              className="w-full min-h-14 rounded-xl bg-neutral-950 hover:bg-neutral-800 text-amber-200 font-black text-xl tracking-wide transition tap"
+              onClick={spustAktualizaci}
+              disabled={probihaAktualizace}
+              className="w-full min-h-14 rounded-xl bg-neutral-950 hover:bg-neutral-800 text-amber-200 font-black text-xl tracking-wide transition tap disabled:opacity-70"
             >
-              Aktualizovat
+              {aktualizace === 'stahuji' ? 'Stahuji novou verzi…' : aktualizace === 'bezi' ? 'Aktualizuji…' : hlaskaAktualizace ? 'Zkusit znovu' : 'Aktualizovat'}
             </button>
           </div>
         )}
@@ -989,7 +1008,7 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
                 setTimeout(() => setSyncMsg(null), 4000);
               }}
               disabled={syncing || pending === 0}
-              className={`pointer-events-auto w-full rounded-lg px-3 py-2 text-xs font-black shadow-lg border flex items-center justify-center gap-2 transition ${
+              className={`pointer-events-auto w-full rounded-lg px-3 py-2 text-xs font-black shadow-lg border flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 transition ${
                 !online
                   ? 'bg-amber-500 border-amber-600 text-neutral-950'
                   : 'bg-sky-700 border-sky-700 text-white hover:bg-sky-800'
@@ -998,7 +1017,11 @@ export default function Layout({ page, setPage, children }: { page: Page; setPag
               {!online ? (
                 <>
                   <span><WifiOff className="ikona-text" /> Jste offline</span>
-                  {casKopie && <span className="opacity-90" data-testid="offline-cas-kopie">· data z: {casKopie}</span>}
+                  {casKopie
+                    ? <span className="opacity-90" data-testid="offline-cas-kopie">· data z: {casKopie}</span>
+                    /* Bez kopie (nová verze ještě neběžela se signálem) se obrazovky ukážou prázdné — bez téhle
+                       věty to vypadalo jako „napíše to, že to je offline, a neukážou se mi žádný data". */
+                    : <span className="opacity-90" data-testid="offline-bez-kopie">· v telefonu zatím není kopie dat</span>}
                   {pending > 0 && <span className="opacity-90">— {pending} zápisů čeká v telefonu</span>}
                 </>
               ) : (
